@@ -3,6 +3,8 @@ import { assets } from '../assets/assets.js';
 import { Link, NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMagnifyingGlass, faUser, faCartShopping } from '@fortawesome/free-solid-svg-icons';
+import { useContext } from 'react';
+import { CartContext } from '../context/CartContext';
 
 const NavItem = ({ to, children }) => (
     <NavLink
@@ -15,6 +17,8 @@ const NavItem = ({ to, children }) => (
 )
 
 const Navbar = () => {
+    const { itemCount } = useContext(CartContext)
+
     return (
         <header className="w-full sticky top-0 z-50 glass">
             <div className="container-max px-6 py-4 flex items-center justify-between">
@@ -34,11 +38,16 @@ const Navbar = () => {
                         <input type="text" placeholder="Search" className='bg-transparent placeholder:muted text-sm text-white focus:outline-none' />
                         <FontAwesomeIcon icon={faMagnifyingGlass} className='text-white/80' />
                     </div>
-                    <Link to="/login" className="text-white/90">
+                    <Link to="/login" className="text-white/90 hover:text-yellow-300 transition">
                         <FontAwesomeIcon icon={faUser} className='w-5' />
                     </Link>
-                    <Link to="/cart" className="text-white/90">
+                    <Link to="/cart" className="text-white/90 hover:text-yellow-300 transition relative">
                         <FontAwesomeIcon icon={faCartShopping} className='w-5' />
+                        {itemCount > 0 && (
+                            <span className="absolute -top-2 -right-2 bg-yellow-300 text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                                {itemCount}
+                            </span>
+                        )}
                     </Link>
                 </div>
 
