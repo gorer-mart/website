@@ -1,49 +1,71 @@
-import React from 'react'
-import Footer from '../components/Footer'
-import SEO from '../components/SEO'
+import React from 'react';
+import { motion } from 'motion/react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEnvelope, faPhone, faLocationDot } from '@fortawesome/free-solid-svg-icons';
 
 const Contact = () => {
-    return (
-        <main className="min-h-screen container-max mx-auto px-6 py-12">
-            <SEO
-                title="Contact"
-                description="Get in touch with Gorer Mart. We'd love to hear from you!"
-                url="/contact"
-                keywords="contact, support, inquiries"
-            />
-            <h1 className="text-3xl font-semibold">Get in Touch</h1>
-            <p className="mt-3 text-white/70">Have a question, collaboration offer, or wholesale inquiry? Send us a message.</p>
+  return (
+    <div className="pt-20 bg-white min-h-screen">
+      <section className="section-padding">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+            {/* Contact Info */}
+            <div>
+              <h1 className="text-5xl md:text-7xl font-display font-bold uppercase tracking-tighter mb-8">Get In Touch</h1>
+              <p className="text-neutral-500 text-lg mb-12 leading-relaxed">
+                Have a question about our collections, sizing, or an existing order? 
+                Our team is here to help you. Reach out via the form or through our direct channels.
+              </p>
 
-            <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
-                <form className="space-y-4">
-                    <input className="w-full bg-white/5 px-4 py-3 rounded-md text-white placeholder:text-white/60" placeholder="Your name" />
-                    <input className="w-full bg-white/5 px-4 py-3 rounded-md text-white placeholder:text-white/60" placeholder="Email" />
-                    <input className="w-full bg-white/5 px-4 py-3 rounded-md text-white placeholder:text-white/60" placeholder="Subject" />
-                    <textarea className="w-full bg-white/5 px-4 py-3 rounded-md text-white placeholder:text-white/60" rows="5" placeholder="Message"></textarea>
-                    <button className="px-5 py-3 bg-yellow-300 text-black rounded-md font-semibold hover:bg-yellow-400 transition">Send Message</button>
-                </form>
-
-                <div>
-                    <h3 className="text-xl font-semibold mb-6">Contact Info</h3>
-                    <div className="space-y-6">
-                        <div>
-                            <p className="text-white/70 text-sm">Email</p>
-                            <p className="text-lg font-semibold">hello@gorermart.com</p>
-                        </div>
-                        <div>
-                            <p className="text-white/70 text-sm">Instagram</p>
-                            <p className="text-lg font-semibold">@gorermart</p>
-                        </div>
-                        <div className="glass p-6 rounded-lg mt-8">
-                            <p className="text-white/70">We typically respond within 24 hours. For wholesale inquiries, please mention it in your subject line.</p>
-                        </div>
-                    </div>
+              <div className="space-y-8">
+                <div className="flex items-start space-x-6">
+                  <div className="w-12 h-12 bg-neutral-50 rounded-full flex items-center justify-center text-black flex-shrink-0">
+                    <FontAwesomeIcon icon={faEnvelope} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Email Us</h3>
+                    <p className="text-neutral-600">hello@gorermart.com</p>
+                  </div>
                 </div>
+                <div className="flex items-start space-x-6">
+                  <div className="w-12 h-12 bg-neutral-50 rounded-full flex items-center justify-center text-black flex-shrink-0">
+                    <FontAwesomeIcon icon={faPhone} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Call Us</h3>
+                    <p className="text-neutral-600">+91 98765 43210</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-6">
+                  <div className="w-12 h-12 bg-neutral-50 rounded-full flex items-center justify-center text-black flex-shrink-0">
+                    <FontAwesomeIcon icon={faLocationDot} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Visit Us</h3>
+                    <p className="text-neutral-600">Gorer Mart Studio, Park Street, Kolkata, India</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <Footer />
-        </main>
-    )
-}
+            {/* Contact Form */}
+            <div className="bg-neutral-50 p-10 md:p-16">
+              <form className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <input type="text" placeholder="First Name" className="input-field" required />
+                  <input type="text" placeholder="Last Name" className="input-field" required />
+                </div>
+                <input type="email" placeholder="Email Address" className="input-field" required />
+                <input type="text" placeholder="Subject" className="input-field" required />
+                <textarea placeholder="Message" rows="5" className="input-field resize-none" required></textarea>
+                <button type="submit" className="w-full btn btn-primary py-5">Send Message</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
 
-export default Contact
+export default Contact;

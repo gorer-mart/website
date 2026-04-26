@@ -1,57 +1,71 @@
-import React, { createContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export const CartContext = createContext()
+const CartContext = createContext();
+
+export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
-    const [cart, setCart] = useState([])
+  const [cart, setCart] = useState(() => {
+    const savedCart = localStorage.getItem('gorer_mart_cart');
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
 
-    // Load cart from localStorage on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('gm-cart')
-        if (saved) {
-            setCart(JSON.parse(saved))
-        }
-    }, [])
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
-    // Save cart to localStorage whenever it changes
-    useEffect(() => {
-        localStorage.setItem('gm-cart', JSON.stringify(cart))
-    }, [cart])
+  useEffect(() => {
+    localStorage.setItem('gorer_mart_cart', JSON.stringify(cart));
+  }, [cart]);
 
-    const addToCart = (product, quantity = 1) => {
-        setCart(prev => {
-            const existing = prev.find(item => item.id === product.id)
-            if (existing) {
-                return prev.map(item =>
-                    item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
-                )
-            }
-            return [...prev, { ...product, quantity }]
-        })
-    }
+  const addToCart = (product, quantity = 1, size = 'M', color = 'Black') => {
+    setCart(prevCart => {
+      const existingItemIndex = prevCart.findIndex(
+        item => item.id === product.id && item.selectedSize === size && item.selectedColor === color
+      );
 
-    const removeFromCart = (productId) => {
-        setCart(prev => prev.filter(item => item.id !== productId))
-    }
+      if (existingItemIndex > -1) {
+        const newCart = [...prevCart];
+        newCart[existingItemIndex].quantity += quantity;
+        return newCart;
+      }
 
-    const updateQuantity = (productId, quantity) => {
-        if (quantity <= 0) {
-            removeFromCart(productId)
-        } else {
-            setCart(prev =>
-                prev.map(item => (item.id === productId ? { ...item, quantity } : item))
-            )
-        }
-    }
+      return [...prevCart, { ...product, quantity, selectedSize: size, selectedColor: color }];
+    });
+    setIsCartOpen(true);
+  };
 
-    const clearCart = () => setCart([])
+  const removeFromCart = (productId, size, color) => {
+    setCart(prevCart => prevCart.filter(
+      item => !(item.id === productId && item.selectedSize === size && item.selectedColor === color)
+    ));
+  };
 
-    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+  const updateQuantity = (productId, size, color, quantity) => {
+    if (quantity < 1) return;
+    setCart(prevCart => prevCart.map(item => 
+      (item.id === productId && item.selectedSize === size && item.selectedColor === color)
+        ? { ...item, quantity }
+        : item
+    ));
+  };
 
-    return (
-        <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount }}>
-            {children}
-        </CartContext.Provider>
-    )
-}
+  const clearCart = () => setCart([]);
+
+  const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
+
+  return (
+    <CartContext.Provider value={{ 
+      cart, 
+      isCartOpen, 
+      setIsCartOpen, 
+      addToCart, 
+      removeFromCart, 
+      updateQuantity, 
+      clearCart,
+      cartTotal,
+      cartCount
+    }}>
+      {children}
+    </CartContext.Provider>
+  );
+};

@@ -1,6 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /login
 
 Sitemap: https://gorermart.com/sitemap.xml
