@@ -1,7 +1,8 @@
 {
-  "name": "gorermart-website",
+  "name": "gorermart-tees",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Gorer Mart — Kolkata-inspired t-shirts and streetwear",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,16 +18,16 @@
     "@fortawesome/react-fontawesome": "^3.1.0",
     "@tailwindcss/vite": "^4.1.14",
     "motion": "^12.23.24",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-helmet-async": "^2.0.5",
     "react-router-dom": "^7.9.4",
     "tailwindcss": "^4.1.14"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
-    "@types/react": "^19.1.16",
-    "@types/react-dom": "^19.1.9",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^5.0.4",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
