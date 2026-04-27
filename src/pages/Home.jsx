@@ -342,33 +342,33 @@ const Home = () => {
             >
               {[...Array(3)].flatMap(() => [
                 {
-                  name: "Aniket Sengupta",
-                  text: "The quality of the cotton is insane. It's rare to find such high-GSM tees that also breathe so well in the humid Kolkata heat.",
+                  name: "Test Person Name",
+                  text: "This is a test feedback.",
                   image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop"
                 },
                 {
-                  name: "Priyanka Das",
-                  text: "Love the 'Eta Kotha Theke Kinechish?' vibes! Every time I wear a Gorer Mart tee, someone stops me to ask about it.",
+                  name: "Test Person Name",
+                  text: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Dolore amet voluptatum vel cum, at voluptatibus aspernatur? Architecto nostrum ad, ex amet eaque.",
                   image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop"
                 },
                 {
-                  name: "Rahul Mukherjee",
-                  text: "Finally, a brand that gets the Kolkata aesthetic right without the cliches. The packaging and feel are on par with international brands.",
+                  name: "Test Person Name",
+                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
                   image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop"
                 },
                 {
-                  name: "Sneha Bose",
-                  text: "As someone in the industry, I'm picky about stitching and fabric. Gorer Mart exceeds expectations in every detail.",
+                  name: "Test Person Name",
+                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
                   image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop"
                 },
                 {
-                  name: "Arjun Mehta",
-                  text: "Durable, comfortable, and looks great even after multiple washes. It's become my go-to for both casual outings and office Fridays.",
+                  name: "Test Person Name",
+                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
                   image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop"
                 },
                 {
-                  name: "Ishita Ray",
-                  text: "Affordable luxury for the youth of Kolkata. The brand captures our culture in a way that feels cool and contemporary.",
+                  name: "Test Person Name",
+                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
                   image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=200&auto=format&fit=crop"
                 }
               ]).map((feedback, idx) => (
