@@ -16,10 +16,10 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem('gorer_mart_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = (product, quantity = 1, size = 'M', color = 'Black') => {
+  const addToCart = (product, quantity = 1, size = 'M') => {
     setCart(prevCart => {
       const existingItemIndex = prevCart.findIndex(
-        item => item.id === product.id && item.selectedSize === size && item.selectedColor === color
+        item => item.id === product.id && item.selectedSize === size
       );
 
       if (existingItemIndex > -1) {
@@ -28,21 +28,21 @@ export const CartProvider = ({ children }) => {
         return newCart;
       }
 
-      return [...prevCart, { ...product, quantity, selectedSize: size, selectedColor: color }];
+      return [...prevCart, { ...product, quantity, selectedSize: size }];
     });
     setIsCartOpen(true);
   };
 
-  const removeFromCart = (productId, size, color) => {
+  const removeFromCart = (productId, size) => {
     setCart(prevCart => prevCart.filter(
-      item => !(item.id === productId && item.selectedSize === size && item.selectedColor === color)
+      item => !(item.id === productId && item.selectedSize === size)
     ));
   };
 
-  const updateQuantity = (productId, size, color, quantity) => {
+  const updateQuantity = (productId, size, quantity) => {
     if (quantity < 1) return;
     setCart(prevCart => prevCart.map(item => 
-      (item.id === productId && item.selectedSize === size && item.selectedColor === color)
+      (item.id === productId && item.selectedSize === size)
         ? { ...item, quantity }
         : item
     ));

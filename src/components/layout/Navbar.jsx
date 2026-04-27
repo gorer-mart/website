@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
 import logoBlack from '../../assets/logo-black.webp';
+import logoWhite from '../../assets/logo-white.webp';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -31,15 +32,20 @@ const Navbar = () => {
     { name: 'Contact', path: '/contact' },
   ];
 
+  const isHomePage = location.pathname === '/';
+  const isTransparent = isHomePage && !isScrolled;
+
   return (
     <nav
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 py-4 bg-white border-b border-neutral-100 ${isScrolled ? 'shadow-premium' : ''
+      className={`fixed top-0 left-0 w-full h-16 z-50 transition-all duration-500 ${isTransparent
+        ? 'bg-transparent border-transparent'
+        : 'bg-white/80 backdrop-blur-xl border-b border-neutral-100 shadow-premium'
         }`}
     >
-      <div className="container mx-auto px-6 flex items-center justify-between">
+      <div className="container mx-auto px-6 h-full flex items-center justify-between">
         {/* Mobile Menu Toggle */}
         <button
-          className="lg:hidden text-black text-xl"
+          className={`lg:hidden text-xl transition-colors duration-500 ${isTransparent ? 'text-white' : 'text-black'}`}
           onClick={() => setIsMobileMenuOpen(true)}
         >
           <FontAwesomeIcon icon={faBars} />
@@ -51,7 +57,7 @@ const Navbar = () => {
             <Link
               key={link.name}
               to={link.path}
-              className="text-xs font-bold uppercase tracking-widest text-black hover:text-accent transition-colors"
+              className={`text-xs font-bold uppercase tracking-widest transition-colors duration-500 ${isTransparent ? 'text-white/80 hover:text-white' : 'text-black hover:text-accent'}`}
             >
               {link.name}
             </Link>
@@ -63,24 +69,28 @@ const Navbar = () => {
           to="/"
           className="absolute left-1/2 -translate-x-1/2"
         >
-          <img src={logoBlack} alt="Gorer Mart" className="h-3 md:h-8 w-auto object-contain" />
+          <img
+            src={isTransparent ? logoWhite : logoBlack}
+            alt="Gorer Mart"
+            className="h-3 md:h-8 w-auto object-contain transition-all duration-500"
+          />
         </Link>
 
         {/* Action Icons */}
-        <div className="flex items-center space-x-6">
-          <button className="hidden md:block text-black hover:text-accent transition-colors">
+        <div className={`flex items-center space-x-6 transition-colors duration-500 ${isTransparent ? 'text-white' : 'text-black'}`}>
+          <button className="hidden md:block hover:text-accent transition-colors">
             <FontAwesomeIcon icon={faMagnifyingGlass} />
           </button>
-          <Link to="/account" className="text-black hover:text-accent transition-colors">
+          <Link to="/account" className="hover:text-accent transition-colors">
             <FontAwesomeIcon icon={faUser} />
           </Link>
           <button
-            className="relative text-black hover:text-accent transition-colors"
+            className="relative hover:text-accent transition-colors"
             onClick={() => setIsCartOpen(true)}
           >
             <FontAwesomeIcon icon={faBagShopping} className="text-lg" />
             {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-black text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+              <span className={`absolute -top-2 -right-2 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${isTransparent ? 'bg-white text-black' : 'bg-black text-white'}`}>
                 {cartCount}
               </span>
             )}

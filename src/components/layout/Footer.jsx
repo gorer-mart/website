@@ -4,6 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram, faFacebookF, faTwitter, faPinterestP } from '@fortawesome/free-brands-svg-icons';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 
+import logoBlack from '../../assets/logo-black.webp';
+
 const Footer = () => {
   return (
     <footer className="bg-white border-t border-neutral-100 pt-20 pb-10">
@@ -11,7 +13,9 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
           {/* Brand Info */}
           <div className="flex flex-col space-y-6">
-            <h2 className="text-2xl font-display font-extrabold uppercase tracking-tighter">Gorer Mart</h2>
+            <Link to="/">
+              <img src={logoBlack} alt="Gorer Mart" className="h-10 w-auto object-contain" />
+            </Link>
             <p className="text-neutral-500 text-sm leading-relaxed">
               Curating premium apparel that blends cultural heritage with contemporary streetwear. 
               Join our journey in redefining modern style.
@@ -33,10 +37,9 @@ const Footer = () => {
           <div>
             <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8">Shop</h3>
             <ul className="flex flex-col space-y-4">
-              <li><Link to="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Shop All</Link></li>
-              <li><Link to="/shop?category=Top Picks" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Top Picks</Link></li>
-              <li><Link to="/shop?category=New Arrivals" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">New Arrivals</Link></li>
-              <li><Link to="/shop?category=Best Sellers" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Best Sellers</Link></li>
+              <li><Link to="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">All Collections</Link></li>
+              <li><Link to="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">New Arrivals</Link></li>
+              <li><Link to="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Best Sellers</Link></li>
             </ul>
           </div>
 

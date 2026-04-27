@@ -24,7 +24,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Email Us</h3>
-                    <p className="text-neutral-600">hello@gorermart.com</p>
+                    <p className="text-neutral-600">contact@gorermart.com</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-6">
@@ -33,7 +33,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Call Us</h3>
-                    <p className="text-neutral-600">+91 98765 43210</p>
+                    <p className="text-neutral-600">+91 9163206327</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-6">
@@ -41,8 +41,8 @@ const Contact = () => {
                     <FontAwesomeIcon icon={faLocationDot} />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Visit Us</h3>
-                    <p className="text-neutral-600">Gorer Mart Studio, Park Street, Kolkata, India</p>
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Location</h3>
+                    <p className="text-neutral-600">Barasat, Kolkata-700124<br />West Bengal, India</p>
                   </div>
                 </div>
               </div>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import Navbar from './components/layout/Navbar';
 import CartDrawer from './components/shop/CartDrawer';
@@ -12,12 +12,24 @@ import Admin from './pages/Admin';
 import Contact from './pages/Contact';
 import Footer from './components/layout/Footer';
 
+// Scroll restoration component
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
 // To be implemented: User Account
 const Account = () => <div className="pt-32 min-h-screen container mx-auto px-6"><h1>User Account Coming Soon</h1></div>;
 
 function App() {
   return (
     <CartProvider>
+      <ScrollToTop />
       <div className="flex flex-col min-h-screen relative">
         <Navbar />
         <CartDrawer />
