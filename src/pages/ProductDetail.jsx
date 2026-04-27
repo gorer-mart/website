@@ -13,14 +13,12 @@ const ProductDetail = () => {
   const product = PRODUCTS.find(p => p.id === parseInt(id));
   
   const [selectedSize, setSelectedSize] = useState('');
-  const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
 
   useEffect(() => {
     if (product) {
       setSelectedSize(product.sizes[0]);
-      setSelectedColor(product.colors[0]);
       setActiveImage(0);
       window.scrollTo(0, 0);
     }
@@ -29,6 +27,15 @@ const ProductDetail = () => {
   if (!product) return <div className="pt-32 text-center">Product not found</div>;
 
   const relatedProducts = PRODUCTS.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4);
+
+  const STANDARD_DESCRIPTION = "Our signature oversized tee, crafted from ultra-heavy 240+ GSM premium cotton. Featuring a perfect drop shoulder silhouette and built for maximum comfort and durability, it's the ultimate essential for the modern urban wardrobe.";
+  const STANDARD_DETAILS = [
+    "100% Premium Organic Cotton",
+    "240+ GSM Heavyweight Fabric",
+    "Standard Oversized Drop-Shoulder Fit",
+    "High-Density Cultural Graphic Print",
+    "Pre-shrunk & Bio-washed"
+  ];
 
   return (
     <div className="pt-20 bg-white">
@@ -46,17 +53,19 @@ const ProductDetail = () => {
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="grid grid-cols-4 gap-4">
-              {product.images.map((img, idx) => (
-                <button 
-                  key={idx}
-                  onClick={() => setActiveImage(idx)}
-                  className={`aspect-square overflow-hidden border-2 transition-all ${activeImage === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                >
-                  <img src={img} alt={`${product.name} ${idx}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+            {product.images.length > 1 && (
+              <div className="grid grid-cols-4 gap-4">
+                {product.images.map((img, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => setActiveImage(idx)}
+                    className={`aspect-square overflow-hidden border-2 transition-all ${activeImage === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                  >
+                    <img src={img} alt={`${product.name} ${idx}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
@@ -74,7 +83,7 @@ const ProductDetail = () => {
             </h1>
             
             <div className="flex items-center space-x-4 mb-8">
-              <span className="text-2xl font-display font-bold">${product.price.toFixed(2)}</span>
+              <span className="text-2xl font-display font-bold">₹{product.price.toLocaleString('en-IN')}</span>
               <div className="flex items-center text-accent text-xs">
                 <FontAwesomeIcon icon={faStar} />
                 <FontAwesomeIcon icon={faStar} />
@@ -86,32 +95,14 @@ const ProductDetail = () => {
             </div>
 
             <p className="text-neutral-500 leading-relaxed mb-10 pb-10 border-b border-neutral-100">
-              {product.description}
+              {STANDARD_DESCRIPTION}
             </p>
 
             {/* Selectors */}
             <div className="space-y-8 mb-10">
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-4">Color: <span className="text-black ml-2">{selectedColor}</span></h3>
-                <div className="flex space-x-3">
-                  {product.colors.map(color => (
-                    <button 
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`w-8 h-8 rounded-full border-2 p-0.5 transition-all ${selectedColor === color ? 'border-black scale-110' : 'border-neutral-200'}`}
-                    >
-                      <div 
-                        className="w-full h-full rounded-full" 
-                        style={{ backgroundColor: color.toLowerCase().replace(' ', '') }} 
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
                 <div className="flex justify-between mb-4">
-                  <h3 className="text-xs font-bold uppercase tracking-widest">Size</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest">Select Size</h3>
                   <button className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-4">Size Guide</button>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -149,7 +140,7 @@ const ProductDetail = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
               <button 
-                onClick={() => addToCart(product, quantity, selectedSize, selectedColor)}
+                onClick={() => addToCart(product, quantity, selectedSize, 'Original')}
                 className="flex-[2] btn btn-primary py-5"
               >
                 Add to Bag
@@ -198,9 +189,9 @@ const ProductDetail = () => {
         <div className="container mx-auto max-w-4xl">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
             <div>
-              <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-8">Product Details</h2>
+              <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-8">Premium Quality</h2>
               <ul className="space-y-4">
-                {product.details.map((detail, idx) => (
+                {STANDARD_DETAILS.map((detail, idx) => (
                   <li key={idx} className="flex items-start text-sm text-neutral-600">
                     <span className="w-1.5 h-1.5 bg-black rounded-full mt-1.5 mr-3 flex-shrink-0" />
                     {detail}
