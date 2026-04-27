@@ -4,14 +4,21 @@ import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
+import { PRODUCTS } from '../../data/products';
 import logoBlack from '../../assets/logo-black.webp';
 import logoWhite from '../../assets/logo-white.webp';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { setIsCartOpen, cartCount } = useCart();
   const location = useLocation();
+
+  const searchResults = searchQuery.trim() === '' 
+    ? [] 
+    : PRODUCTS.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()) || (p.tag && p.tag.toLowerCase().includes(searchQuery.toLowerCase())));
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,6 +30,8 @@ const Navbar = () => {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsSearchOpen(false);
+    setSearchQuery('');
   }, [location]);
 
   const navLinks = [
@@ -36,8 +45,9 @@ const Navbar = () => {
   const isTransparent = isHomePage && !isScrolled;
 
   return (
-    <nav
-      className={`fixed top-0 left-0 w-full h-16 z-50 transition-all duration-500 ${isTransparent
+    <>
+      <nav
+        className={`fixed top-0 left-0 w-full h-16 z-50 transition-all duration-500 ${isTransparent
         ? 'bg-transparent border-transparent'
         : 'bg-white/80 backdrop-blur-xl border-b border-neutral-100 shadow-premium'
         }`}
@@ -78,7 +88,10 @@ const Navbar = () => {
 
         {/* Action Icons */}
         <div className={`flex items-center space-x-6 transition-colors duration-500 ${isTransparent ? 'text-white' : 'text-black'}`}>
-          <button className="hidden md:block hover:text-accent transition-colors">
+          <button 
+            onClick={() => setIsSearchOpen(true)}
+            className="hover:text-accent transition-colors"
+          >
             <FontAwesomeIcon icon={faMagnifyingGlass} />
           </button>
           <Link to="/account" className="hover:text-accent transition-colors">
@@ -137,7 +150,76 @@ const Navbar = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </nav>
+
+      </nav>
+
+      {/* Search Modal */}
+      <AnimatePresence>
+        {isSearchOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Search Header */}
+              <div className="p-6 border-b border-neutral-100 flex justify-between items-center bg-neutral-50/50">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full text-xl md:text-2xl font-display font-bold text-black focus:outline-none bg-transparent placeholder:text-neutral-300"
+                />
+                <button onClick={() => setIsSearchOpen(false)} className="text-2xl text-neutral-400 hover:text-black transition-colors ml-4 flex-shrink-0">
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
+              </div>
+              
+              {/* Results Area */}
+              <div className="flex-1 overflow-y-auto p-6 bg-white no-scrollbar">
+                {searchQuery && searchResults.length === 0 && (
+                  <div className="py-12 text-center">
+                    <p className="text-neutral-500">No results found for "{searchQuery}"</p>
+                  </div>
+                )}
+                
+                {searchResults.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {searchResults.map(product => (
+                      <Link 
+                        key={product.id} 
+                        to={`/product/${product.id}`}
+                        className="group flex items-center space-x-4 p-4 rounded-xl hover:bg-neutral-50 transition-colors border border-transparent hover:border-neutral-100"
+                      >
+                        <div className="w-16 h-20 bg-neutral-100 rounded-lg overflow-hidden flex-shrink-0">
+                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <h4 className="font-display font-bold uppercase tracking-tight text-black group-hover:text-accent transition-colors line-clamp-1 mb-1 text-sm">{product.name}</h4>
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{product.category}</p>
+                          <p className="text-xs font-black text-black mt-1">₹{product.price}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                
+                {!searchQuery && searchResults.length === 0 && (
+                  <div className="py-12 text-center text-neutral-400">
+                    <FontAwesomeIcon icon={faMagnifyingGlass} className="text-4xl mb-4 opacity-20" />
+                    <p className="text-sm font-medium">Type to start searching...</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

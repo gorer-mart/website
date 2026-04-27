@@ -17,13 +17,6 @@ const ProductCard = ({ product }) => {
     >
       {/* Image Container */}
       <div className="relative aspect-[4/5] overflow-hidden bg-neutral-50 mb-6 group-hover:shadow-premium transition-all duration-500">
-        {product.tag && (
-          <div className="absolute top-4 left-4 z-20 flex flex-col space-y-2">
-            <span className="bg-black text-white text-[9px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-sm shadow-lg">
-              {product.tag}
-            </span>
-          </div>
-        )}
         
         <Link to={`/product/${product.id}`} className="block w-full h-full">
           <motion.img 
