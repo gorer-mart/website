@@ -218,7 +218,7 @@ const Checkout = () => {
                         Back
                       </button>
                       <button type="submit" className="flex-[2] btn btn-primary py-5">
-                        Pay ${cartTotal.toFixed(2)}
+                        Pay ₹{cartTotal.toLocaleString('en-IN')}
                       </button>
                     </div>
                   </motion.form>
@@ -250,7 +250,7 @@ const Checkout = () => {
                 <div className="space-y-4 pt-8 border-t border-neutral-100">
                   <div className="flex justify-between text-sm text-neutral-500 uppercase tracking-widest">
                     <span>Subtotal</span>
-                    <span>${cartTotal.toFixed(2)}</span>
+                    <span>₹{cartTotal.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between text-sm text-neutral-500 uppercase tracking-widest">
                     <span>Shipping</span>
@@ -258,7 +258,7 @@ const Checkout = () => {
                   </div>
                   <div className="flex justify-between text-xl font-display font-bold uppercase pt-4 border-t border-neutral-50">
                     <span>Total</span>
-                    <span>${cartTotal.toFixed(2)}</span>
+                    <span>₹{cartTotal.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>

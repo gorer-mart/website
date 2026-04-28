@@ -51,12 +51,6 @@ const ProductCard = ({ product }) => {
         <div className="mb-2">
           <Link 
             to={`/product/${product.id}`} 
-            className="text-xs font-bold uppercase tracking-[0.1em] text-neutral-400 hover:text-black transition-colors block mb-1"
-          >
-            {product.category}
-          </Link>
-          <Link 
-            to={`/product/${product.id}`} 
             className="text-base md:text-lg font-display font-bold uppercase tracking-tighter hover:text-accent transition-colors leading-tight line-clamp-1"
           >
             {product.name}
