@@ -30,6 +30,7 @@ const ProductDetail = () => {
 
   const STANDARD_DESCRIPTION = "Our signature oversized tee, crafted from ultra-heavy 240+ GSM premium cotton. Featuring a perfect drop shoulder silhouette and built for maximum comfort and durability, it's the ultimate essential for the modern urban wardrobe.";
   const STANDARD_DETAILS = [
+    "Unisex Premium Fit",
     "100% Premium Organic Cotton",
     "240+ GSM Heavyweight Fabric",
     "Standard Oversized Drop-Shoulder Fit",

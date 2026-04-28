@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram, faLinkedinIn, faTwitter } from '@fortawesome/free-brands-svg-icons';
 
-const Story = () => {
+const About = () => {
 
   const team = [
     {
@@ -48,7 +48,7 @@ const Story = () => {
       {/* Thin Hero Banner */}
       <section className="relative pt-32 pb-20 px-6 flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img 
+          <img
             src="https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2000&auto=format&fit=crop"
             alt="Gorer Mart Philosophy"
             className="w-full h-full object-cover"
@@ -238,4 +238,4 @@ const Story = () => {
   );
 };
 
-export default Story;
+export default About;

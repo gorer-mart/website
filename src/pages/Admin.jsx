@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faUsers, faDollarSign, faChartLine, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faUsers, faIndianRupeeSign, faChartLine, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('Overview');
 
   const stats = [
-    { label: 'Total Revenue', value: '$12,450', icon: faDollarSign, color: 'bg-green-50 text-green-600' },
+    { label: 'Total Revenue', value: '₹12,450', icon: faIndianRupeeSign, color: 'bg-green-50 text-green-600' },
     { label: 'Total Orders', value: '154', icon: faBox, color: 'bg-blue-50 text-blue-600' },
     { label: 'Customers', value: '1,205', icon: faUsers, color: 'bg-purple-50 text-purple-600' },
     { label: 'Growth', value: '+12.5%', icon: faChartLine, color: 'bg-orange-50 text-orange-600' },
   ];
 
   const recentOrders = [
-    { id: '#GM-12934', customer: 'Anirban Biswas', date: '2026-04-26', status: 'Processing', total: '$45.00' },
-    { id: '#GM-12933', customer: 'Sarah Jenkins', date: '2026-04-25', status: 'Shipped', total: '$89.00' },
-    { id: '#GM-12932', customer: 'Michael Chen', date: '2026-04-25', status: 'Delivered', total: '$124.00' },
-    { id: '#GM-12931', customer: 'Elena Rodriguez', date: '2026-04-24', status: 'Delivered', total: '$55.00' },
+    { id: '#GM-12934', customer: 'Anirban Biswas', date: '2026-04-26', status: 'Processing', total: '₹45.00' },
+    { id: '#GM-12933', customer: 'Sarah Jenkins', date: '2026-04-25', status: 'Shipped', total: '₹89.00' },
+    { id: '#GM-12932', customer: 'Michael Chen', date: '2026-04-25', status: 'Delivered', total: '₹124.00' },
+    { id: '#GM-12931', customer: 'Elena Rodriguez', date: '2026-04-24', status: 'Delivered', total: '₹55.00' },
   ];
 
   return (

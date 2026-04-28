@@ -6,7 +6,7 @@ import CartDrawer from './components/shop/CartDrawer';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
-import Story from './pages/Story';
+import Story from './pages/About';
 import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
 import Contact from './pages/Contact';
@@ -43,7 +43,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/story" element={<Story />} />
+            <Route path="/about" element={<Story />} />
             <Route path="/account" element={<Account />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/admin" element={<Admin />} />
