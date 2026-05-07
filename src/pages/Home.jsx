@@ -5,9 +5,11 @@ import { Helmet } from 'react-helmet-async';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRightLong, faLeaf, faCity, faGem, faQuoteLeft, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { PRODUCTS, CATEGORIES } from '../data/products';
-import ProductCard from '../components/shop/ProductCard';
+import ProductCard from '../components/ProductCard';
 
 import hero from '../assets/hero_image.webp';
+import atoshi from '../assets/feedback/atoshi.webp';
+import sourav from '../assets/feedback/sourav.webp';
 
 const Home = () => {
   const topPicks = PRODUCTS.filter(p => ["Best Seller", "Trending", "Top Pick", "Premium"].includes(p.tag)).slice(0, 4);
@@ -342,33 +344,28 @@ const Home = () => {
             >
               {[...Array(3)].flatMap(() => [
                 {
-                  name: "Test Person Name",
-                  text: "This is a test feedback.",
+                  name: "Susan Majumder ",
+                  text: "Premium quality. Very comfortable material. Have been using it for a while now, and even after washes the material and print still remains the same. Highly recommended!",
                   image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop"
                 },
                 {
-                  name: "Test Person Name",
-                  text: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Dolore amet voluptatum vel cum, at voluptatibus aspernatur? Architecto nostrum ad, ex amet eaque.",
+                  name: "Atoshi Saha",
+                  text: "Still as soft and comfortable as the first wear, even after countless washes and the crossover print of The Starry Night and Pather Panchali makes it my absolute favorite till date.",
+                  image: atoshi
+                },
+                {
+                  name: "Sourav Biswas",
+                  text: "Really impressed with the quality. The fabric feels great, comfortable, and durable. The print quality is also very clear and attractive.",
+                  image: sourav
+                },
+                {
+                  name: "Tiyasha Bose",
+                  text: "Got the coolest tshirt from the brand! Quality is top notch - perfect for summer. Perfect fit and budget friendly as well.",
                   image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop"
                 },
                 {
-                  name: "Test Person Name",
-                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
-                  image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop"
-                },
-                {
-                  name: "Test Person Name",
-                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
-                  image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop"
-                },
-                {
-                  name: "Test Person Name",
-                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
-                  image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop"
-                },
-                {
-                  name: "Test Person Name",
-                  text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Itaque error nobis rerum in!",
+                  name: "Manish Sarkar",
+                  text: "Too good. Loved it. The quality of the cloth is absolutely stunning the print and design is awsome.",
                   image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=200&auto=format&fit=crop"
                 }
               ]).map((feedback, idx) => (
@@ -380,7 +377,7 @@ const Home = () => {
                     <div className="text-accent/20 mb-4 group-hover:text-accent transition-colors">
                       <FontAwesomeIcon icon={faQuoteLeft} className="text-2xl" />
                     </div>
-                    <p className="text-base md:text-lg text-neutral-800 leading-relaxed font-medium mb-8">
+                    <p className="text-base italic text-neutral-800 leading-relaxed mb-8">
                       {feedback.text}
                     </p>
                   </div>
