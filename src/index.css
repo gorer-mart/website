@@ -3,6 +3,7 @@
 @theme {
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-display: 'Outfit', sans-serif;
+  --font-serif: 'Playfair Display', serif;
   
   --color-primary: #000000;
   --color-secondary: #ffffff;

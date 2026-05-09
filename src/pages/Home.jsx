@@ -10,6 +10,8 @@ import ProductCard from '../components/ProductCard';
 import hero from '../assets/hero_image.webp';
 import atoshi from '../assets/feedback/atoshi.webp';
 import sourav from '../assets/feedback/sourav.webp';
+import susan from '../assets/feedback/susan.webp';
+import manish from '../assets/feedback/manish.webp';
 
 const Home = () => {
   const topPicks = PRODUCTS.filter(p => ["Best Seller", "Trending", "Top Pick", "Premium"].includes(p.tag)).slice(0, 4);
@@ -346,7 +348,7 @@ const Home = () => {
                 {
                   name: "Susan Majumder ",
                   text: "Premium quality. Very comfortable material. Have been using it for a while now, and even after washes the material and print still remains the same. Highly recommended!",
-                  image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop"
+                  image: susan
                 },
                 {
                   name: "Atoshi Saha",
@@ -366,7 +368,7 @@ const Home = () => {
                 {
                   name: "Manish Sarkar",
                   text: "Too good. Loved it. The quality of the cloth is absolutely stunning the print and design is awsome.",
-                  image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=200&auto=format&fit=crop"
+                  image: manish
                 }
               ]).map((feedback, idx) => (
                 <motion.div

@@ -10,6 +10,8 @@ import About from './pages/About';
 import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
 import Contact from './pages/Contact';
+import RefundPolicy from './pages/RefundPolicy';
+import SizeGuide from './pages/SizeGuide';
 import Footer from './components/Footer';
 
 // Scroll restoration component
@@ -48,6 +50,8 @@ function App() {
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/size-guide" element={<SizeGuide />} />
           </Routes>
         </main>
 
