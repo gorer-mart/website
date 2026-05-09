@@ -48,7 +48,7 @@ const Footer = () => {
             <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8">Support</h3>
             <ul className="flex flex-col space-y-4">
               <li><Link to="/about" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Our Story</Link></li>
-              <li><Link to="/shipping-returns" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Shipping & Returns</Link></li>
+              <li><Link to="/refund-policy" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Refund Policy</Link></li>
               <li><Link to="/size-guide" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Size Guide</Link></li>
               <li><Link to="/contact" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Contact Us</Link></li>
             </ul>
