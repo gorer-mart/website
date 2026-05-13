@@ -93,7 +93,7 @@ const Home = () => {
                 transition={{ delay: 0.1 }}
                 className="text-4xl md:text-6xl font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
               >
-                Most Pochonder
+                Top Picks
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -102,7 +102,7 @@ const Home = () => {
                 transition={{ delay: 0.2 }}
                 className="text-neutral-500 text-lg"
               >
-                People said that they loved it. (They said, we didn't)
+                The most loved pieces from our collective. Designed for the urban soul of Bengal.
               </motion.p>
             </div>
             <motion.div
@@ -145,7 +145,7 @@ const Home = () => {
                 viewport={{ once: true }}
                 className="text-accent uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
               >
-                Taatka Drops
+                All New Designs
               </motion.span>
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
@@ -154,7 +154,7 @@ const Home = () => {
                 transition={{ delay: 0.1 }}
                 className="text-4xl md:text-6xl font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
               >
-                New Arrivals
+                Taatka Drops
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -163,7 +163,7 @@ const Home = () => {
                 transition={{ delay: 0.2 }}
                 className="text-neutral-500 text-lg"
               >
-                Every piece, exclusive. Every design, intentional. 
+                Discover the latest iterations of Kolkata street style. Limited pieces available.
               </motion.p>
             </div>
             <motion.div
@@ -226,9 +226,10 @@ const Home = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
-              className="text-neutral-400 text-lg md:text-lg font-light leading-relaxed max-w-2xl mx-auto"
+              className="text-neutral-400 text-lg md:text-xl font-light leading-relaxed max-w-2xl mx-auto"
             >
-              At Gorer Mart, every design is a love letter to Bangla cinema, Moharothis, and unfiltered street spirit. Crafted for people who wear their culture proudly.
+              Gorer Mart is a celebration of identity, fusing the chaotic energy of Kolkata
+              with the sleek precision of contemporary premium streetwear.
             </motion.p>
           </div>
 
@@ -236,20 +237,20 @@ const Home = () => {
             {[
               {
                 icon: faLeaf,
-                title: "Jotno-fully Built",
-                description: "Built with high-GSM organic cotton that breathes like a fresh December er Sokal and the print survives hundred washes like Bangali Oitijhyo. Expect no less than a Bhaat-Ghum comfort.",
+                title: "Conscious Craftsmanship",
+                description: "Ethically sourced and sustainably produced. We prioritize premium organic cotton and fair-trade practices in every thread of our Bengal-made apparel.",
                 delay: 0.3
               },
               {
                 icon: faCity,
-                title: "Paara Certified",
-                description: "Gorer Mart is the Howrah Bridge between Cultural Heritage and Modern Urban fashion. From Babai to Bablu Kaku, everyone loves it.",
+                title: "Authentic Kolkata Soul",
+                description: "Inspired by the vibrant streets and rich cultural heritage of Kolkata. We create authentic streetwear that bridges traditional stories with urban fashion.",
                 delay: 0.4
               },
               {
                 icon: faGem,
-                title: "Hok Kolorob",
-                description: "They say Banglay naki rock aar bhalo tshirt hoynah. Show them Fossils and Gorer Mart.",
+                title: "Uncompromising Quality",
+                description: "High-GSM fabrics and state-of-the-art printing techniques. Our t-shirts are built to last, maintaining their premium feel wash after wash.",
                 delay: 0.5
               }
             ].map((item, idx) => (
