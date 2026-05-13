@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram, faFacebookF, faTwitter, faPinterestP } from '@fortawesome/free-brands-svg-icons';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 
-import logoBlack from '../../assets/logo-black.webp';
+import logoBlack from '../assets/logo-black.webp';
 
 const Footer = () => {
   return (
@@ -17,7 +17,7 @@ const Footer = () => {
               <img src={logoBlack} alt="Gorer Mart" className="h-10 w-auto object-contain" />
             </Link>
             <p className="text-neutral-500 text-sm leading-relaxed">
-              Curating premium apparel that blends cultural heritage with contemporary streetwear. 
+              Curating premium apparel that blends cultural heritage with contemporary streetwear.
               Join our journey in redefining modern style.
             </p>
             <div className="flex space-x-5">
@@ -38,8 +38,8 @@ const Footer = () => {
             <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8">Shop</h3>
             <ul className="flex flex-col space-y-4">
               <li><Link to="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">All Collections</Link></li>
-              <li><Link to="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">New Arrivals</Link></li>
-              <li><Link to="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Best Sellers</Link></li>
+              <li><Link to="/shop?collection=New+Arrivals" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">New Arrivals</Link></li>
+              <li><Link to="/shop?collection=Best+Sellers" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Best Sellers</Link></li>
             </ul>
           </div>
 
@@ -47,10 +47,10 @@ const Footer = () => {
           <div>
             <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8">Support</h3>
             <ul className="flex flex-col space-y-4">
-              <li><Link to="/story" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Our Story</Link></li>
-              <li><a href="#" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Shipping & Returns</a></li>
-              <li><a href="#" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Size Guide</a></li>
-              <li><a href="#" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Contact Us</a></li>
+              <li><Link to="/about" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Our Story</Link></li>
+              <li><Link to="/refund-policy" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Refund Policy</Link></li>
+              <li><Link to="/size-guide" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Size Guide</Link></li>
+              <li><Link to="/contact" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium">Contact Us</Link></li>
             </ul>
           </div>
 
@@ -59,9 +59,9 @@ const Footer = () => {
             <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8">Newsletter</h3>
             <p className="text-sm text-neutral-500 mb-6">Subscribe to receive updates, access to exclusive deals, and more.</p>
             <form className="relative">
-              <input 
-                type="email" 
-                placeholder="Enter your email" 
+              <input
+                type="email"
+                placeholder="Enter your email"
                 className="w-full bg-neutral-50 border-b border-neutral-200 py-3 pr-10 focus:border-black outline-none transition-colors text-sm"
               />
               <button className="absolute right-0 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black transition-colors">

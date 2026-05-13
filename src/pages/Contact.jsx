@@ -33,7 +33,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-widest mb-1">Call Us</h3>
-                    <p className="text-neutral-600">+91 9163206327</p>
+                    <p className="text-neutral-600">+91 7044667941</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-6">

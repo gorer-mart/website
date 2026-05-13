@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faPlus, faMinus, faTrashCan } from '@fortawesome/free-solid-svg-icons';
-import { useCart } from '../../context/CartContext';
+import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 
 const CartDrawer = () => {

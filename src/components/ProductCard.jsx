@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEye } from '@fortawesome/free-solid-svg-icons';
-import { useCart } from '../../context/CartContext';
+import { useCart } from '../context/CartContext';
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
@@ -49,6 +49,12 @@ const ProductCard = ({ product }) => {
       {/* Product Info */}
       <div className="flex flex-col text-center md:text-left">
         <div className="mb-2">
+          <Link 
+            to={`/product/${product.id}`} 
+            className="text-xs font-bold uppercase tracking-[0.1em] text-neutral-400 hover:text-black transition-colors block mb-1"
+          >
+            {product.category}
+          </Link>
           <Link 
             to={`/product/${product.id}`} 
             className="text-base md:text-lg font-display font-bold uppercase tracking-tighter hover:text-accent transition-colors leading-tight line-clamp-1"
