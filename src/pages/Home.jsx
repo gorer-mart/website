@@ -145,7 +145,7 @@ const Home = () => {
                 viewport={{ once: true }}
                 className="text-accent uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
               >
-                Taatka Drops
+                Latest Essentials
               </motion.span>
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
@@ -154,7 +154,7 @@ const Home = () => {
                 transition={{ delay: 0.1 }}
                 className="text-4xl md:text-6xl font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
               >
-                New Arrivals
+                Taatka Drops
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
