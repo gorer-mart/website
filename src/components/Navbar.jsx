@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass, faRightFromBracket, faBox } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import logoBlack from '../assets/logo-black.webp';
 import logoWhite from '../assets/logo-white.webp';
 
@@ -11,8 +12,10 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { setIsCartOpen, cartCount } = useCart();
+  const { user, profile, signInWithGoogle, signOut, isAuthenticated } = useAuth();
   const location = useLocation();
 
   const searchResults = []; // Search results will be implemented in a future update
@@ -28,6 +31,7 @@ const Navbar = () => {
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setIsSearchOpen(false);
+    setIsUserMenuOpen(false);
     setSearchQuery('');
   }, [location]);
 
@@ -87,9 +91,79 @@ const Navbar = () => {
             >
               <FontAwesomeIcon icon={faMagnifyingGlass} />
             </button>
-            <Link to="/account" className="hover:text-accent transition-colors">
-              <FontAwesomeIcon icon={faUser} />
-            </Link>
+            {isAuthenticated ? (
+              <div className="relative">
+                <button 
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="hover:text-accent transition-colors flex items-center"
+                >
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile.full_name || 'User'}
+                      className="w-7 h-7 rounded-full object-cover border-2 border-current"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-neutral-200 text-black flex items-center justify-center text-xs font-bold border-2 border-current">
+                      {(profile?.full_name || user?.email)?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </button>
+
+                {/* Desktop User Dropdown */}
+                <AnimatePresence>
+                  {isUserMenuOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setIsUserMenuOpen(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-premium border border-neutral-100 overflow-hidden z-50 py-2"
+                      >
+                        <div className="px-4 py-3 border-b border-neutral-100 mb-2">
+                          <p className="text-sm font-bold text-black truncate">{profile?.full_name || 'User'}</p>
+                          <p className="text-xs text-neutral-500 truncate">{profile?.email || user?.email}</p>
+                        </div>
+                        <Link 
+                          to="/account" 
+                          className="flex items-center space-x-3 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-neutral-600 hover:text-black hover:bg-neutral-50 transition-colors"
+                        >
+                          <FontAwesomeIcon icon={faUser} className="w-4" />
+                          <span>My Account</span>
+                        </Link>
+                        <Link 
+                          to="/account" 
+                          className="flex items-center space-x-3 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-neutral-600 hover:text-black hover:bg-neutral-50 transition-colors"
+                        >
+                          <FontAwesomeIcon icon={faBox} className="w-4" />
+                          <span>My Orders</span>
+                        </Link>
+                        <div className="h-px bg-neutral-100 my-2" />
+                        <button 
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            signOut();
+                          }}
+                          className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-red-500 hover:bg-red-50 transition-colors text-left"
+                        >
+                          <FontAwesomeIcon icon={faRightFromBracket} className="w-4" />
+                          <span>Sign Out</span>
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <Link to="/login" className="hover:text-accent transition-colors">
+                <FontAwesomeIcon icon={faUser} />
+              </Link>
+            )}
             <button
               className="relative hover:text-accent transition-colors"
               onClick={() => setIsCartOpen(true)}
@@ -133,10 +207,27 @@ const Navbar = () => {
               </div>
 
               <div className="mt-auto pt-8 border-t border-neutral-100 flex flex-col space-y-4">
-                <Link to="/account" className="flex items-center space-x-3 text-lg font-medium">
-                  <FontAwesomeIcon icon={faUser} />
-                  <span>Account</span>
-                </Link>
+                {isAuthenticated ? (
+                  <>
+                    <Link to="/account" className="flex items-center space-x-3 text-lg font-medium">
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                      ) : (
+                        <FontAwesomeIcon icon={faUser} />
+                      )}
+                      <span>{profile?.full_name || 'Account'}</span>
+                    </Link>
+                    <button onClick={signOut} className="flex items-center space-x-3 text-lg font-medium text-red-500">
+                      <FontAwesomeIcon icon={faRightFromBracket} />
+                      <span>Sign Out</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link to="/login" className="flex items-center space-x-3 text-lg font-medium">
+                    <FontAwesomeIcon icon={faUser} />
+                    <span>Sign In</span>
+                  </Link>
+                )}
                 <p className="text-sm text-neutral-500">© 2026 Gorer Mart. All rights reserved.</p>
               </div>
             </motion.div>
