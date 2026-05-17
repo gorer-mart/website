@@ -7,6 +7,8 @@ import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
 import About from './pages/About';
+import Account from './pages/Account';
+import Login from './pages/Login';
 import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
 import Contact from './pages/Contact';
@@ -29,10 +31,12 @@ const ScrollToTop = () => {
   return null;
 };
 
-// To be implemented: User Account
-const Account = () => <div className="pt-32 min-h-screen container mx-auto px-6"><h1>User Account Coming Soon</h1></div>;
+
 
 function App() {
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/login';
+
   return (
     <CartProvider>
       <ScrollToTop />
@@ -46,6 +50,7 @@ function App() {
             <Route path="/shop" element={<Shop />} />
             <Route path="/product/:slug" element={<ProductDetail />} />
             <Route path="/about" element={<About />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/account" element={<Account />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/admin" element={<Admin />} />
@@ -55,7 +60,7 @@ function App() {
           </Routes>
         </main>
 
-        <Footer />
+        {!isAuthPage && <Footer />}
       </div>
     </CartProvider>
   );
