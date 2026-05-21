@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../ui/use-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faInstagram, faFacebookF, faTwitter } from '@fortawesome/free-brands-svg-icons';
+import { faInstagram, faFacebookF, faTwitter, faReddit } from '@fortawesome/free-brands-svg-icons';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -65,25 +65,24 @@ const Footer = () => {
               <img src={typeof logoBlack === 'object' ? logoBlack.src : logoBlack} alt="Gorer Mart" className="h-10 w-auto object-contain align-left self-start" />
             </Link>
             <p className="text-neutral-500 text-sm leading-relaxed max-w-sm">
-              Curating premium apparel that blends cultural heritage with contemporary streetwear.
-              Join our journey in redefining modern style.
+              Curating premium apparel that blends cultural heritage with contemporary streetwear. Be a part of this Kolorob.
             </p>
             <div className="flex space-x-4 pt-2">
-              <a href="#" className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-black hover:text-white hover:border-black transition-all">
+              <Link href="https://www.instagram.com/gorermart?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-black hover:text-white hover:border-black transition-all">
                 <FontAwesomeIcon icon={faInstagram} />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-black hover:text-white hover:border-black transition-all">
+              </Link>
+              <Link href="https://www.facebook.com/share/1Ko4ojtZoS/?mibextid=wwXIfr" target="_blank" className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-black hover:text-white hover:border-black transition-all">
                 <FontAwesomeIcon icon={faFacebookF} />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-black hover:text-white hover:border-black transition-all">
-                <FontAwesomeIcon icon={faTwitter} />
-              </a>
+              </Link>
+              <Link href="https://www.facebook.com/share/1Ko4ojtZoS/?mibextid=wwXIfr" target="_blank" className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-black hover:text-white hover:border-black transition-all">
+                <FontAwesomeIcon icon={faReddit} />
+              </Link>
             </div>
           </div>
 
           {/* Quick Links */}
           <div className="md:col-span-3 lg:col-span-2">
-            <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8 text-black border-b border-neutral-100 pb-3">Shop</h3>
+            <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8 text-black">Shop</h3>
             <ul className="flex flex-col space-y-4">
               <li><Link href="/shop" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">All Collections</Link></li>
               <li><Link href="/shop?collection=New+Arrivals" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">New Arrivals</Link></li>
@@ -93,7 +92,7 @@ const Footer = () => {
 
           {/* Support */}
           <div className="md:col-span-3 lg:col-span-2">
-            <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8 text-black border-b border-neutral-100 pb-3">Support</h3>
+            <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8 text-black">Support</h3>
             <ul className="flex flex-col space-y-4">
               <li><Link href="/about" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Our Story</Link></li>
               <li><Link href="/refund-policy" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Refund Policy</Link></li>
@@ -105,12 +104,12 @@ const Footer = () => {
 
           {/* Newsletter */}
           <div className="md:col-span-12 lg:col-span-4 flex flex-col justify-start">
-            <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8 text-black border-b border-neutral-100 pb-3">Newsletter</h3>
+            <h3 className="font-display font-bold uppercase tracking-widest text-xs mb-8 text-black ">Newsletter</h3>
             <p className="text-sm text-neutral-500 mb-6 max-w-md">
               Subscribe to receive updates, access to exclusive deals, and early drops.
             </p>
             <form onSubmit={handleSubscribe} className="w-full max-w-md">
-              <div className="flex flex-col sm:flex-row gap-3 w-full">
+              <div className="flex flex-col sm:flex-row gap-2 w-full">
                 <Input
                   type="email"
                   value={email}
@@ -124,7 +123,7 @@ const Footer = () => {
                   type="submit"
                   disabled={loading}
                   variant="default"
-                  className="h-12 px-8 font-semibold text-xs uppercase tracking-widest bg-black text-white hover:bg-yellow hover:text-black transition-all duration-300 shrink-0 rounded-none cursor-pointer border border-black hover:border-yellow active:scale-95"
+                  className="h-12 px-4 font-semibold text-xs uppercase tracking-widest bg-black text-white hover:bg-yellow hover:text-black transition-all duration-300 shrink-0 rounded-none cursor-pointer border border-black hover:border-yellow active:scale-95"
                 >
                   {loading ? 'Subscribing...' : 'Subscribe'}
                 </Button>

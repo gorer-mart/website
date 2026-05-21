@@ -5,6 +5,11 @@ import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram, faLinkedinIn, faTwitter } from '@fortawesome/free-brands-svg-icons';
 
+import OurHeritageImage from '../../assets/about-image-1.webp';
+import OurCommitmentImage from '../../assets/about-image-2.webp';
+
+
+
 const About: React.FC = () => {
 
   const team = [
@@ -81,17 +86,16 @@ const About: React.FC = () => {
               transition={{ duration: 0.8 }}
               className="w-full lg:w-1/2 aspect-[4/5] relative group overflow-hidden"
             >
-              <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-700 z-10" />
               <img
-                src="https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?q=80&w=1000&auto=format&fit=crop"
+                src={OurHeritageImage.src}
                 alt="Kolkata Street Culture"
-                className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-1000 ease-out"
+                className="w-full h-full object-cover"
               />
             </motion.div>
             <div className="w-full lg:w-1/2 space-y-8">
-              <span className="text-[10px] uppercase tracking-[0.4em] font-bold text-accent">Our Heritage</span>
-              <h2 className="text-4xl md:text-6xl font-display font-bold uppercase tracking-tighter leading-none">
-                Born in the <br /> Heart of Bengal
+              <span className="text-sm uppercase tracking-[0.4em] font-bold text-accent mb-8">Our Heritage</span>
+              <h2 className="text-4xl md:text-5xl font-display font-extrabold uppercase tracking-tight leading-none">
+                <span className='text-4xl font-extrabold'>Born in the{" "}</span><br /> Heart of Bengal
               </h2>
               <div className="space-y-6 text-neutral-500 leading-relaxed text-lg">
                 <p>
@@ -113,17 +117,16 @@ const About: React.FC = () => {
               transition={{ duration: 0.8 }}
               className="w-full lg:w-1/2 aspect-[4/5] relative group overflow-hidden"
             >
-              <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-700 z-10" />
               <img
-                src="https://images.unsplash.com/photo-1516762689617-e1cffcef479d?q=80&w=1000&auto=format&fit=crop"
+                src={OurCommitmentImage.src}
                 alt="Ethical Fashion Craftsmanship"
-                className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-1000 ease-out"
+                className="w-full h-full object-cover"
               />
             </motion.div>
             <div className="w-full lg:w-1/2 space-y-8">
-              <span className="text-[10px] uppercase tracking-[0.4em] font-bold text-accent">Our Commitment</span>
-              <h2 className="text-4xl md:text-6xl font-display font-bold uppercase tracking-tighter leading-none">
-                Sustainable <br /> & Ethical
+              <span className="text-sm uppercase tracking-[0.4em] font-bold text-accent mb-8">Our Commitment</span>
+              <h2 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight leading-none">
+                <span className='text-4xl font-extrabold'>Sustainable</span> <br /> & Ethical
               </h2>
               <div className="space-y-6 text-neutral-500 leading-relaxed text-lg">
                 <p>
@@ -147,7 +150,7 @@ const About: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-[10px] uppercase tracking-[0.4em] font-bold text-accent mb-4 block"
+              className="text-sm uppercase tracking-[0.4em] font-bold text-accent mb-4 block"
             >
               The Visionaries
             </motion.span>
@@ -156,7 +159,7 @@ const About: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
-              className="text-5xl md:text-7xl font-display font-bold uppercase tracking-tighter"
+              className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight"
             >
               Meet the Team
             </motion.h2>
