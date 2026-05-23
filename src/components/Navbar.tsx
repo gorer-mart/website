@@ -44,7 +44,7 @@ const Navbar: React.FC = () => {
     { name: 'Contact', path: '/contact' },
   ];
 
-  const isHomePage = pathname === '/' || pathname === '/home';
+  const isHomePage = pathname === '/';
   const isTransparent = isHomePage && !isScrolled;
 
   return (
