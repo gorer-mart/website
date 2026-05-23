@@ -95,7 +95,7 @@ const Home: React.FC = () => {
                 variant="outline"
                 className="border-white text-white hover:bg-white hover:text-black"
               >
-                <Link href="/story">Our Story</Link>
+                <Link href="/about">Our Story</Link>
               </Button>
             </div>
           </motion.div>
@@ -120,9 +120,9 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
+                className="text-4xl md:text-5xl uppercase font-display font-bold tracking-tighter mb-4 leading-tight"
               >
-                most pochonder
+                most pochhonder
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -172,7 +172,7 @@ const Home: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
+                className="text-accent uppercase tracking-[0.2rem] text-sm font-bold mb-4 block"
               >
                 Latest Essentials
               </motion.span>
@@ -181,7 +181,7 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
+                className="text-4xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
               >
                 Taatka Drops
               </motion.h2>
@@ -309,7 +309,7 @@ const Home: React.FC = () => {
             className="flex justify-center"
           >
             <Button asChild className="bg-white text-black hover:bg-yellow hover:scale-105 transition-all shadow-premium px-12">
-              <Link href="/story">Discover Our Story</Link>
+              <Link href="/about">Discover Our Story</Link>
             </Button>
           </motion.div>
         </div>
@@ -318,7 +318,7 @@ const Home: React.FC = () => {
       {/* Premium Customer Feedback Carousel - White Theme */}
       <section className="py-24 bg-white relative">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 px-4">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-2 px-4">
             <div className="max-w-2xl">
               <motion.span
                 initial={{ opacity: 0, x: -20 }}
@@ -374,7 +374,7 @@ const Home: React.FC = () => {
               ]).map((feedback, idx) => (
                 <motion.div
                   key={idx}
-                  className="min-w-[260px] md:min-w-[340px] bg-white p-6 md:p-8 rounded-2xl border border-neutral-100 flex flex-col justify-between hover:border-accent/40 transition-all duration-500 group relative snap-start"
+                  className="min-w-[260px] md:min-w-[340px] bg-white p-6 md:p-8 rounded-2xl border border-neutral-100 flex flex-col justify-between hover:border-accent/40 hover:shadow-xl transition-all duration-500 group relative snap-start"
                 >
                   <div className="relative z-10">
                     <div className="text-accent/20 mb-4 group-hover:text-accent transition-colors">
