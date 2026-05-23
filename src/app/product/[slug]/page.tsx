@@ -7,6 +7,8 @@ import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faMinus, faStar, faTruckFast, faRotateLeft, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 import { PRODUCTS } from '../../../data/products';
+import { getProducts } from '../../../lib/sanity';
+import { Product } from '../../../types/product';
 import { useCart } from '../../../context/CartContext';
 import ProductCard from '../../../components/ProductCard';
 import { Button } from '../../../ui/button';
@@ -15,25 +17,53 @@ const ProductDetail: React.FC = () => {
   const params = useParams();
   const id = params?.slug as string;
   const { addToCart } = useCart();
-  const product = PRODUCTS.find(p => p.id === parseInt(id));
+  
+  const [productsList, setProductsList] = useState<Product[]>(PRODUCTS);
+  const [product, setProduct] = useState<Product | undefined>(PRODUCTS.find(p => p.id === parseInt(id)));
   
   const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [activeImage, setActiveImage] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProduct = async () => {
+      try {
+        const fetched = await getProducts();
+        setProductsList(fetched);
+        
+        const found = fetched.find(p => String(p.id) === id || p._id === id);
+        if (found) {
+          setProduct(found);
+        }
+      } catch (err) {
+        console.error("Error loading product detail:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProduct();
+  }, [id]);
 
   useEffect(() => {
     if (product) {
-      setSelectedSize(product.sizes[0]);
+      setSelectedSize(product.sizes[0] || 'M');
+      setSelectedColor(product.colors?.[0] || 'Original');
       setActiveImage(0);
       window.scrollTo(0, 0);
     }
-  }, [product, id]);
+  }, [product]);
 
-  if (!product) return <div className="pt-32 text-center min-h-[50vh]">Product not found</div>;
+  if (!product) {
+    if (loading) {
+      return <div className="pt-32 text-center min-h-[50vh] font-display uppercase tracking-widest text-xs">Loading product...</div>;
+    }
+    return <div className="pt-32 text-center min-h-[50vh]">Product not found</div>;
+  }
 
-  const relatedProducts = PRODUCTS.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const relatedProducts = productsList.filter(p => p.category === product.category && String(p.id) !== id && p._id !== id).slice(0, 4);
 
-  const STANDARD_DESCRIPTION = "Our signature oversized tee, crafted from ultra-heavy 240+ GSM premium cotton. Featuring a perfect drop shoulder silhouette and built for maximum comfort and durability, it's the ultimate essential for the modern urban wardrobe.";
   const STANDARD_DETAILS = [
     "100% Premium Organic Cotton",
     "240+ GSM Heavyweight Fabric",
@@ -42,10 +72,41 @@ const ProductDetail: React.FC = () => {
     "Pre-shrunk & Bio-washed"
   ];
 
+  const displayDetails = product.details && product.details.length > 0 ? product.details : STANDARD_DETAILS;
+
+  // Premium color swatches color mapping
+  const COLOR_MAP: Record<string, string> = {
+    'black': '#171717',
+    'white': '#FFFFFF',
+    'offwhite': '#FAF9F6',
+    'cream': '#FFFDD0',
+    'maroon': '#800000',
+    'red': '#DC2626',
+    'blue': '#2563EB',
+    'navy': '#1E3A8A',
+    'green': '#16A34A',
+    'olive': '#556B2F',
+    'gray': '#737373',
+    'grey': '#737373',
+    'yellow': '#EAB308',
+    'beige': '#F5F5DC',
+    'original': '#D4D4D8',
+  };
+
+  const getColorStyle = (color: string) => {
+    const norm = color.toLowerCase().trim().replace(/[-\s]/g, '');
+    if (norm.startsWith('#')) return norm;
+    return COLOR_MAP[norm] || color;
+  };
+
+  const hasVariants = product.colorVariants && product.colorVariants.length > 0;
+  const activeVariant = hasVariants ? product.colorVariants.find((v: any) => v.color === selectedColor) : null;
+  const displayImages = (activeVariant && activeVariant.images.length > 0) ? activeVariant.images : product.images;
+
   return (
     <div className="pt-20 bg-white">
       <title>{`${product.name} | Gorer Mart Premium Streetwear`}</title>
-      <meta name="description" content={STANDARD_DESCRIPTION} />
+      <meta name="description" content={`Shop ${product.name} at Gorer Mart. Premium Kolkata-inspired streetwear and apparel.`} />
 
       <div className="container mx-auto px-6 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
@@ -56,14 +117,14 @@ const ProductDetail: React.FC = () => {
                 key={activeImage}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                src={product.images[activeImage]?.src || product.images[activeImage]} 
+                src={displayImages[activeImage]?.src || displayImages[activeImage]} 
                 alt={product.name} 
                 className="w-full h-full object-cover"
               />
             </div>
-            {product.images.length > 1 && (
+            {displayImages.length > 1 && (
               <div className="grid grid-cols-4 gap-4">
-                {product.images.map((img, idx) => (
+                {displayImages.map((img: any, idx: number) => (
                   <button 
                     key={idx}
                     onClick={() => setActiveImage(idx)}
@@ -90,7 +151,7 @@ const ProductDetail: React.FC = () => {
               {product.name}
             </h1>
             
-            <div className="flex items-center space-x-4 mb-8">
+            <div className="flex items-center space-x-4 mb-10">
               <span className="text-2xl font-display font-bold">₹{product.price.toLocaleString('en-IN')}</span>
               <div className="flex items-center text-accent text-xs">
                 <FontAwesomeIcon icon={faStar} />
@@ -102,12 +163,8 @@ const ProductDetail: React.FC = () => {
               </div>
             </div>
 
-            <p className="text-neutral-500 leading-relaxed mb-10 pb-10 border-b border-neutral-100">
-              {STANDARD_DESCRIPTION}
-            </p>
-
             {/* Selectors */}
-            <div className="space-y-8 mb-10">
+            <div className="space-y-8 mb-10 pt-10 border-t border-neutral-100">
               <div>
                 <div className="flex justify-between mb-4">
                   <h3 className="text-xs font-bold uppercase tracking-widest">Select Size</h3>
@@ -125,6 +182,33 @@ const ProductDetail: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {product.colors && product.colors.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4">
+                    Color: <span className="text-neutral-500 font-normal normal-case">{selectedColor}</span>
+                  </h3>
+                  <div className="flex flex-wrap gap-4">
+                    {product.colors.map(color => {
+                      const colorStyle = getColorStyle(color);
+                      const isLight = ['white', '#ffffff', '#faf9f6', '#fffdd0', '#faf9f6', 'offwhite', 'cream', 'beige'].includes(color.toLowerCase().trim().replace(/[-\s]/g, '')) || colorStyle.toLowerCase() === '#ffffff';
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => { setSelectedColor(color); setActiveImage(0); }}
+                          className={`w-9 h-9 rounded-full relative transition-all ${
+                            isLight ? 'border border-neutral-300' : ''
+                          } ${
+                            selectedColor === color ? 'ring-2 ring-black ring-offset-2 scale-110' : 'hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: colorStyle }}
+                          title={color}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-widest mb-4">Quantity</h3>
@@ -148,7 +232,7 @@ const ProductDetail: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
               <Button 
-                onClick={() => addToCart(product, quantity, selectedSize, 'Original')}
+                onClick={() => addToCart(product, quantity, selectedSize, selectedColor)}
                 className="flex-[2] py-5"
               >
                 Add to Bag
@@ -199,7 +283,7 @@ const ProductDetail: React.FC = () => {
             <div>
               <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-8">Premium Quality</h2>
               <ul className="space-y-4">
-                {STANDARD_DETAILS.map((detail, idx) => (
+                {displayDetails.map((detail, idx) => (
                   <li key={idx} className="flex items-start text-sm text-neutral-600">
                     <span className="w-1.5 h-1.5 bg-black rounded-full mt-1.5 mr-3 flex-shrink-0" />
                     {detail}
@@ -207,13 +291,14 @@ const ProductDetail: React.FC = () => {
                 ))}
               </ul>
             </div>
-            <div>
-              <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-8">Care Instructions</h2>
-              <p className="text-sm text-neutral-600 leading-relaxed">
-                Machine wash cold with like colors. Tumble dry low. Do not bleach. Iron on low heat if necessary. 
-                For best results and to maintain the longevity of the fabric, we recommend air drying.
-              </p>
-            </div>
+            {product.washCare && (
+              <div>
+                <h2 className="text-2xl font-display font-bold uppercase tracking-widest mb-8">Care Instructions</h2>
+                <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-line">
+                  {product.washCare}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </section>

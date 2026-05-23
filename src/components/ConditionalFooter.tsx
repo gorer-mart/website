@@ -6,9 +6,9 @@ import Footer from './Footer';
 
 const ConditionalFooter = () => {
   const pathname = usePathname();
-  const isAuthPage = pathname === '/login';
+  const hideFooter = pathname === '/login' || pathname?.startsWith('/studio');
 
-  if (isAuthPage) return null;
+  if (hideFooter) return null;
   return <Footer />;
 };
 

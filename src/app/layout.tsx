@@ -20,7 +20,7 @@ export const metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://gorermart.com',
+    url: 'https://gorermart.in',
     title: 'Gorer Mart — Premium Kolkata-Inspired Streetwear',
     description: 'Curating premium apparel that blends cultural heritage with contemporary streetwear. Join our journey in redefining modern style.',
     siteName: 'Gorer Mart',
