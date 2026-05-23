@@ -37,14 +37,15 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     const container = document.getElementById('feedback-container');
-    if (container) {
-      const handleInitialScroll = () => {
-        container.scrollLeft = container.scrollWidth / 3;
-      };
-      handleInitialScroll();
-      const timer = setTimeout(handleInitialScroll, 150);
-      return () => clearTimeout(timer);
-    }
+    if (!container) return;
+
+    const handleInitialScroll = () => {
+      container.scrollLeft = container.scrollWidth / 3;
+    };
+    handleInitialScroll();
+    const timer = setTimeout(handleInitialScroll, 150);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -343,7 +344,7 @@ const Home: React.FC = () => {
           <div className="relative">
             <div
               id="feedback-container"
-              className="flex space-x-8 overflow-x-auto no-scrollbar scroll-smooth py-12 px-12 md:px-24 snap-x snap-mandatory"
+              className="flex space-x-8 overflow-x-hidden no-scrollbar scroll-smooth py-12 px-12 md:px-24 snap-x snap-mandatory"
             >
               {[...Array(3)].flatMap(() => [
                 {
