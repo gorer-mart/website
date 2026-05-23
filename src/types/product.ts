@@ -9,10 +9,10 @@ export interface Product {
   price: number;
   category: string;
   tag?: string;
+  tags?: string[];
   images: any[];
   sizes: string[];
   colors?: string[];
-  description?: string;
   details?: string[];
   [key: string]: any;
 }

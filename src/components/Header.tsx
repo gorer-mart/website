@@ -6,9 +6,9 @@ import Navbar from './Navbar';
 
 const Header = () => {
   const pathname = usePathname();
-  const isAuthPage = pathname === '/login';
+  const hideHeader = pathname === '/login' || pathname?.startsWith('/studio');
 
-  if (isAuthPage) return null;
+  if (hideHeader) return null;
 
   return (
     <header className="fixed top-0 left-0 w-full z-50">
