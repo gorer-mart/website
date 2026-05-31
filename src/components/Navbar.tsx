@@ -18,6 +18,7 @@ const Navbar: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const { setIsCartOpen, cartCount } = useCart();
   const { user, profile, signOut, isAuthenticated } = useAuth();
   const pathname = usePathname();
@@ -28,6 +29,15 @@ const Navbar: React.FC = () => {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -45,19 +55,23 @@ const Navbar: React.FC = () => {
   ];
 
   const isHomePage = pathname === '/';
-  const isTransparent = isHomePage && !isScrolled;
 
   return (
     <>
       <nav
-        className={`relative w-full h-16 transition-all duration-500 ${isTransparent
-        ? 'bg-transparent border-transparent'
-        : 'bg-white/80 backdrop-blur-xl border-b border-neutral-100 shadow-premium'
+        className={`relative w-full h-16 transition-all duration-500 border-b shadow-premium lg:shadow-none
+        ${isHomePage
+          ? `bg-white border-neutral-100 lg:border-transparent ${
+              isScrolled 
+                ? 'lg:bg-white/80 lg:backdrop-blur-xl lg:border-neutral-100 lg:shadow-premium' 
+                : 'lg:bg-transparent lg:shadow-none lg:border-transparent'
+            }`
+          : 'bg-white border-neutral-100'
         }`}
       >
         <div className="container mx-auto px-6 h-full flex items-center justify-between">
           <button
-            className={`lg:hidden text-xl transition-colors duration-500 ${isTransparent ? 'text-white' : 'text-black'}`}
+            className="lg:hidden text-xl text-black transition-colors duration-500"
             onClick={() => setIsMobileMenuOpen(true)}
           >
             <FontAwesomeIcon icon={faBars} />
@@ -68,7 +82,11 @@ const Navbar: React.FC = () => {
               <Link
                 key={link.name}
                 href={link.path}
-                className={`text-xs font-bold uppercase tracking-widest transition-colors duration-500 ${isTransparent ? 'text-white/80 hover:text-white' : 'text-black hover:text-accent'}`}
+                className={`text-xs font-bold uppercase tracking-widest transition-colors duration-500 ${
+                  isHomePage && !isScrolled
+                    ? 'text-black lg:text-white/80 lg:hover:text-white hover:text-accent'
+                    : 'text-black hover:text-accent'
+                }`}
               >
                 {link.name}
               </Link>
@@ -79,14 +97,27 @@ const Navbar: React.FC = () => {
             href="/"
             className="absolute left-1/2 -translate-x-1/2"
           >
+            {/* Desktop Transparent logo (white) */}
             <img
-              src={isTransparent ? (typeof logoWhite === 'object' ? logoWhite.src : logoWhite) : (typeof logoBlack === 'object' ? logoBlack.src : logoBlack)}
+              src={typeof logoWhite === 'object' ? logoWhite.src : logoWhite}
               alt="Gorer Mart"
-              className="h-3 md:h-8 w-auto object-contain transition-all duration-500"
+              className={`h-5 sm:h-6 md:h-8 w-auto object-contain transition-all duration-500 hidden lg:block ${
+                isHomePage && !isScrolled ? 'lg:block' : 'lg:hidden'
+              }`}
+            />
+            {/* Desktop Scrolled / Mobile logo (black) */}
+            <img
+              src={typeof logoBlack === 'object' ? logoBlack.src : logoBlack}
+              alt="Gorer Mart"
+              className={`h-5 sm:h-6 md:h-8 w-auto object-contain transition-all duration-500 ${
+                isHomePage && !isScrolled ? 'block lg:hidden' : 'block'
+              }`}
             />
           </Link>
 
-          <div className={`flex items-center space-x-6 transition-colors duration-500 ${isTransparent ? 'text-white' : 'text-black'}`}>
+          <div className={`flex items-center space-x-6 transition-colors duration-500 text-black ${
+            isHomePage && !isScrolled ? 'lg:text-white' : 'text-black'
+          }`}>
             <button 
               onClick={() => setIsSearchOpen(true)}
               className="hover:text-accent transition-colors"
@@ -125,7 +156,7 @@ const Navbar: React.FC = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-premium border border-neutral-100 overflow-hidden z-50 py-2"
+                        className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-premium border border-neutral-100 overflow-hidden z-50 py-2 text-neutral-800"
                       >
                         <div className="px-4 py-3 border-b border-neutral-100 mb-2">
                           <p className="text-sm font-bold text-black truncate">{profile?.full_name || 'User'}</p>
@@ -172,7 +203,11 @@ const Navbar: React.FC = () => {
             >
               <FontAwesomeIcon icon={faBagShopping} className="text-lg" />
               {cartCount > 0 && (
-                <span className={`absolute -top-2 -right-2 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${isTransparent ? 'bg-white text-black' : 'bg-black text-white'}`}>
+                <span className={`absolute -top-2 -right-2 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${
+                  isHomePage && !isScrolled
+                    ? 'bg-black text-white lg:bg-white lg:text-black'
+                    : 'bg-black text-white'
+                }`}>
                   {cartCount}
                 </span>
               )}
@@ -182,57 +217,79 @@ const Navbar: React.FC = () => {
 
         <AnimatePresence>
           {isMobileMenuOpen && (
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-0 bg-white z-[60] flex flex-col p-8 lg:hidden"
-            >
-              <div className="flex justify-between items-center mb-12">
-                <span className="text-xl font-display font-bold uppercase tracking-tighter">Menu</span>
-                <button onClick={() => setIsMobileMenuOpen(false)}>
-                  <FontAwesomeIcon icon={faXmark} className="text-2xl" />
-                </button>
-              </div>
-
-              <div className="flex flex-col space-y-6">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    href={link.path}
-                    className="text-2xl font-display font-bold uppercase tracking-tight hover:text-accent"
+            <>
+              {/* Tap-to-close Backdrop Overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] lg:hidden"
+              />
+              {/* Native-style Slide-out Drawer */}
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed inset-y-0 left-0 w-[80vw] max-w-[300px] bg-white z-[70] flex flex-col p-6 shadow-2xl lg:hidden text-neutral-900"
+              >
+                <div className="flex justify-between items-center mb-8 border-b border-neutral-100 pb-4">
+                  <span className="text-lg font-display font-bold uppercase tracking-tight">Menu</span>
+                  <button 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-8 h-8 rounded-full bg-neutral-50 flex items-center justify-center text-neutral-500 hover:text-black transition-colors"
                   >
-                    {link.name}
-                  </Link>
-                ))}
-              </div>
+                    <FontAwesomeIcon icon={faXmark} className="text-lg" />
+                  </button>
+                </div>
 
-              <div className="mt-auto pt-8 border-t border-neutral-100 flex flex-col space-y-4">
-                {isAuthenticated ? (
-                  <>
-                    <Link href="/account" className="flex items-center space-x-3 text-lg font-medium">
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-                      ) : (
-                        <FontAwesomeIcon icon={faUser} />
-                      )}
-                      <span>{profile?.full_name || 'Account'}</span>
+                <div className="flex flex-col space-y-5">
+                  {navLinks.map((link) => (
+                    <Link
+                      key={link.name}
+                      href={link.path}
+                      className="text-xl font-display font-bold uppercase tracking-tight hover:text-accent transition-colors"
+                    >
+                      {link.name}
                     </Link>
-                    <button onClick={signOut} className="flex items-center space-x-3 text-lg font-medium text-red-500">
-                      <FontAwesomeIcon icon={faRightFromBracket} />
-                      <span>Sign Out</span>
-                    </button>
-                  </>
-                ) : (
-                  <Link href="/login" className="flex items-center space-x-3 text-lg font-medium">
-                    <FontAwesomeIcon icon={faUser} />
-                    <span>Sign In</span>
-                  </Link>
-                )}
-                <p className="text-sm text-neutral-500">© 2026 Gorer Mart. All rights reserved.</p>
-              </div>
-            </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-auto pt-6 border-t border-neutral-100 flex flex-col space-y-4">
+                  {isAuthenticated ? (
+                    <>
+                      <Link href="/account" className="flex items-center space-x-3 text-base font-bold uppercase tracking-wider text-neutral-600 hover:text-black">
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-neutral-200" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-neutral-100 text-black flex items-center justify-center text-xs font-bold border">
+                            {(profile?.full_name || user?.email)?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <span>{profile?.full_name || 'My Account'}</span>
+                      </Link>
+                      <button 
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          signOut();
+                        }}
+                        className="flex items-center space-x-3 text-base font-bold uppercase tracking-wider text-red-500 hover:text-red-600 text-left"
+                      >
+                        <FontAwesomeIcon icon={faRightFromBracket} />
+                        <span>Sign Out</span>
+                      </button>
+                    </>
+                  ) : (
+                    <Link href="/login" className="flex items-center space-x-3 text-base font-bold uppercase tracking-wider text-neutral-600 hover:text-black">
+                      <FontAwesomeIcon icon={faUser} />
+                      <span>Sign In</span>
+                    </Link>
+                  )}
+                  <p className="text-xs text-neutral-400">© 2026 Gorer Mart. All rights reserved.</p>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </nav>

@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useCart } from '../../context/CartContext';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronRight, faLock, faCreditCard, faTruck, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faChevronRight, faLock, faCreditCard, faTruck, faCheckCircle, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 
 const Checkout: React.FC = () => {
   const { cart, cartTotal, clearCart } = useCart();
   const [step, setStep] = useState<number>(1);
+  const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState<boolean>(false);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -63,6 +64,62 @@ const Checkout: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
             {/* Checkout Form */}
             <div className="lg:col-span-7">
+              {/* Collapsible Order Summary for Mobile */}
+              <div className="lg:hidden w-full bg-white border border-neutral-200 mb-6 p-4 rounded-xl shadow-sm text-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setIsOrderSummaryOpen(!isOrderSummaryOpen)}
+                  className="w-full flex items-center justify-between font-bold text-xs uppercase tracking-widest focus:outline-none"
+                >
+                  <div className="flex items-center space-x-2 text-neutral-900">
+                    <FontAwesomeIcon icon={faCreditCard} className="text-neutral-500 text-xs" />
+                    <span>{isOrderSummaryOpen ? 'Hide Order Summary' : 'Show Order Summary'}</span>
+                    <FontAwesomeIcon icon={faChevronDown} className={`text-[8px] transition-transform duration-300 ${isOrderSummaryOpen ? 'rotate-180' : ''}`} />
+                  </div>
+                  <span className="font-display font-black text-black">₹{cartTotal.toLocaleString('en-IN')}</span>
+                </button>
+
+                <AnimatePresence>
+                  {isOrderSummaryOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden mt-4 pt-4 border-t border-neutral-100"
+                    >
+                      <div className="space-y-4 max-h-[250px] overflow-y-auto pr-1 no-scrollbar">
+                        {cart.map((item) => (
+                          <div key={`${item.id}-${item.selectedSize}`} className="flex space-x-4">
+                            <div className="w-12 h-16 bg-neutral-100 flex-shrink-0">
+                              <img src={item.images[0]?.src || item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold uppercase truncate">{item.name}</p>
+                              <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">
+                                Size: {item.selectedSize} • Qty: {item.quantity}
+                              </p>
+                              <p className="text-xs font-bold mt-1">₹{(item.price * item.quantity).toLocaleString('en-IN')}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-2 pt-4 mt-4 border-t border-neutral-100 text-[10px] text-neutral-500 uppercase tracking-widest">
+                        <div className="flex justify-between">
+                          <span>Subtotal</span>
+                          <span>₹{cartTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Shipping</span>
+                          <span className="text-green-600 font-bold">Free</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               {/* Progress Bar */}
               <div className="flex items-center space-x-4 mb-12">
                 <div className={`flex items-center space-x-2 ${step >= 1 ? 'text-black' : 'text-neutral-400'}`}>

@@ -57,7 +57,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       className="group relative"
     >
       {/* Image Container */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-50 mb-6 group-hover:shadow-premium transition-all duration-500">
+      <div className="relative aspect-[4/5] overflow-hidden bg-neutral-50 mb-3 md:mb-6 group-hover:shadow-premium transition-all duration-500">
         
         <Link href={`/product/${product.id}`} className="block w-full h-full">
           <motion.img 
@@ -69,48 +69,61 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         </Link>
 
-        {/* Quick Actions */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center space-x-3 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 z-30 w-full px-6">
+        {/* Quick Actions (Desktop only) */}
+        <div className="hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 items-center space-x-3 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 z-30 w-full px-6">
           <Button 
             onClick={() => addToCart(product, 1, product.sizes[0], selectedColor)}
-            className="flex-1 h-12 bg-black text-white text-[10px] font-bold uppercase tracking-widest flex items-center justify-center space-x-2 hover:bg-neutral-800 transition-colors shadow-2xl rounded-none"
+            className="flex-1 h-12 bg-black text-white text-[10px] font-bold uppercase tracking-widest flex items-center justify-center space-x-2 hover:bg-neutral-800 transition-colors shadow-2xl rounded-none cursor-pointer"
           >
             <FontAwesomeIcon icon={faPlus} />
             <span>Add to Cart</span>
           </Button>
           <Link 
             href={`/product/${product.id}`}
-            className="w-12 h-12 bg-white text-black border border-neutral-100 flex items-center justify-center hover:bg-black hover:text-white transition-all shadow-2xl"
+            className="w-12 h-12 bg-white text-black border border-neutral-100 flex items-center justify-center hover:bg-black hover:text-white transition-all shadow-2xl cursor-pointer"
           >
             <FontAwesomeIcon icon={faEye} className="text-xs" />
           </Link>
         </div>
+
+        {/* Mobile Quick Add Button */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            addToCart(product, 1, product.sizes[0], selectedColor);
+          }}
+          className="lg:hidden absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/90 text-white flex items-center justify-center shadow-lg active:scale-90 transition-all z-30 cursor-pointer"
+          title="Add to Cart"
+        >
+          <FontAwesomeIcon icon={faPlus} className="text-[10px]" />
+        </button>
       </div>
 
       {/* Product Info */}
-      <div className="flex flex-col text-center md:text-left">
-        <div className="mb-2">
+      <div className="flex flex-col text-left">
+        <div className="mb-1 md:mb-2">
           <Link 
             href={`/product/${product.id}`} 
-            className="text-xs font-bold uppercase tracking-[0.1em] text-neutral-400 hover:text-black transition-colors block mb-1"
+            className="text-[9px] md:text-xs font-bold uppercase tracking-[0.1em] text-neutral-400 hover:text-black transition-colors block mb-0.5 md:mb-1"
           >
             {product.category}
           </Link>
           <Link 
             href={`/product/${product.id}`} 
-            className="text-base md:text-lg font-display font-bold uppercase tracking-tighter hover:text-accent transition-colors leading-tight line-clamp-1"
+            className="text-sm sm:text-base md:text-lg font-display font-bold uppercase tracking-tighter hover:text-accent transition-colors leading-tight line-clamp-1"
           >
             {product.name}
           </Link>
         </div>
-        <div className="flex items-center justify-center md:justify-start space-x-2">
-          <span className="font-display font-black text-lg">₹{product.price.toLocaleString('en-IN')}</span>
-          <span className="text-[10px] text-neutral-400 line-through opacity-50">₹{(product.price + 500).toLocaleString('en-IN')}</span>
+        <div className="flex items-center justify-start space-x-2">
+          <span className="font-display font-black text-base md:text-lg text-neutral-900">₹{product.price.toLocaleString('en-IN')}</span>
+          <span className="text-[9px] md:text-[10px] text-neutral-400 line-through opacity-50">₹{(product.price + 500).toLocaleString('en-IN')}</span>
         </div>
 
         {/* Color swatches */}
         {hasVariants && (
-          <div className="flex items-center justify-center md:justify-start gap-2 mt-3">
+          <div className="flex items-center justify-start gap-1.5 mt-2">
             {product.colorVariants.map((v: any) => {
               const swatchColor = COLOR_SWATCHES[v.color.toLowerCase().trim()] || v.color;
               const isSelected = selectedColor === v.color;
@@ -122,7 +135,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     e.preventDefault();
                     handleColorChange(v.color);
                   }}
-                  className={`w-3.5 h-3.5 rounded-full transition-all ${
+                  className={`w-3 h-3 rounded-full transition-all ${
                     isWhite ? 'border border-neutral-300' : ''
                   } ${
                     isSelected ? 'ring-1 ring-black ring-offset-1 scale-110' : 'hover:scale-105'

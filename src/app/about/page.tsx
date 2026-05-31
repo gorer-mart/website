@@ -60,7 +60,7 @@ const About: React.FC = () => {
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
         </div>
 
-        <div className="relative z-10 container mx-auto px-20 text-center">
+        <div className="relative z-10 container mx-auto px-6 md:px-20 text-center">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -93,7 +93,7 @@ const About: React.FC = () => {
               />
             </motion.div>
             <div className="w-full lg:w-1/2 space-y-8">
-              <span className="text-sm uppercase tracking-[0.4em] font-bold text-accent mb-8">Our Heritage</span>
+              <span className="block text-sm uppercase tracking-[0.4em] font-bold text-accent mb-4">Our Heritage</span>
               <h2 className="text-4xl md:text-5xl font-display font-extrabold uppercase tracking-tight leading-none">
                 <span className='text-4xl font-extrabold'>Born in the{" "}</span><br /> Heart of Bengal
               </h2>
@@ -124,7 +124,7 @@ const About: React.FC = () => {
               />
             </motion.div>
             <div className="w-full lg:w-1/2 space-y-8">
-              <span className="text-sm uppercase tracking-[0.4em] font-bold text-accent mb-8">Our Commitment</span>
+              <span className="block text-sm uppercase tracking-[0.4em] font-bold text-accent mb-4">Our Commitment</span>
               <h2 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight leading-none">
                 <span className='text-4xl font-extrabold'>Sustainable</span> <br /> & Ethical
               </h2>
