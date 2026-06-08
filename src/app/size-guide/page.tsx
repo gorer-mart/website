@@ -55,8 +55,8 @@ const SizeGuide: React.FC = () => {
       <meta name="description" content="Official size guide for Gorer Mart India. Find your perfect fit with our detailed measurement charts." />
 
       {/* Hero Section - Simple & Sober */}
-      <section className="py-20 border-b border-neutral-100 mb-20">
-        <div className="container max-w-5xl mx-auto px-6 text-center">
+      <section className="py-20 border-b border-neutral-100 mb-20 px-6 md:px-12 lg:px-24">
+        <div className="container max-w-5xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -71,7 +71,8 @@ const SizeGuide: React.FC = () => {
         </div>
       </section>
 
-      <div className="container max-w-5xl mx-auto px-6">
+      <section className="px-6 md:px-12 lg:px-24">
+        <div className="container max-w-5xl mx-auto">
         
         {/* Quick Info Cards */}
         <motion.div 
@@ -265,15 +266,18 @@ const SizeGuide: React.FC = () => {
            </div>
         </section>
 
-      </div>
+       </div>
+      </section>
 
       {/* Back to Shop */}
-      <div className="mt-32 pt-10 border-t border-neutral-100 container max-w-5xl mx-auto px-6 flex justify-center">
-        <Link href="/shop" className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-black transition-colors">
-          <ArrowRight className="w-3 h-3 rotate-180" />
-          <span>Return to Collection</span>
-        </Link>
-      </div>
+      <section className="px-6 md:px-12 lg:px-24">
+        <div className="mt-32 pt-10 border-t border-neutral-100 container max-w-5xl mx-auto flex justify-center">
+          <Link href="/shop" className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-black transition-colors">
+            <ArrowRight className="w-3 h-3 rotate-180" />
+            <span>Return to Collection</span>
+          </Link>
+        </div>
+      </section>
     </div>
   );
 };

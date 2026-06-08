@@ -32,10 +32,22 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
   }
 
   body {
     @apply bg-white text-neutral-900 font-sans selection:bg-black selection:text-white;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  body::-webkit-scrollbar {
+    display: none;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -68,6 +80,7 @@
     @apply py-20 px-6 md:px-12 lg:px-24;
   }
 
+
   .input-field {
     @apply w-full px-4 py-3 bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all;
   }
@@ -92,15 +105,4 @@
   animation: fadeIn 0.6s ease-out forwards;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-neutral-100;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-neutral-400 hover:bg-neutral-600 transition-colors;
-}
+/* Scrollbar — hidden globally */

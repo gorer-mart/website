@@ -55,6 +55,7 @@ export default {
                 {
                   type: 'reference',
                   to: [{ type: 'product' }],
+                  weak: true,
                   options: {
                     filter: ({ parent }: any) => {
                       if (!parent || !parent.category?._ref) {
@@ -140,6 +141,7 @@ export default {
                 {
                   type: 'reference',
                   to: [{ type: 'product' }],
+                  weak: true,
                   options: {
                     filter: ({ parent }: any) => {
                       if (!parent || !parent.category?._ref) {
