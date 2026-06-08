@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass, faRightFromBracket, faBox } from '@fortawesome/free-solid-svg-icons';
+import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass, faRightFromBracket, faBox, faChevronRight, faHouse, faStore, faCircleInfo, faEnvelope } from '@fortawesome/free-solid-svg-icons';
+import { faInstagram, faFacebookF, faReddit } from '@fortawesome/free-brands-svg-icons';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../ui/input';
@@ -19,6 +20,7 @@ const Navbar: React.FC = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isMobileUserExpanded, setIsMobileUserExpanded] = useState<boolean>(false);
   const { setIsCartOpen, cartCount } = useCart();
   const { user, profile, signOut, isAuthenticated } = useAuth();
   const pathname = usePathname();
@@ -44,14 +46,15 @@ const Navbar: React.FC = () => {
     setIsMobileMenuOpen(false);
     setIsSearchOpen(false);
     setIsUserMenuOpen(false);
+    setIsMobileUserExpanded(false);
     setSearchQuery('');
   }, [pathname]);
 
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Shop', path: '/shop' },
-    { name: 'About', path: '/about' },
-    { name: 'Contact', path: '/contact' },
+    { name: 'Home', path: '/', icon: faHouse },
+    { name: 'Shop', path: '/shop', icon: faStore },
+    { name: 'About', path: '/about', icon: faCircleInfo },
+    { name: 'Contact', path: '/contact', icon: faEnvelope },
   ];
 
   const isHomePage = pathname === '/';
@@ -71,10 +74,16 @@ const Navbar: React.FC = () => {
       >
         <div className="container mx-auto h-full flex items-center justify-between">
           <button
-            className="lg:hidden text-xl text-black transition-colors duration-500"
-            onClick={() => setIsMobileMenuOpen(true)}
+            className="lg:hidden text-xl text-black transition-colors duration-300 cursor-pointer w-8 h-8 flex items-center justify-center"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
-            <FontAwesomeIcon icon={faBars} />
+            <motion.div
+              animate={{ rotate: isMobileMenuOpen ? 90 : 0, scale: isMobileMenuOpen ? 0.9 : 1 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+            >
+              <FontAwesomeIcon icon={isMobileMenuOpen ? faXmark : faBars} />
+            </motion.div>
           </button>
 
           <div className="hidden lg:flex items-center space-x-8">
@@ -126,7 +135,7 @@ const Navbar: React.FC = () => {
           }`}>
             <button 
               onClick={() => setIsSearchOpen(true)}
-              className="hover:text-accent transition-colors"
+              className="transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
             >
               <FontAwesomeIcon icon={faMagnifyingGlass} />
             </button>
@@ -134,7 +143,7 @@ const Navbar: React.FC = () => {
               <div className="relative">
                 <button 
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="hover:text-accent transition-colors flex items-center"
+                  className="transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer flex items-center"
                 >
                   {profile?.avatar_url ? (
                     <img
@@ -199,12 +208,12 @@ const Navbar: React.FC = () => {
                 </AnimatePresence>
               </div>
             ) : (
-              <Link href="/login" className="hover:text-accent transition-colors">
+              <Link href="/login" className="hidden lg:block transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer">
                 <FontAwesomeIcon icon={faUser} />
               </Link>
             )}
             <button
-              className="relative hover:text-accent transition-colors"
+              className="relative transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
               onClick={() => setIsCartOpen(true)}
             >
               <FontAwesomeIcon icon={faBagShopping} className="text-lg" />
@@ -224,81 +233,193 @@ const Navbar: React.FC = () => {
         <AnimatePresence>
           {isMobileMenuOpen && (
             <>
-              {/* Tap-to-close Backdrop Overlay */}
+              {/* Backdrop — starts below navbar */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] lg:hidden"
+                className="fixed top-16 inset-x-0 bottom-0 bg-black/40 z-[60] lg:hidden"
               />
-              {/* Native-style Slide-out Drawer */}
+
+              {/* Drawer — anchored below navbar */}
               <motion.div
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-y-0 left-0 w-[80vw] max-w-[300px] bg-white z-[70] flex flex-col p-6 shadow-2xl lg:hidden text-neutral-900"
+                transition={{ type: 'spring', stiffness: 320, damping: 38, mass: 1 }}
+                className="fixed top-16 bottom-0 left-0 w-[85vw] max-w-[320px] bg-white z-[70] flex flex-col lg:hidden shadow-2xl"
               >
-                <div className="flex justify-between items-center mb-8 border-b border-neutral-100 pb-4">
-                  <span className="text-lg font-display font-bold uppercase tracking-tight">Menu</span>
-                  <button 
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="w-8 h-8 rounded-full bg-neutral-50 flex items-center justify-center text-neutral-500 hover:text-black transition-colors"
-                  >
-                    <FontAwesomeIcon icon={faXmark} className="text-lg" />
-                  </button>
-                </div>
-
-                <div className="flex flex-col space-y-5">
-                  {navLinks.map((link) => {
+                {/* Nav Links */}
+                <nav className="flex-1 overflow-y-auto px-3 pt-4 pb-2 space-y-1">
+                  {navLinks.map((link, i) => {
                     const isActive = pathname === link.path || (link.path === '/shop' && pathname.startsWith('/product'));
                     return (
-                      <Link
+                      <motion.div
                         key={link.name}
-                        href={link.path}
-                        className={`text-xl font-display font-bold uppercase tracking-tight transition-colors ${
-                          isActive ? 'text-black' : 'text-neutral-500 hover:text-black'
-                        }`}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.05 + i * 0.055, duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                       >
-                        {link.name}
-                      </Link>
+                        <Link
+                          href={link.path}
+                          className={`relative flex items-center justify-between w-full px-4 py-3.5 rounded-xl transition-all duration-200 overflow-hidden group ${
+                            isActive
+                              ? 'bg-black text-white shadow-lg shadow-black/20'
+                              : 'text-neutral-500 hover:text-black hover:bg-neutral-50'
+                          }`}
+                        >
+                          {isActive && (
+                            <motion.span
+                              layoutId="mobile-nav-indicator"
+                              className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-white/50 rounded-r-full"
+                            />
+                          )}
+                          <div className="flex items-center space-x-3">
+                            <FontAwesomeIcon
+                              icon={link.icon}
+                              className={`w-4 text-sm flex-shrink-0 ${
+                                isActive ? 'text-white/70' : 'text-neutral-300'
+                              }`}
+                            />
+                            <span className="text-sm font-bold uppercase tracking-widest">
+                              {link.name}
+                            </span>
+                          </div>
+                          <FontAwesomeIcon
+                            icon={faChevronRight}
+                            className={`text-[10px] flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${
+                              isActive ? 'text-white/40' : 'text-neutral-200'
+                            }`}
+                          />
+                        </Link>
+                      </motion.div>
                     );
                   })}
-                </div>
+                </nav>
 
-                <div className="mt-auto pt-6 border-t border-neutral-100 flex flex-col space-y-4">
-                  {isAuthenticated ? (
-                    <>
-                      <Link href="/account" className="flex items-center space-x-3 text-base font-bold uppercase tracking-wider text-neutral-600 hover:text-black">
-                        {profile?.avatar_url ? (
-                          <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-neutral-200" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-neutral-100 text-black flex items-center justify-center text-xs font-bold border">
-                            {(profile?.full_name || user?.email)?.charAt(0)?.toUpperCase() || '?'}
-                          </div>
-                        )}
-                        <span>{profile?.full_name || 'My Account'}</span>
-                      </Link>
-                      <button 
-                        onClick={() => {
-                          setIsMobileMenuOpen(false);
-                          signOut();
-                        }}
-                        className="flex items-center space-x-3 text-base font-bold uppercase tracking-wider text-red-500 hover:text-red-600 text-left"
+                {/* Footer */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.32, duration: 0.3 }}
+                  className="px-3 pt-3 pb-4"
+                >
+                  {/* Social Links */}
+                  <div className="flex items-center justify-between px-1 pb-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Follow us on</span>
+                    <div className="flex items-center space-x-2">
+                      <Link
+                        href="https://www.instagram.com/gorermart?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Instagram"
+                        className="w-8 h-8 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-500 hover:bg-black hover:text-white hover:border-black transition-all duration-200"
                       >
-                        <FontAwesomeIcon icon={faRightFromBracket} />
-                        <span>Sign Out</span>
+                        <FontAwesomeIcon icon={faInstagram} className="text-xs" />
+                      </Link>
+                      <Link
+                        href="https://www.facebook.com/share/1Ko4ojtZoS/?mibextid=wwXIfr"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Facebook"
+                        className="w-8 h-8 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-500 hover:bg-black hover:text-white hover:border-black transition-all duration-200"
+                      >
+                        <FontAwesomeIcon icon={faFacebookF} className="text-xs" />
+                      </Link>
+                      <Link
+                        href="https://www.reddit.com/r/gorermart"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Reddit"
+                        className="w-8 h-8 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-500 hover:bg-black hover:text-white hover:border-black transition-all duration-200"
+                      >
+                        <FontAwesomeIcon icon={faReddit} className="text-xs" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Divider separating social links and sign in/user section */}
+                  <div className="h-px bg-neutral-100 my-3" />
+
+                  {/* Auth Section */}
+                  {isAuthenticated ? (
+                    <div className="space-y-0.5">
+                      {/* User tile — tap to expand */}
+                      <button
+                        onClick={() => setIsMobileUserExpanded(!isMobileUserExpanded)}
+                        className="flex items-center justify-between w-full px-4 py-3.5 rounded-none hover:bg-neutral-50 transition-all duration-200 cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-3">
+                          {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-neutral-200 flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {(profile?.full_name || user?.email)?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <div className="text-left min-w-0">
+                            <p className="text-xs font-bold uppercase tracking-widest text-black truncate">
+                              {profile?.full_name || 'My Account'}
+                            </p>
+                            <p className="text-[10px] text-neutral-400 truncate">{profile?.email || user?.email}</p>
+                          </div>
+                        </div>
+                        <motion.div
+                          animate={{ rotate: isMobileUserExpanded ? 90 : 0 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                        >
+                          <FontAwesomeIcon icon={faChevronRight} className="text-[10px] text-neutral-300" />
+                        </motion.div>
                       </button>
-                    </>
+
+                      {/* Expandable options */}
+                      <AnimatePresence>
+                        {isMobileUserExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pl-3 pr-1 pt-0.5 pb-1 space-y-0.5">
+                              <Link
+                                href="/account"
+                                className="flex items-center space-x-3 px-4 py-3 rounded-none text-neutral-600 hover:bg-neutral-50 hover:text-black transition-all duration-200"
+                              >
+                                <FontAwesomeIcon icon={faUser} className="text-sm w-4 text-neutral-400" />
+                                <span className="text-xs font-bold uppercase tracking-widest">Account</span>
+                              </Link>
+                              <button
+                                onClick={() => { setIsMobileMenuOpen(false); signOut(); }}
+                                className="flex items-center space-x-3 w-full px-4 py-3 rounded-none text-red-500 hover:bg-red-50 transition-all duration-200 cursor-pointer text-left"
+                              >
+                                <FontAwesomeIcon icon={faRightFromBracket} className="text-sm w-4" />
+                                <span className="text-xs font-bold uppercase tracking-widest">Logout</span>
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   ) : (
-                    <Link href="/login" className="flex items-center space-x-3 text-base font-bold uppercase tracking-wider text-neutral-600 hover:text-black">
-                      <FontAwesomeIcon icon={faUser} />
-                      <span>Sign In</span>
+                    <Link
+                      href="/login"
+                      className="relative flex items-center justify-between w-full px-4 py-4 rounded-none bg-neutral-50 hover:bg-neutral-100 text-neutral-900 transition-all duration-300 group overflow-hidden"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <FontAwesomeIcon icon={faUser} className="text-sm w-4 text-neutral-500 group-hover:text-black transition-colors" />
+                        <span className="text-sm font-bold uppercase tracking-widest text-neutral-800 group-hover:text-black">Sign In</span>
+                      </div>
+                      <FontAwesomeIcon
+                        icon={faChevronRight}
+                        className="text-[10px] text-neutral-400 group-hover:translate-x-1 transition-transform duration-300 group-hover:text-black"
+                      />
                     </Link>
                   )}
-                  <p className="text-xs text-neutral-400">© 2026 Gorer Mart. All rights reserved.</p>
-                </div>
+                </motion.div>
               </motion.div>
             </>
           )}

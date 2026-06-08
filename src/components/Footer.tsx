@@ -133,7 +133,7 @@ const Footer = () => {
         </div>
 
         <div className="pt-10 border-t border-neutral-100 flex justify-center items-center">
-          <p className="text-xs text-neutral-400 uppercase tracking-widest font-medium">
+          <p className="text-[10px] md:text-xs text-neutral-400 uppercase tracking-widest font-medium">
             © 2026 Gorer Mart. Developed with Gorom Rokto.
           </p>
         </div>
