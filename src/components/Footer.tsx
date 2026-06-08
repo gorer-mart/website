@@ -56,8 +56,8 @@ const Footer = () => {
   };
 
   return (
-    <footer className="bg-white border-t border-neutral-100 pt-20 pb-10">
-      <div className="container mx-auto px-6">
+    <footer className="bg-white border-t border-neutral-100 pt-20 pb-10 px-6 md:px-12 lg:px-24">
+      <div className="container mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-y-16 gap-x-8 lg:gap-x-12 mb-20">
           {/* Brand Info */}
           <div className="md:col-span-6 lg:col-span-4 flex flex-col space-y-6 pr-0 lg:pr-8">
@@ -133,7 +133,7 @@ const Footer = () => {
         </div>
 
         <div className="pt-10 border-t border-neutral-100 flex justify-center items-center">
-          <p className="text-xs text-neutral-400 uppercase tracking-widest font-medium">
+          <p className="text-[10px] md:text-xs text-neutral-400 uppercase tracking-widest font-medium">
             © 2026 Gorer Mart. Developed with Gorom Rokto.
           </p>
         </div>

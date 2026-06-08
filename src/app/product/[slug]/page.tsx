@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faMinus, faStar, faTruckFast, faRotateLeft, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faMinus, faStar, faTruckFast, faRotateLeft, faShieldHalved, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { PRODUCTS } from '../../../data/products';
 import { getProducts } from '../../../lib/sanity';
 import { Product } from '../../../types/product';
@@ -25,7 +25,28 @@ const ProductDetail: React.FC = () => {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [activeImage, setActiveImage] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showStickyBar, setShowStickyBar] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowStickyBar(window.scrollY > 600);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleMobileScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const scrollPos = container.scrollLeft;
+    const width = container.clientWidth;
+    if (width > 0) {
+      const index = Math.round(scrollPos / width);
+      if (index !== activeImage && index >= 0 && index < displayImages.length) {
+        setActiveImage(index);
+      }
+    }
+  };
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -108,33 +129,71 @@ const ProductDetail: React.FC = () => {
       <title>{`${product.name} | Gorer Mart Premium Streetwear`}</title>
       <meta name="description" content={`Shop ${product.name} at Gorer Mart. Premium Kolkata-inspired streetwear and apparel.`} />
 
-      <div className="container mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-          {/* Image Gallery */}
+      <div className="container mx-auto px-6 md:px-12 lg:px-24 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
+          {/* Responsive Image Gallery */}
           <div className="space-y-4">
-            <div className="aspect-[3/4] overflow-hidden bg-neutral-100">
-              <motion.img 
-                key={activeImage}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                src={displayImages[activeImage]?.src || displayImages[activeImage]} 
-                alt={product.name} 
-                className="w-full h-full object-cover"
-              />
+            {/* Desktop-only Main Image & Thumbnails */}
+            <div className="hidden lg:block space-y-4">
+              <div className="aspect-[3/4] overflow-hidden bg-neutral-100">
+                <motion.img 
+                  key={activeImage}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  src={displayImages[activeImage]?.src || displayImages[activeImage]} 
+                  alt={product.name} 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {displayImages.length > 1 && (
+                <div className="grid grid-cols-4 gap-4">
+                  {displayImages.map((img: any, idx: number) => (
+                    <button 
+                      key={idx}
+                      onClick={() => setActiveImage(idx)}
+                      className={`aspect-square overflow-hidden border-2 transition-all ${activeImage === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                    >
+                      <img src={img?.src || img} alt={`${product.name} ${idx}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            {displayImages.length > 1 && (
-              <div className="grid grid-cols-4 gap-4">
+
+            {/* Mobile-only Swipeable Touch Gallery Carousel */}
+            <div className="lg:hidden relative">
+              <div 
+                id="mobile-gallery-scroll"
+                onScroll={handleMobileScroll}
+                className="flex overflow-x-auto snap-x snap-mandatory gap-0 aspect-[3/4] no-scrollbar"
+                style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
                 {displayImages.map((img: any, idx: number) => (
-                  <button 
-                    key={idx}
-                    onClick={() => setActiveImage(idx)}
-                    className={`aspect-square overflow-hidden border-2 transition-all ${activeImage === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                  >
+                  <div key={idx} className="w-full h-full flex-shrink-0 snap-start snap-always relative">
                     <img src={img?.src || img} alt={`${product.name} ${idx}`} className="w-full h-full object-cover" />
-                  </button>
+                  </div>
                 ))}
               </div>
-            )}
+              {/* Dots Indicators */}
+              {displayImages.length > 1 && (
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10">
+                  {displayImages.map((_: any, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        const container = document.getElementById('mobile-gallery-scroll');
+                        if (container) {
+                          container.scrollTo({ left: container.clientWidth * idx, behavior: 'smooth' });
+                          setActiveImage(idx);
+                        }
+                      }}
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${activeImage === idx ? 'bg-black w-4' : 'bg-black/30'}`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Product Info */}
@@ -308,7 +367,7 @@ const ProductDetail: React.FC = () => {
         <section className="section-padding bg-white">
           <div className="container mx-auto">
             <h2 className="text-3xl uppercase tracking-tighter mb-12">You May Also Like</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
               {relatedProducts.map(p => (
                 <ProductCard key={p.id} product={p} />
               ))}
@@ -316,6 +375,50 @@ const ProductDetail: React.FC = () => {
           </div>
         </section>
       )}
+      {/* Mobile Sticky Bottom Buy Bar */}
+      <AnimatePresence>
+        {showStickyBar && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed bottom-0 inset-x-0 bg-white border-t border-neutral-200 p-4 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] z-50 flex items-center justify-between lg:hidden text-neutral-900"
+          >
+            <div className="flex items-center space-x-3 max-w-[50%]">
+              <img 
+                src={displayImages[0]?.src || displayImages[0]} 
+                alt={product.name} 
+                className="w-10 h-14 object-cover bg-neutral-100 flex-shrink-0" 
+              />
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold uppercase tracking-tight truncate">{product.name}</span>
+                <span className="text-xs font-display font-black text-black mt-0.5">₹{product.price.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <select 
+                  value={selectedSize} 
+                  onChange={(e) => setSelectedSize(e.target.value)}
+                  className="bg-neutral-50 border border-neutral-200 text-[10px] font-bold uppercase tracking-widest pl-2 pr-6 py-2.5 rounded-none h-10 focus:outline-none focus:border-black cursor-pointer appearance-none"
+                >
+                  {product.sizes.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <FontAwesomeIcon icon={faChevronDown} className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none text-neutral-400" />
+              </div>
+
+              <Button 
+                onClick={() => addToCart(product, quantity, selectedSize, selectedColor)}
+                className="h-10 px-5 bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-800 transition-all rounded-none cursor-pointer"
+              >
+                Add to Bag
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

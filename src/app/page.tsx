@@ -12,6 +12,7 @@ import ProductCard from '../components/ProductCard';
 import { Button } from '../ui/button';
 
 import hero from '../assets/hero_image.webp';
+import heroMobile from '../assets/hero-mobile.webp';
 import atoshi from '../assets/feedback/atoshi.webp';
 import sourav from '../assets/feedback/sourav.webp';
 import susan from '../assets/feedback/susan.webp';
@@ -40,7 +41,12 @@ const Home: React.FC = () => {
     if (!container) return;
 
     const handleInitialScroll = () => {
-      container.scrollLeft = container.scrollWidth / 3;
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        container.scrollLeft = container.scrollWidth / 3;
+      } else {
+        container.scrollLeft = 0;
+      }
     };
     handleInitialScroll();
     const timer = setTimeout(handleInitialScroll, 150);
@@ -56,35 +62,42 @@ const Home: React.FC = () => {
       <meta property="og:title" content="Gorer Mart | Authentic Kolkata Streetwear & Premium Apparel" />
       <meta property="og:description" content="Discover the intersection of Kolkata heritage and modern urban style. Ethically sourced, culturally inspired streetwear from the heart of Bengal." />
 
-      {/* Hero Section */}
-      <section className="relative h-screen w-full flex items-center overflow-hidden bg-neutral-900">
+      <section className="relative h-[65vh] md:h-screen mt-16 lg:mt-0 w-full flex items-center overflow-hidden bg-neutral-900 px-6 md:px-12 lg:px-24">
         <div className="absolute inset-0 z-0">
-          <img
-            src={typeof hero === 'object' ? hero.src : hero}
-            alt="Hero Background"
-            className="w-full h-full object-cover opacity-80"
-          />
+          <picture>
+            <source
+              media="(max-width: 1023px)"
+              srcSet={typeof heroMobile === 'object' ? heroMobile.src : heroMobile}
+            />
+            <img
+              src={typeof hero === 'object' ? hero.src : hero}
+              alt="Hero Background"
+              className="w-full h-full object-cover opacity-80"
+            />
+          </picture>
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent" />
         </div>
 
-        <div className="container mx-auto px-6 relative z-10">
+        <div className="container mx-auto relative z-10">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="max-w-2xl text-white"
           >
-            <span className="inline-block text-accent font-bold uppercase tracking-[0.3em] text-sm mb-4">
+            <span className="inline-block text-accent font-bold uppercase tracking-[0.4em] text-[10px] md:text-xs mb-4">
               Bengal's Own Drip
             </span>
             <h1 className="text-2xl md:text-5xl font-bold leading-[1.2] mb-8 tracking-relaxed">
               Get Ready For Endless{" "}
-              <br /><span className="text-yellow italic font-normal drop-shadow-[0_0_20px_rgba(255,215,0,0.4)]">
+              <br className="hidden md:inline" />
+              <span className="text-yellow italic font-normal drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] block md:inline my-2 md:my-0">
                 "Eta Kotha Theke Kinechish?"
-              </span><br />
+              </span>
+              <br className="hidden md:inline" />{" "}
               replies
             </h1>
-            <div className="flex flex-col sm:flex-row gap-4 mt-12">
+            <div className="hidden sm:flex flex-col sm:flex-row gap-4 mt-12">
               <Button
                 asChild
                 variant="premium"
@@ -104,15 +117,15 @@ const Home: React.FC = () => {
       </section>
 
       {/* Top Picks Section */}
-      <section className="section-padding bg-white">
+      <section className="py-12 px-6 md:py-20 md:px-12 lg:px-24 bg-white">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 text-center md:text-left">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-16 text-center md:text-left">
             <div className="max-w-xl">
               <motion.span
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
+                className="text-accent uppercase tracking-[0.4em] text-[10px] md:text-xs font-bold mb-4 block"
               >
                 Curated Excellence
               </motion.span>
@@ -121,7 +134,7 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl md:text-5xl uppercase font-display font-bold tracking-tighter mb-4 leading-tight"
+                className="text-3xl md:text-5xl uppercase font-display font-bold tracking-tighter mb-4 leading-tight"
               >
                 most pochhonder
               </motion.h2>
@@ -130,26 +143,26 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 }}
-                className="text-gray-400 text-base"
+                className="text-gray-400 text-sm md:text-base"
               >
-                People said that they loved it. (They said, we didn't)
+                People said that they loved it.{" "}
+                <span className="block md:inline">(They said, we didn't)</span>
               </motion.p>
             </div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="mt-8 md:mt-0"
+              className="hidden md:block mt-8 md:mt-0"
             >
-              <Link href="/shop" className="group flex items-center space-x-2 text-sm font-bold uppercase tracking-[0.2em] hover:text-accent transition-colors">
-                <span>View All Picks</span>
-                <FontAwesomeIcon icon={faArrowRightLong} className="group-hover:translate-x-2 transition-transform" />
-              </Link>
+              <Button asChild>
+                <Link href="/shop">View All</Link>
+              </Button>
             </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {topPicks.map((product, idx) => (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+            {topPicks.slice(0, 4).map((product, idx) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -161,19 +174,25 @@ const Home: React.FC = () => {
               </motion.div>
             ))}
           </div>
+
+          <div className="flex justify-center mt-12 md:hidden">
+            <Button asChild>
+              <Link href="/shop">View All</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* New Arrivals Section */}
-      <section className="section-padding bg-neutral-50">
+      <section className="py-12 px-6 md:py-20 md:px-12 lg:px-24 bg-neutral-50">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 text-center md:text-left">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-16 text-center md:text-left">
             <div className="max-w-xl">
               <motion.span
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.2rem] text-sm font-bold mb-4 block"
+                className="text-accent uppercase tracking-[0.2rem] text-[10px] md:text-xs font-bold mb-4 block"
               >
                 Latest Essentials
               </motion.span>
@@ -182,7 +201,7 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
+                className="text-3xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
               >
                 Taatka Drops
               </motion.h2>
@@ -191,26 +210,25 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 }}
-                className="text-gray-400 text-base"
+                className="text-gray-400 text-sm md:text-base"
               >
-                Every piece, exclusive. Every design, intentional.
+                Every piece, exclusive.{" "}<span className="block md:inline">Every design, intentional.</span>
               </motion.p>
             </div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="mt-8 md:mt-0"
+              className="hidden md:block mt-8 md:mt-0"
             >
-              <Link href="/shop" className="group flex items-center space-x-2 text-sm font-bold uppercase tracking-[0.2em] hover:text-accent transition-colors">
-                <span>View All New</span>
-                <FontAwesomeIcon icon={faArrowRightLong} className="group-hover:translate-x-2 transition-transform" />
-              </Link>
+              <Button asChild>
+                <Link href="/shop">View All</Link>
+              </Button>
             </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {newArrivals.map((product, idx) => (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+            {newArrivals.slice(0, 4).map((product, idx) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -222,14 +240,18 @@ const Home: React.FC = () => {
               </motion.div>
             ))}
           </div>
+
+          <div className="flex justify-center mt-12 md:hidden">
+            <Button asChild>
+              <Link href="/shop">View All</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* Brand Ethos / Philosophy Section */}
       <section className="section-padding bg-black text-white overflow-hidden relative">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[20vw] font-display font-black opacity-[0.03] whitespace-nowrap select-none pointer-events-none">
-          GORER MART • GORER MART
-        </div>
+
 
         <div className="container mx-auto relative z-10">
           <div className="max-w-4xl mx-auto text-center mb-20">
@@ -237,7 +259,7 @@ const Home: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-accent uppercase tracking-[0.4em] text-xs font-bold mb-6 block"
+              className="text-accent uppercase tracking-[0.4em] text-[10px] md:text-xs font-bold mb-6 block"
             >
               Our Philosophy
             </motion.span>
@@ -246,7 +268,7 @@ const Home: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
-              className="text-4xl md:text-6xl font-display font-bold uppercase tracking-tighter mb-8 leading-tight"
+              className="text-2xl md:text-6xl font-display font-bold uppercase tracking-tighter mb-8 leading-tight"
             >
               The Soul of Bengal, <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-yellow">Stitched for the World.</span>
@@ -256,7 +278,7 @@ const Home: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
-              className="text-neutral-400 text-lg md:text-lg font-light leading-relaxed max-w-2xl mx-auto"
+              className="text-neutral-400 text-[12px] md:text-lg font-light leading-relaxed max-w-2xl mx-auto"
             >
               At Gorer Mart, every design is a love letter to Bangla cinema, Moharothis, and unfiltered street spirit. Crafted for people who wear their culture proudly.
             </motion.p>
@@ -289,13 +311,19 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: item.delay, duration: 0.6 }}
-                className="glass-dark p-10 rounded-2xl group hover:border-accent/50 transition-all duration-500 hover:-translate-y-2"
+                className="glass-dark p-6 md:p-10 rounded-2xl group border border-accent/30 md:border-white/10 md:hover:border-accent/50 shadow-lg shadow-accent/20 md:shadow-none transition-all duration-500 hover:-translate-y-2"
               >
-                <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-8 group-hover:bg-accent/20 transition-colors">
-                  <FontAwesomeIcon icon={item.icon} className="text-2xl text-accent" />
+                <div className="flex flex-row md:flex-col-reverse justify-between items-center md:items-start gap-4 md:gap-0 mb-6 md:mb-0">
+
+                  <h3 className="text-2xl font-bold md:mb-4 group-hover:text-accent transition-colors">{item.title}</h3>
+
+                  <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-accent/20 md:bg-accent/10 flex items-center justify-center md:mb-8 group-hover:bg-accent/20 transition-colors shrink-0">
+                    <FontAwesomeIcon icon={item.icon} className="text-lg md:text-2xl text-accent" />
+                  </div>
+
                 </div>
-                <h3 className="text-2xl font-bold mb-4 group-hover:text-accent transition-colors">{item.title}</h3>
-                <p className="text-neutral-400 leading-relaxed">
+
+                <p className="text-neutral-400 leading-relaxed text-sm md:text-base">
                   {item.description}
                 </p>
               </motion.div>
@@ -317,9 +345,9 @@ const Home: React.FC = () => {
       </section>
 
       {/* Premium Customer Feedback Carousel - White Theme */}
-      <section className="py-24 bg-white relative">
+      <section className="py-24 bg-white relative px-6 md:px-12 lg:px-24">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-2 px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-8 text-center md:text-left">
             <div className="max-w-2xl">
               <motion.span
                 initial={{ opacity: 0, x: -20 }}
@@ -334,17 +362,41 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tighter"
+                className="text-3xl md:text-5xl font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
               >
-                Voices of Gorer Mart
+                Ke Ki Bole Gelo
               </motion.h2>
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative flex items-center justify-center">
+            {/* Mobile Left Arrow */}
+            <button
+              onClick={() => {
+                const container = document.getElementById('feedback-container');
+                if (container) {
+                  const card = container.firstElementChild as HTMLElement;
+                  const step = card ? card.offsetWidth + 32 : 372;
+
+                  // If we are getting too close to the left edge, instantly jump to the middle copy
+                  if (container.scrollLeft <= container.scrollWidth / 3 + 100) {
+                    container.style.scrollBehavior = 'auto';
+                    container.scrollLeft = container.scrollLeft + container.scrollWidth / 3;
+                    container.offsetHeight; // force reflow
+                  }
+
+                  container.style.scrollBehavior = 'smooth';
+                  container.scrollBy({ left: -step, behavior: 'smooth' });
+                }
+              }}
+              className="md:hidden absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full border border-neutral-200 bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-black hover:text-white hover:border-black active:scale-95 transition-all shadow-md cursor-pointer text-black"
+            >
+              <FontAwesomeIcon icon={faChevronLeft} className="text-sm" />
+            </button>
+
             <div
               id="feedback-container"
-              className="flex space-x-8 overflow-x-hidden no-scrollbar scroll-smooth py-12 px-12 md:px-24 snap-x snap-mandatory"
+              className="flex space-x-8 overflow-x-hidden no-scrollbar scroll-smooth py-12 snap-x snap-mandatory w-full"
             >
               {[...Array(3)].flatMap(() => [
                 {
@@ -375,7 +427,7 @@ const Home: React.FC = () => {
               ]).map((feedback, idx) => (
                 <motion.div
                   key={idx}
-                  className="min-w-[260px] md:min-w-[340px] bg-white p-6 md:p-8 rounded-2xl border border-neutral-100 flex flex-col justify-between hover:border-accent/40 hover:shadow-xl transition-all duration-500 group relative snap-start"
+                  className="w-[calc(100vw-6rem)] min-w-[calc(100vw-6rem)] md:w-[340px] md:min-w-[340px] bg-white p-6 md:p-8 rounded-2xl border border-neutral-100 flex flex-col justify-between hover:border-accent/40 hover:shadow-xl transition-all duration-500 group relative snap-center md:snap-start"
                 >
                   <div className="relative z-10">
                     <div className="text-accent/20 mb-4 group-hover:text-accent transition-colors">
@@ -397,8 +449,32 @@ const Home: React.FC = () => {
                 </motion.div>
               ))}
             </div>
+
+            {/* Mobile Right Arrow */}
+            <button
+              onClick={() => {
+                const container = document.getElementById('feedback-container');
+                if (container) {
+                  const card = container.firstElementChild as HTMLElement;
+                  const step = card ? card.offsetWidth + 32 : 372;
+
+                  // If we are getting too close to the right edge of the middle section, instantly jump back
+                  if (container.scrollLeft + container.clientWidth >= (container.scrollWidth * 2) / 3 - 100) {
+                    container.style.scrollBehavior = 'auto';
+                    container.scrollLeft = container.scrollLeft - container.scrollWidth / 3;
+                    container.offsetHeight; // force reflow
+                  }
+
+                  container.style.scrollBehavior = 'smooth';
+                  container.scrollBy({ left: step, behavior: 'smooth' });
+                }
+              }}
+              className="md:hidden absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full border border-neutral-200 bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-black hover:text-white hover:border-black active:scale-95 transition-all shadow-md cursor-pointer text-black"
+            >
+              <FontAwesomeIcon icon={faChevronRight} className="text-sm" />
+            </button>
           </div>
-          <div className="flex space-x-4 mt-8 md:mt-0 justify-end">
+          <div className="hidden md:flex space-x-4 mt-8 md:mt-0 justify-end">
             <button
               onClick={() => {
                 const container = document.getElementById('feedback-container');
@@ -417,7 +493,7 @@ const Home: React.FC = () => {
                   container.scrollBy({ left: -step, behavior: 'smooth' });
                 }
               }}
-              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-all group cursor-pointer"
+              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-all group cursor-pointer text-black"
             >
               <FontAwesomeIcon icon={faChevronLeft} className="text-sm group-active:-translate-x-1 transition-transform" />
             </button>
@@ -439,7 +515,7 @@ const Home: React.FC = () => {
                   container.scrollBy({ left: step, behavior: 'smooth' });
                 }
               }}
-              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-all group cursor-pointer"
+              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-all group cursor-pointer text-black"
             >
               <FontAwesomeIcon icon={faChevronRight} className="text-sm group-active:translate-x-1 transition-transform" />
             </button>

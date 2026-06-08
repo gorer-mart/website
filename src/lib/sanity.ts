@@ -37,7 +37,7 @@ export function urlFor(source: any) {
 export async function getProducts(): Promise<Product[]> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/products', { cache: 'no-store' });
       if (res.ok) {
         return await res.json();
       }
@@ -70,7 +70,7 @@ export async function getProducts(): Promise<Product[]> {
       "details": category->details,
       "washCare": category->washCare
     }`;
-    const sanityProducts = await client.fetch(query);
+    const sanityProducts = await client.fetch(query, {}, { cache: 'no-store' });
 
     if (sanityProducts && sanityProducts.length > 0) {
       return sanityProducts.map((p: any) => {
@@ -120,7 +120,7 @@ export async function getProducts(): Promise<Product[]> {
 export async function getCategories(): Promise<Category[]> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/categories');
+      const res = await fetch('/api/categories', { cache: 'no-store' });
       if (res.ok) {
         return await res.json();
       }
@@ -140,7 +140,7 @@ export async function getCategories(): Promise<Category[]> {
       image,
       itemCount
     }`;
-    const sanityCategories = await client.fetch(query);
+    const sanityCategories = await client.fetch(query, {}, { cache: 'no-store' });
 
     if (sanityCategories && sanityCategories.length > 0) {
       return sanityCategories.map((c: any) => ({
@@ -164,7 +164,7 @@ export interface HomePageShowcase {
 export async function getHomePageShowcase(): Promise<HomePageShowcase> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/showcase');
+      const res = await fetch('/api/showcase', { cache: 'no-store' });
       if (res.ok) {
         return await res.json();
       }
@@ -223,11 +223,11 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
       }
     }`;
 
-    const showcaseData = await client.fetch(query);
+    const showcaseData = await client.fetch(query, {}, { cache: 'no-store' });
 
     const mapProducts = (productsRaw: any[]) => {
       if (!productsRaw || !Array.isArray(productsRaw)) return [];
-      return productsRaw.map((p: any) => {
+      return productsRaw.filter(Boolean).map((p: any) => {
         const mappedVariants = p.images ? p.images.map((v: any) => ({
           color: v.color,
           images: v.images ? v.images.map((img: any) => {

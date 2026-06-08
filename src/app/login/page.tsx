@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -55,9 +55,11 @@ const SolidInput: React.FC<SolidInputProps> = ({
   </div>
 );
 
-const Login: React.FC = () => {
+const LoginContent: React.FC = () => {
   const { loading, signUp, signIn, signInWithGoogle, isAuthenticated } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/account';
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [formLoading, setFormLoading] = useState<boolean>(false);
@@ -72,9 +74,9 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.push('/account');
+      router.push(redirectTo);
     }
-  }, [loading, isAuthenticated, router]);
+  }, [loading, isAuthenticated, redirectTo, router]);
 
   const resetForm = () => {
     setFirstName('');
@@ -316,6 +318,18 @@ const Login: React.FC = () => {
         </div>
       </motion.div>
     </>
+  );
+};
+
+const Login: React.FC = () => {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#1C1C28] text-white">
+        <div className="w-8 h-8 border-2 border-yellow border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 };
 
