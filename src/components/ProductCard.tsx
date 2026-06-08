@@ -102,51 +102,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
       {/* Product Info */}
       <div className="flex flex-col text-left">
-        <div className="mb-1 md:mb-2">
+        <div className="mb-1">
           <Link 
             href={`/product/${product.id}`} 
-            className="text-[9px] md:text-xs font-bold uppercase tracking-[0.1em] text-neutral-400 hover:text-black transition-colors block mb-0.5 md:mb-1"
-          >
-            {product.category}
-          </Link>
-          <Link 
-            href={`/product/${product.id}`} 
-            className="text-sm sm:text-base md:text-lg font-display font-bold uppercase tracking-tighter hover:text-accent transition-colors leading-tight line-clamp-1"
+            className="text-xs sm:text-sm md:text-lg font-display font-normal hover:text-accent transition-colors leading-tight"
           >
             {product.name}
           </Link>
         </div>
-        <div className="flex items-center justify-start space-x-2">
-          <span className="font-display font-black text-base md:text-lg text-neutral-900">₹{product.price.toLocaleString('en-IN')}</span>
-          <span className="text-[9px] md:text-[10px] text-neutral-400 line-through opacity-50">₹{(product.price + 500).toLocaleString('en-IN')}</span>
+        <div className="flex items-center justify-start">
+          <span className="font-display font-normal text-base md:text-lg text-neutral-900">₹{product.price.toLocaleString('en-IN')}</span>
         </div>
-
-        {/* Color swatches */}
-        {hasVariants && (
-          <div className="flex items-center justify-start gap-1.5 mt-2">
-            {product.colorVariants.map((v: any) => {
-              const swatchColor = COLOR_SWATCHES[v.color.toLowerCase().trim()] || v.color;
-              const isSelected = selectedColor === v.color;
-              const isWhite = ['white', '#ffffff', 'offwhite'].includes(v.color.toLowerCase().trim());
-              return (
-                <button
-                  key={v.color}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleColorChange(v.color);
-                  }}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    isWhite ? 'border border-neutral-300' : ''
-                  } ${
-                    isSelected ? 'ring-1 ring-black ring-offset-1 scale-110' : 'hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: swatchColor }}
-                  title={v.color}
-                />
-              );
-            })}
-          </div>
-        )}
       </div>
     </motion.div>
   );

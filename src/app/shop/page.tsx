@@ -105,14 +105,14 @@ const ShopContent: React.FC = () => {
       <meta name="description" content="Browse our complete collection of premium Kolkata-inspired apparel." />
 
       {/* Header */}
-      <section className="relative overflow-hidden text-black border-b border-neutral-100 flex items-center justify-center min-h-[20vh] bg-neutral-50">
-        <div className="container mx-auto relative z-10 px-6">
+      <section className="relative overflow-hidden text-black border-b border-neutral-100 flex items-center justify-center min-h-[20vh] bg-neutral-50 px-6 md:px-12 lg:px-24">
+        <div className="container mx-auto relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 className="text-4xl md:text-6xl font-display font-bold uppercase tracking-tighter mb-4">
+            <h1 className="text-3xl md:text-5xl font-display font-bold uppercase tracking-tighter mb-4">
               {activeCollection === 'All' ? 'The Collection' : activeCollection}
             </h1>
             <nav className="flex items-center text-[10px] font-bold uppercase tracking-[0.3em] text-neutral-400">
@@ -124,7 +124,8 @@ const ShopContent: React.FC = () => {
         </div>
       </section>
 
-      <div className="container mx-auto px-6 flex flex-col lg:flex-row">
+      <section className="px-6 md:px-12 lg:px-24">
+        <div className="container mx-auto flex flex-col lg:flex-row">
         {/* Sidebar */}
         <aside className="hidden lg:block w-72 flex-shrink-0 py-12 sticky top-16 h-[calc(100vh-64px)] overflow-y-auto pr-12 no-scrollbar border-r border-neutral-100">
           <div className="space-y-12">
@@ -382,6 +383,7 @@ const ShopContent: React.FC = () => {
           )}
         </main>
       </div>
+      </section>
 
       {/* Mobile Filter Drawer */}
       <AnimatePresence>

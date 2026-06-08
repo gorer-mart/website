@@ -50,7 +50,7 @@ const About: React.FC = () => {
       <meta name="keywords" content="Gorer Mart story, Kolkata streetwear brand, ethical fashion India, premium apparel Bengal, our team, clothing brand founders" />
 
       {/* Thin Hero Banner */}
-      <section className="relative pt-32 pb-20 px-6 flex items-center justify-center overflow-hidden">
+      <section className="relative pt-32 pb-20 px-6 md:px-12 lg:px-24 flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img
             src="https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2000&auto=format&fit=crop"
@@ -60,13 +60,13 @@ const About: React.FC = () => {
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
         </div>
 
-        <div className="relative z-10 container mx-auto px-6 md:px-20 text-center">
+        <div className="relative z-10 container mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
-            <h1 className="text-xl md:text-3xl font-display font-normal leading-relaxed text-white italic">
+            <h1 className="text-lg md:text-3xl font-display font-normal leading-relaxed text-white italic">
               "We didn't set out to create just another clothing brand. We wanted to build a movement that <span className="font-normal text-accent italic">respects our roots</span> while aggressively pursuing the future of urban fashion."
             </h1>
           </motion.div>
@@ -74,11 +74,11 @@ const About: React.FC = () => {
       </section>
 
       {/* Editorial Content Blocks */}
-      <section className="pb-32">
-        <div className="container mx-auto px-6 max-w-7xl space-y-32">
+      <section className="pb-32 px-6 md:px-12 lg:px-24">
+        <div className="container mx-auto max-w-7xl space-y-32">
 
           {/* Block 1 */}
-          <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+          <div className="mt-6 md:mt-0 flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -143,8 +143,8 @@ const About: React.FC = () => {
       </section>
 
       {/* Team Section */}
-      <section className="py-32 bg-neutral-50 border-t border-neutral-200">
-        <div className="container mx-auto px-6 max-w-7xl">
+      <section className="py-32 bg-neutral-50 border-t border-neutral-200 px-6 md:px-12 lg:px-24">
+        <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-24">
             <motion.span
               initial={{ opacity: 0, y: 20 }}
@@ -218,8 +218,8 @@ const About: React.FC = () => {
       </section>
 
       {/* Minimal Stats */}
-      <section className="bg-black text-white py-24 border-t border-white/10">
-        <div className="container mx-auto px-6 max-w-6xl">
+      <section className="bg-black text-white py-24 border-t border-white/10 px-6 md:px-12 lg:px-24">
+        <div className="container mx-auto max-w-6xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 text-center divide-x divide-white/10">
             {[
               { number: "10k+", label: "Community Members" },

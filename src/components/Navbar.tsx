@@ -59,7 +59,7 @@ const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className={`relative w-full h-16 transition-all duration-500 border-b shadow-premium lg:shadow-none
+        className={`relative w-full h-16 transition-all duration-500 border-b shadow-premium lg:shadow-none px-6 md:px-12 lg:px-24
         ${isHomePage
           ? `bg-white border-neutral-100 lg:border-transparent ${
               isScrolled 
@@ -69,7 +69,7 @@ const Navbar: React.FC = () => {
           : 'bg-white border-neutral-100'
         }`}
       >
-        <div className="container mx-auto px-6 h-full flex items-center justify-between">
+        <div className="container mx-auto h-full flex items-center justify-between">
           <button
             className="lg:hidden text-xl text-black transition-colors duration-500"
             onClick={() => setIsMobileMenuOpen(true)}
@@ -78,19 +78,25 @@ const Navbar: React.FC = () => {
           </button>
 
           <div className="hidden lg:flex items-center space-x-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.path}
-                className={`text-xs font-bold uppercase tracking-widest transition-colors duration-500 ${
-                  isHomePage && !isScrolled
-                    ? 'text-black lg:text-white/80 lg:hover:text-white hover:text-accent'
-                    : 'text-black hover:text-accent'
-                }`}
-              >
-                {link.name}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const isActive = pathname === link.path || (link.path === '/shop' && pathname.startsWith('/product'));
+              return (
+                <Link
+                  key={link.name}
+                  href={link.path}
+                  className={`relative text-xs font-bold uppercase tracking-widest transition-all duration-300 py-1.5
+                    after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px]
+                    after:origin-left after:transition-transform after:duration-300 after:ease-[cubic-bezier(0.16,1,0.3,1)] after:bg-current
+                    ${isHomePage && !isScrolled
+                      ? `${isActive ? 'text-black lg:text-white after:scale-x-100' : 'text-black lg:text-white/80 after:scale-x-0 hover:after:scale-x-100'}`
+                      : `${isActive ? 'text-black after:scale-x-100' : 'text-black after:scale-x-0 hover:after:scale-x-100'}`
+                    }
+                  `}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
           </div>
 
           <Link
@@ -245,15 +251,20 @@ const Navbar: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col space-y-5">
-                  {navLinks.map((link) => (
-                    <Link
-                      key={link.name}
-                      href={link.path}
-                      className="text-xl font-display font-bold uppercase tracking-tight hover:text-accent transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  ))}
+                  {navLinks.map((link) => {
+                    const isActive = pathname === link.path || (link.path === '/shop' && pathname.startsWith('/product'));
+                    return (
+                      <Link
+                        key={link.name}
+                        href={link.path}
+                        className={`text-xl font-display font-bold uppercase tracking-tight transition-colors ${
+                          isActive ? 'text-black' : 'text-neutral-500 hover:text-black'
+                        }`}
+                      >
+                        {link.name}
+                      </Link>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-auto pt-6 border-t border-neutral-100 flex flex-col space-y-4">

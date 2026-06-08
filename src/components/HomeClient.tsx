@@ -48,7 +48,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent" />
         </div>
 
-        <div className="container mx-auto px-6 relative z-10">
+        <div className="container mx-auto px-6 md:px-12 lg:px-24 relative z-10">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
@@ -90,15 +90,15 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
       </section>
 
       {/* Top Picks Section */}
-      <section className="section-padding bg-white">
+      <section className="py-12 px-6 md:py-20 md:px-12 lg:px-24 bg-white">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 text-center md:text-left">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-16 text-center md:text-left">
             <div className="max-w-xl">
               <motion.span
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
+                className="text-accent uppercase tracking-[0.4em] text-[10px] md:text-xs font-bold mb-4 block"
               >
                 Curated Excellence
               </motion.span>
@@ -107,7 +107,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl md:text-5xl uppercase font-display font-bold tracking-tighter mb-4 leading-tight text-neutral-900"
+                className="text-3xl md:text-5xl uppercase font-display font-bold tracking-tighter mb-4 leading-tight text-neutral-900"
               >
                 most pochhonder
               </motion.h2>
@@ -116,26 +116,26 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 }}
-                className="text-gray-400 text-base"
+                className="text-gray-400 text-sm md:text-base"
               >
-                People said that they loved it. (They said, we didn't)
+                People said that they loved it.{" "}
+                <span className="block md:inline">(They said, we didn't)</span>
               </motion.p>
             </div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="mt-8 md:mt-0"
+              className="hidden md:block mt-8 md:mt-0"
             >
-              <Link href="/shop" className="group flex items-center space-x-2 text-sm font-bold uppercase tracking-[0.2em] hover:text-accent transition-colors text-neutral-900">
-                <span>View All Picks</span>
-                <FontAwesomeIcon icon={faArrowRightLong} className="group-hover:translate-x-2 transition-transform text-neutral-900" />
-              </Link>
+              <Button asChild>
+                <Link href="/shop">View All</Link>
+              </Button>
             </motion.div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-            {topPicks.map((product, idx) => (
+            {topPicks.slice(0, 4).map((product, idx) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -147,19 +147,25 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
               </motion.div>
             ))}
           </div>
+
+          <div className="flex justify-center mt-12 md:hidden">
+            <Button asChild>
+              <Link href="/shop">View All</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* New Arrivals Section */}
-      <section className="section-padding bg-neutral-50">
+      <section className="py-12 px-6 md:py-20 md:px-12 lg:px-24 bg-neutral-50">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 text-center md:text-left">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-16 text-center md:text-left">
             <div className="max-w-xl">
               <motion.span
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.2rem] text-sm font-bold mb-4 block"
+                className="text-accent uppercase tracking-[0.2rem] text-[10px] md:text-xs font-bold mb-4 block"
               >
                 Latest Essentials
               </motion.span>
@@ -168,7 +174,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
+                className="text-3xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
               >
                 Taatka Drops
               </motion.h2>
@@ -177,26 +183,26 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 }}
-                className="text-gray-400 text-base"
+                className="text-gray-400 text-sm md:text-base"
               >
-                Every piece, exclusive. Every design, intentional.
+                Every piece, exclusive.{" "}
+                <span className="block md:inline">Every design, intentional.</span>
               </motion.p>
             </div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="mt-8 md:mt-0"
+              className="hidden md:block mt-8 md:mt-0"
             >
-              <Link href="/shop" className="group flex items-center space-x-2 text-sm font-bold uppercase tracking-[0.2em] hover:text-accent transition-colors text-black">
-                <span>View All New</span>
-                <FontAwesomeIcon icon={faArrowRightLong} className="group-hover:translate-x-2 transition-transform text-black" />
-              </Link>
+              <Button asChild>
+                <Link href="/shop">View All</Link>
+              </Button>
             </motion.div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-            {newArrivals.map((product, idx) => (
+            {newArrivals.slice(0, 4).map((product, idx) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -207,6 +213,12 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 <ProductCard product={product} />
               </motion.div>
             ))}
+          </div>
+
+          <div className="flex justify-center mt-12 md:hidden">
+            <Button asChild>
+              <Link href="/shop">View All</Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -275,13 +287,15 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: item.delay, duration: 0.6 }}
-                className="glass-dark p-10 rounded-2xl group hover:border-accent/50 transition-all duration-500 hover:-translate-y-2"
+                className="glass-dark p-10 rounded-2xl group border border-accent/50 md:border-white/10 md:hover:border-accent/50 transition-all duration-500 hover:-translate-y-2"
               >
-                <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-8 group-hover:bg-accent/20 transition-colors">
-                  <FontAwesomeIcon icon={item.icon} className="text-2xl text-accent" />
+                <div className="flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 mb-6 md:mb-0">
+                  <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center md:mb-8 group-hover:bg-accent/20 transition-colors shrink-0">
+                    <FontAwesomeIcon icon={item.icon} className="text-2xl text-accent" />
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold md:mb-4 group-hover:text-accent transition-colors">{item.title}</h3>
                 </div>
-                <h3 className="text-2xl font-bold mb-4 group-hover:text-accent transition-colors">{item.title}</h3>
-                <p className="text-neutral-400 leading-relaxed">
+                <p className="text-neutral-400 leading-relaxed text-sm md:text-base">
                   {item.description}
                 </p>
               </motion.div>
@@ -305,7 +319,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
       {/* Premium Customer Feedback Carousel - White Theme */}
       <section className="py-24 bg-white relative">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-2 px-4">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-2 px-6 md:px-12 lg:px-24">
             <div className="max-w-2xl">
               <motion.span
                 initial={{ opacity: 0, x: -20 }}
@@ -384,7 +398,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
               ))}
             </div>
           </div>
-          <div className="flex space-x-4 mt-8 md:mt-0 justify-end">
+          <div className="flex space-x-4 mt-8 md:mt-0 justify-end px-6 md:px-12 lg:px-24">
             <button
               onClick={() => {
                 const container = document.getElementById('feedback-container');

@@ -32,7 +32,7 @@ const Account: React.FC = () => {
       <meta name="description" content="Manage your Gorer Mart account" />
 
       <div className="pt-24 pb-20 min-h-screen bg-neutral-50">
-        <div className="container mx-auto px-4 sm:px-6 max-w-5xl">
+        <div className="container mx-auto px-6 md:px-12 lg:px-24 max-w-5xl">
           
           {/* Dashboard Header with Cover */}
           <motion.div

@@ -129,7 +129,7 @@ const ProductDetail: React.FC = () => {
       <title>{`${product.name} | Gorer Mart Premium Streetwear`}</title>
       <meta name="description" content={`Shop ${product.name} at Gorer Mart. Premium Kolkata-inspired streetwear and apparel.`} />
 
-      <div className="container mx-auto px-6 py-12">
+      <div className="container mx-auto px-6 md:px-12 lg:px-24 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Responsive Image Gallery */}
           <div className="space-y-4">

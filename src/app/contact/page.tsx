@@ -18,7 +18,7 @@ const Contact: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
             {/* Contact Info */}
             <div>
-              <h1 className="text-5xl md:text-7xl font-display font-bold uppercase tracking-tighter mb-8">Get In Touch</h1>
+              <h1 className="text-3xl md:text-5xl font-display font-bold uppercase tracking-tighter mb-8">Get In Touch</h1>
               <p className="text-neutral-500 text-lg mb-12 leading-relaxed">
                 Have a question about our collections, sizing, or an existing order? 
                 Our team is here to help you. Reach out via the form or through our direct channels.
