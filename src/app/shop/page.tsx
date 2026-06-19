@@ -208,7 +208,7 @@ const ShopContent: React.FC = () => {
             <Button
               variant="outline"
               onClick={clearFilters}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-neutral-200 bg-white text-sm font-normal text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer group"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-neutral-200 bg-white text-sm font-normal text-black hover:bg-neutral-100 hover:text-black hover:border-neutral-300 transition-all cursor-pointer group"
             >
                 <FontAwesomeIcon icon={faArrowRotateLeft} className="text-xs text-neutral-500 group-hover:rotate-[-180deg] transition-transform duration-500" />
                 <span>Reset</span>
