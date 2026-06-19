@@ -110,7 +110,7 @@ const CartDrawer = () => {
                       </div>
                       <div className="flex-1 flex flex-col min-w-0">
                         <div className="flex justify-between items-start mb-1 gap-2">
-                          <h3 className="font-semibold text-sm uppercase leading-tight truncate">{item.name}</h3>
+                          <h3 className="font-normal text-sm leading-tight truncate">{item.name}</h3>
                           <button
                             onClick={() => removeFromCart(item.id, item.selectedSize)}
                             className="text-neutral-300 hover:text-red-500 transition-colors flex-shrink-0 cursor-pointer"

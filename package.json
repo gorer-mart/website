@@ -5,7 +5,7 @@
   "description": "Gorer Mart — Kolkata-inspired t-shirts and streetwear",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "NODE_OPTIONS='--max-old-space-size=3072' next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

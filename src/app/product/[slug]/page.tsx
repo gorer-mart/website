@@ -5,18 +5,21 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faMinus, faStar, faTruckFast, faRotateLeft, faShieldHalved, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faMinus, faStar, faTruckFast, faRotateLeft, faShieldHalved, faChevronDown, faShareNodes, faCopy, faCheck, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp, faFacebook, faTwitter } from '@fortawesome/free-brands-svg-icons';
 import { PRODUCTS } from '../../../data/products';
 import { getProducts } from '../../../lib/sanity';
 import { Product } from '../../../types/product';
 import { useCart } from '../../../context/CartContext';
 import ProductCard from '../../../components/ProductCard';
 import { Button } from '../../../ui/button';
+import { useAuth } from '../../../context/AuthContext';
 
 const ProductDetail: React.FC = () => {
   const params = useParams();
   const id = params?.slug as string;
   const { addToCart } = useCart();
+  const { user } = useAuth();
   
   const [productsList, setProductsList] = useState<Product[]>(PRODUCTS);
   const [product, setProduct] = useState<Product | undefined>(PRODUCTS.find(p => p.id === parseInt(id)));
@@ -27,6 +30,39 @@ const ProductDetail: React.FC = () => {
   const [activeImage, setActiveImage] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [showStickyBar, setShowStickyBar] = useState<boolean>(false);
+
+  // Reviews state
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState<boolean>(true);
+  const [reviewsAverage, setReviewsAverage] = useState<number>(0);
+  const [reviewsCount, setReviewsCount] = useState<number>(0);
+
+  // Review form state
+  const [formRating, setFormRating] = useState<number>(5);
+  const [formHoverRating, setFormHoverRating] = useState<number>(0);
+  const [formComment, setFormComment] = useState<string>('');
+  const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string>('');
+  const [submitSuccess, setSubmitSuccess] = useState<string>('');
+
+  // Share state
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareText = product ? `Check out ${product.name} at Gorer Mart!` : 'Check out Gorer Mart streetwear!';
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -75,6 +111,103 @@ const ProductDetail: React.FC = () => {
       window.scrollTo(0, 0);
     }
   }, [product]);
+
+  useEffect(() => {
+    if (product) {
+      const fetchReviews = async () => {
+        setReviewsLoading(true);
+        try {
+          const productId = product._id || String(product.id);
+          const res = await fetch(`/api/reviews?productId=${productId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setReviews(data);
+            const count = data.length;
+            const avg = count > 0 ? Math.round(data.reduce((acc: number, r: any) => acc + r.rating, 0) / count) : 0;
+            setReviewsAverage(avg);
+            setReviewsCount(count);
+          }
+        } catch (e) {
+          console.error("Error fetching reviews:", e);
+        } finally {
+          setReviewsLoading(false);
+        }
+      };
+      fetchReviews();
+
+      // Reset form states when switching products
+      setFormRating(5);
+      setFormComment('');
+      setSubmitError('');
+      setSubmitSuccess('');
+    }
+  }, [product]);
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product || !user) return;
+    if (formRating < 1 || formRating > 5) {
+      setSubmitError("Please select a rating.");
+      return;
+    }
+
+    setSubmittingReview(true);
+    setSubmitError('');
+    setSubmitSuccess('');
+
+    try {
+      const productId = product._id || String(product.id);
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId,
+          rating: formRating,
+          comment: formComment,
+          name: product.name,
+          price: product.price,
+          slug: product.slug,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubmitSuccess('Thank you! Your review has been submitted.');
+        setFormComment('');
+        setFormRating(5);
+        
+        const updatedReviews = [data.review, ...reviews];
+        setReviews(updatedReviews);
+        const count = updatedReviews.length;
+        const avg = count > 0 ? Math.round(updatedReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / count) : 0;
+        setReviewsAverage(avg);
+        setReviewsCount(count);
+      } else {
+        setSubmitError(data.error || 'Failed to submit review. Please try again.');
+      }
+    } catch (err) {
+      console.error("Submit review error:", err);
+      setSubmitError('An unexpected error occurred. Please try again.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const renderStars = (rating: number) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <FontAwesomeIcon
+          key={i}
+          icon={faStar}
+          className={i <= rating ? 'text-accent' : 'text-neutral-200'}
+        />
+      );
+    }
+    return stars;
+  };
 
   if (!product) {
     if (loading) {
@@ -198,28 +331,19 @@ const ProductDetail: React.FC = () => {
 
           {/* Product Info */}
           <div className="flex flex-col">
-            <nav className="flex items-center text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 mb-6">
-              <Link href="/" className="hover:text-black">Home</Link>
-              <span className="mx-2">/</span>
-              <Link href="/shop" className="hover:text-black">Shop</Link>
-              <span className="mx-2">/</span>
-              <span className="text-black">{product.name}</span>
-            </nav>
-
-            <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tighter mb-4 leading-tight">
+            <h1 className="text-2xl md:text-3xl font-display font-normal tracking-tighter mb-2 leading-tight">
               {product.name}
             </h1>
             
-            <div className="flex items-center space-x-4 mb-10">
-              <span className="text-2xl font-display font-bold">₹{product.price.toLocaleString('en-IN')}</span>
-              <div className="flex items-center text-accent text-xs">
-                <FontAwesomeIcon icon={faStar} />
-                <FontAwesomeIcon icon={faStar} />
-                <FontAwesomeIcon icon={faStar} />
-                <FontAwesomeIcon icon={faStar} />
-                <FontAwesomeIcon icon={faStar} />
-                <span className="ml-2 text-neutral-400 font-bold uppercase tracking-widest">(24 Reviews)</span>
-              </div>
+            <div className="flex items-center text-accent text-xs mb-3">
+              {reviewsCount > 0 ? renderStars(reviewsAverage) : renderStars(0)}
+              <span className="ml-2 text-neutral-400 font-bold uppercase tracking-widest">
+                ({reviewsCount} {reviewsCount === 1 ? 'Review' : 'Reviews'})
+              </span>
+            </div>
+
+            <div className="text-2xl font-display font-bold mb-8">
+              ₹{product.price.toLocaleString('en-IN')}
             </div>
 
             {/* Selectors */}
@@ -289,7 +413,7 @@ const ProductDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Button 
                 onClick={() => addToCart(product, quantity, selectedSize, selectedColor)}
                 className="flex-[2] py-5"
@@ -301,35 +425,107 @@ const ProductDetail: React.FC = () => {
               </Button>
             </div>
 
-            {/* Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-10 border-t border-neutral-100">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-neutral-50 rounded-full flex items-center justify-center text-neutral-600">
-                  <FontAwesomeIcon icon={faTruckFast} />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Fast Delivery</span>
-                  <span className="text-[10px] text-neutral-400 uppercase">2-4 Business Days</span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-neutral-50 rounded-full flex items-center justify-center text-neutral-600">
-                  <FontAwesomeIcon icon={faRotateLeft} />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Free Returns</span>
-                  <span className="text-[10px] text-neutral-400 uppercase">Within 30 Days</span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-neutral-50 rounded-full flex items-center justify-center text-neutral-600">
-                  <FontAwesomeIcon icon={faShieldHalved} />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Secure Payment</span>
-                  <span className="text-[10px] text-neutral-400 uppercase">100% Encrypted</span>
-                </div>
-              </div>
+            {/* Share Section */}
+            <div className="relative mb-12">
+              <button 
+                onClick={() => setShowShareModal(true)} 
+                className="group flex items-center space-x-2.5 px-5 py-3 border border-neutral-100 hover:border-neutral-900 bg-neutral-50/50 hover:bg-neutral-50 rounded-full transition-all duration-300 text-[10px] font-bold uppercase tracking-widest text-neutral-600 hover:text-black cursor-pointer focus:outline-none"
+              >
+                <FontAwesomeIcon icon={faShareNodes} className="text-xs group-hover:scale-110 transition-transform duration-300" />
+                <span>Share with others</span>
+              </button>
+
+              <AnimatePresence>
+                {showShareModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowShareModal(false)}
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                    />
+
+                    {/* Modal Content */}
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                      className="relative w-full max-w-md bg-white border border-neutral-100 shadow-[0_24px_64px_rgba(0,0,0,0.15)] rounded-2xl p-6 md:p-8 z-10 flex flex-col text-neutral-900"
+                    >
+                      {/* Header */}
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-950">
+                          Share this product
+                        </h3>
+                        <button
+                          onClick={() => setShowShareModal(false)}
+                          className="w-8 h-8 rounded-full bg-neutral-50 hover:bg-neutral-100 flex items-center justify-center text-neutral-500 hover:text-black transition-colors cursor-pointer border-0 outline-none"
+                        >
+                          <FontAwesomeIcon icon={faXmark} className="text-xs" />
+                        </button>
+                      </div>
+
+                      {/* Line 1: Copy Link Box */}
+                      <div className="flex items-center bg-neutral-50 border border-neutral-200/80 px-4 py-3.5 rounded-xl focus-within:border-neutral-900 transition-all mb-6">
+                        <input
+                          type="text"
+                          readOnly
+                          value={shareUrl}
+                          onClick={(e) => (e.target as HTMLInputElement).select()}
+                          className="text-[11px] font-mono text-neutral-500 overflow-x-auto whitespace-nowrap scrollbar-none flex-grow mr-3 select-all bg-transparent border-0 outline-none cursor-text w-full"
+                        />
+                        <button
+                          onClick={copyToClipboard}
+                          className="focus:outline-none transition-colors text-neutral-500 hover:text-black cursor-pointer border-0 bg-transparent flex items-center justify-center flex-shrink-0"
+                          title="Copy Link"
+                        >
+                          {copied ? (
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md uppercase tracking-wider">
+                              Copied
+                            </span>
+                          ) : (
+                            <FontAwesomeIcon icon={faCopy} className="text-sm" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Line 2: Social Media Share Row */}
+                      <div className="flex items-center space-x-4">
+                        <a
+                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-12 h-12 rounded-full bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-white flex items-center justify-center transition-all duration-300"
+                          onClick={() => setShowShareModal(false)}
+                        >
+                          <FontAwesomeIcon icon={faWhatsapp} className="text-lg" />
+                        </a>
+                        <a
+                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-12 h-12 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2] text-[#1877F2] hover:text-white flex items-center justify-center transition-all duration-300"
+                          onClick={() => setShowShareModal(false)}
+                        >
+                          <FontAwesomeIcon icon={faFacebook} className="text-lg" />
+                        </a>
+                        <a
+                          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-12 h-12 rounded-full bg-neutral-100 hover:bg-black text-neutral-800 hover:text-white flex items-center justify-center transition-all duration-300"
+                          onClick={() => setShowShareModal(false)}
+                        >
+                          <FontAwesomeIcon icon={faTwitter} className="text-base" />
+                        </a>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -358,6 +554,201 @@ const ProductDetail: React.FC = () => {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* Customer Reviews Section */}
+      <section className="section-padding bg-white border-t border-neutral-100">
+        <div className="container mx-auto max-w-6xl">
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tighter mb-12 text-center">
+            Customer Reviews
+          </h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16">
+            {/* Left Column: Overall Summary & Form */}
+            <div className="lg:col-span-1 space-y-10">
+              <div className="bg-neutral-50 p-8 rounded-2xl border border-neutral-100/50">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-6">
+                  Rating Overview
+                </h3>
+                <div className="flex items-baseline space-x-2">
+                  <span className="text-5xl font-display font-black">
+                    {reviewsCount > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : "0.0"}
+                  </span>
+                  <span className="text-neutral-400 text-sm">/ 5.0</span>
+                </div>
+                <div className="flex items-center text-accent text-sm mt-3 mb-2">
+                  {reviewsCount > 0 ? renderStars(reviewsAverage) : renderStars(0)}
+                </div>
+                <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold">
+                  Based on {reviewsCount} {reviewsCount === 1 ? 'review' : 'reviews'}
+                </p>
+              </div>
+
+              {/* Review Submission Form */}
+              <div className="bg-neutral-50 p-8 rounded-2xl border border-neutral-100/50">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-6">
+                  Share Your Feedback
+                </h3>
+
+                {user ? (
+                  <form onSubmit={handleSubmitReview} className="space-y-6">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2">
+                        Your Rating
+                      </label>
+                      <div className="flex space-x-2 text-xl">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setFormRating(star)}
+                            onMouseEnter={() => setFormHoverRating(star)}
+                            onMouseLeave={() => setFormHoverRating(0)}
+                            className="focus:outline-none transition-transform hover:scale-115 text-accent cursor-pointer"
+                          >
+                            <FontAwesomeIcon
+                              icon={faStar}
+                              className={
+                                star <= (formHoverRating || formRating)
+                                  ? 'text-accent'
+                                  : 'text-neutral-200'
+                              }
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2">
+                        Review Comments
+                      </label>
+                      <textarea
+                        value={formComment}
+                        onChange={(e) => setFormComment(e.target.value)}
+                        placeholder="Write your review here. What did you like or dislike about the product?"
+                        rows={4}
+                        required
+                        className="w-full px-4 py-3 text-xs bg-white border border-neutral-200 rounded-none focus:outline-none focus:border-black placeholder:text-neutral-400 transition-colors resize-none leading-relaxed"
+                      />
+                    </div>
+
+                    {submitError && (
+                      <div className="text-xs text-red-600 bg-red-50 p-3 border border-red-100 rounded-none font-medium">
+                        {submitError}
+                      </div>
+                    )}
+
+                    {submitSuccess && (
+                      <div className="text-xs text-emerald-600 bg-emerald-50 p-3 border border-emerald-100 rounded-none font-medium">
+                        {submitSuccess}
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={submittingReview}
+                      className="w-full py-4 text-xs font-bold tracking-widest uppercase cursor-pointer"
+                    >
+                      {submittingReview ? 'Submitting...' : 'Submit Review'}
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="text-center py-4 space-y-4">
+                    <p className="text-xs text-neutral-500 leading-relaxed">
+                      Only registered customers can leave a review. Please sign in to share your experience.
+                    </p>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="w-full py-4 text-[10px] font-bold tracking-widest uppercase cursor-pointer"
+                    >
+                      <Link href={`/login?redirect=/product/${product._id || product.id}`}>
+                        Sign In to Review
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Reviews List */}
+            <div className="lg:col-span-2 space-y-6">
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-400 mb-8 border-b border-neutral-100 pb-4">
+                Reviews ({reviewsCount})
+              </h3>
+
+              {reviewsLoading ? (
+                <div className="py-12 text-center text-xs text-neutral-400 uppercase tracking-widest">
+                  Loading reviews...
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="py-16 text-center border-2 border-dashed border-neutral-100 rounded-2xl bg-neutral-50/50">
+                  <p className="text-sm text-neutral-500 leading-relaxed mb-1 font-medium">
+                    No reviews yet
+                  </p>
+                  <p className="text-xs text-neutral-400">
+                    Be the first to share your thoughts on this product!
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-neutral-100">
+                  {reviews.map((rev) => {
+                    const dateStr = new Date(rev.created_at).toLocaleDateString('en-IN', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    });
+                    const initials = rev.users?.full_name
+                      ? rev.users.full_name
+                          .split(' ')
+                          .map((n: string) => n[0])
+                          .join('')
+                          .toUpperCase()
+                      : 'U';
+
+                    return (
+                      <div key={rev.id} className="py-6 first:pt-0 last:pb-0 flex items-start space-x-4">
+                        {/* Avatar */}
+                        {rev.users?.avatar_url ? (
+                          <img
+                            src={rev.users.avatar_url}
+                            alt={rev.users.full_name || "User"}
+                            className="w-10 h-10 rounded-full object-cover flex-shrink-0 bg-neutral-100 border border-neutral-200/50 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-neutral-900 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 shadow-sm">
+                            {initials.slice(0, 2)}
+                          </div>
+                        )}
+
+                        {/* Review Content */}
+                        <div className="flex-grow min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 mb-2">
+                            <span className="font-semibold text-sm text-neutral-900 truncate">
+                              {rev.users?.full_name || 'Anonymous User'}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                              {dateStr}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center text-accent text-xs mb-3">
+                            {renderStars(rev.rating)}
+                          </div>
+                          
+                          <p className="text-xs text-neutral-600 leading-relaxed whitespace-pre-line">
+                            {rev.comment}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -392,7 +783,7 @@ const ProductDetail: React.FC = () => {
                 className="w-10 h-14 object-cover bg-neutral-100 flex-shrink-0" 
               />
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold uppercase tracking-tight truncate">{product.name}</span>
+                <span className="text-xs font-normal tracking-tight truncate">{product.name}</span>
                 <span className="text-xs font-display font-black text-black mt-0.5">₹{product.price.toLocaleString('en-IN')}</span>
               </div>
             </div>
