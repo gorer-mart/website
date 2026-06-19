@@ -281,7 +281,7 @@ const AdminDashboard: React.FC = () => {
                       </td>
                       <td className="px-8 py-4">
                         <div>
-                          <div className="font-bold text-neutral-900">{product.name}</div>
+                          <div className="font-normal text-neutral-900">{product.name}</div>
                           <div className="text-[10px] text-neutral-400 font-mono mt-0.5">ID: {product.id}</div>
                         </div>
                       </td>

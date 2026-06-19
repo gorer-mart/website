@@ -9,7 +9,7 @@ import { Input } from '../../ui/input';
 
 const Contact: React.FC = () => {
   return (
-    <div className="pt-20 bg-white min-h-screen">
+    <div className="pt-12 bg-white min-h-screen">
       <title>Contact Us — Gorer Mart</title>
       <meta name="description" content="Get in touch with Gorer Mart customer support" />
 
@@ -26,7 +26,7 @@ const Contact: React.FC = () => {
 
               <div className="space-y-8">
                 <div className="flex items-start space-x-6">
-                  <div className="w-12 h-12 bg-neutral-50 rounded-full flex items-center justify-center text-black flex-shrink-0">
+                  <div className="w-12 h-12 bg-[#a6101b] rounded-full flex items-center justify-center text-white flex-shrink-0">
                     <FontAwesomeIcon icon={faEnvelope} />
                   </div>
                   <div>
@@ -35,7 +35,7 @@ const Contact: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-start space-x-6">
-                  <div className="w-12 h-12 bg-neutral-50 rounded-full flex items-center justify-center text-black flex-shrink-0">
+                  <div className="w-12 h-12 bg-[#a6101b] rounded-full flex items-center justify-center text-white flex-shrink-0">
                     <FontAwesomeIcon icon={faPhone} />
                   </div>
                   <div>
@@ -44,7 +44,7 @@ const Contact: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-start space-x-6">
-                  <div className="w-12 h-12 bg-neutral-50 rounded-full flex items-center justify-center text-black flex-shrink-0">
+                  <div className="w-12 h-12 bg-[#a6101b] rounded-full flex items-center justify-center text-white flex-shrink-0">
                     <FontAwesomeIcon icon={faLocationDot} />
                   </div>
                   <div>
@@ -56,16 +56,38 @@ const Contact: React.FC = () => {
             </div>
 
             {/* Contact Form */}
-            <div className="bg-neutral-50 p-6 sm:p-10 md:p-16">
+            <div className="bg-white border border-neutral-100 rounded-2xl shadow-xl shadow-neutral-100/50 p-6 sm:p-10 md:p-12">
               <form className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input type="text" placeholder="First Name" required />
-                  <Input type="text" placeholder="Last Name" required />
+                  <div className="space-y-1.5">
+                    <label htmlFor="name" className="text-xs font-medium text-neutral-500 block">Name</label>
+                    <Input id="name" type="text" placeholder="Enter your full name" className="rounded-lg border-neutral-200 bg-white focus-visible:border-black focus-visible:bg-white text-sm" required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="email" className="text-xs font-medium text-neutral-500 block">Email Address</label>
+                    <Input id="email" type="email" placeholder="you@example.com" className="rounded-lg border-neutral-200 bg-white focus-visible:border-black focus-visible:bg-white text-sm" required />
+                  </div>
                 </div>
-                <Input type="email" placeholder="Email Address" required />
-                <Input type="text" placeholder="Subject" required />
-                <textarea placeholder="Message" rows={5} className="w-full p-4 border border-neutral-200 bg-white text-sm focus:outline-none focus:border-black resize-none" required></textarea>
-                <Button type="submit" className="w-full py-5">Send Message</Button>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label htmlFor="phone" className="text-xs font-medium text-neutral-500 block">Phone Number</label>
+                    <Input id="phone" type="tel" placeholder="e.g. +91 98765 43210" className="rounded-lg border-neutral-200 bg-white focus-visible:border-black focus-visible:bg-white text-sm" required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="subject" className="text-xs font-medium text-neutral-500 block">Subject</label>
+                    <Input id="subject" type="text" placeholder="How can we help?" className="rounded-lg border-neutral-200 bg-white focus-visible:border-black focus-visible:bg-white text-sm" required />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="message" className="text-xs font-medium text-neutral-500 block">Message</label>
+                  <textarea id="message" placeholder="Type your message here..." rows={5} className="w-full p-4 border border-neutral-200 bg-white text-sm rounded-lg focus:outline-none focus:border-black focus:ring-1 focus:ring-black resize-none transition-colors" required></textarea>
+                </div>
+
+                <Button type="submit" className="w-full py-3 h-11 bg-[#a6101b] hover:bg-[#a6101b]/80 text-white rounded-lg text-sm font-medium transition-all hover:shadow-md hover:shadow-neutral-950/10 active:scale-[0.99] cursor-pointer">
+                  Send Message
+                </Button>
               </form>
             </div>
           </div>
