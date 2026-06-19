@@ -99,7 +99,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className="mb-1">
           <Link 
             href={`/product/${product.id}`} 
-            className="text-xs sm:text-sm md:text-lg font-display font-normal hover:text-accent transition-colors leading-tight"
+            className="text-xs sm:text-sm md:text-lg font-display font-normal leading-tight"
           >
             {product.name}
           </Link>

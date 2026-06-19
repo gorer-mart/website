@@ -71,14 +71,14 @@ const RefundPolicy: React.FC = () => {
       <meta name="description" content="Official return and refund policy for Gorer Mart India." />
 
       {/* Header */}
-      <section className="py-20 border-b border-neutral-100 mb-20 px-6 md:px-12 lg:px-24">
-        <div className="container max-w-5xl mx-auto text-center">
+      <section className="py-12 border-b border-neutral-100 mb-20 px-6 md:px-12">
+        <div className="container mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className="text-accent font-bold uppercase tracking-[0.3em] text-[10px] mb-4 block">Official Policy</span>
+            <span className="text-[#a6101b] font-bold uppercase tracking-[0.3em] text-base mb-4 block">Official Policy</span>
             <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight mb-6">Return & Refund Policy</h1>
             <p className="text-neutral-500 max-w-xl mx-auto leading-relaxed">
               Please read our policies carefully before making a purchase. We prioritize quality and transparency in every transaction.
@@ -140,7 +140,7 @@ const RefundPolicy: React.FC = () => {
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="p-10 bg-black text-white rounded-3xl"
+              className="p-10 bg-[#a6101b] text-white rounded-3xl"
           >
             <h2 className="text-2xl font-display font-bold uppercase tracking-tight mb-8 flex items-center gap-3">
               <Info className="w-6 h-6 text-accent" />
@@ -162,8 +162,7 @@ const RefundPolicy: React.FC = () => {
             <div className="mt-10 pt-10 border-t border-white/10">
                <span className="text-[10px] uppercase tracking-widest text-neutral-500 block mb-4">Report At</span>
                <div className="space-y-2">
-                 <a href="mailto:gorermart.india@gmail.com" className="text-accent hover:text-white transition-colors block font-medium">gorermart.india@gmail.com</a>
-                 <a href="mailto:contact@gorermart.in" className="text-accent hover:text-white transition-colors block font-medium">contact@gorermart.in</a>
+                  <a href="mailto:contact@gorermart.in" className="text-white hover:text-white transition-colors block font-medium">contact@gorermart.in</a>
                </div>
             </div>
           </motion.div>
