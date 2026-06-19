@@ -11,8 +11,8 @@ import { Product } from '../types/product';
 import ProductCard from '../components/ProductCard';
 import { Button } from '../ui/button';
 
-import hero from '../assets/hero_image.webp';
-import heroMobile from '../assets/hero-mobile.webp';
+import hero from '../assets/home/hero_image.webp';
+import heroMobile from '../assets/home/hero-mobile.webp';
 import atoshi from '../assets/feedback/atoshi.webp';
 import sourav from '../assets/feedback/sourav.webp';
 import susan from '../assets/feedback/susan.webp';
@@ -85,13 +85,13 @@ const Home: React.FC = () => {
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="max-w-2xl text-white"
           >
-            <span className="inline-block text-accent font-bold uppercase tracking-[0.4em] text-[10px] md:text-xs mb-4">
+            <span className="inline-block text-[#d8cd91] font-bold uppercase tracking-[0.4em] text-[10px] md:text-xs mb-4">
               Bengal's Own Drip
             </span>
             <h1 className="text-2xl md:text-5xl font-bold leading-[1.2] mb-8 tracking-relaxed">
               Get Ready For Endless{" "}
               <br className="hidden md:inline" />
-              <span className="text-yellow italic font-normal drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] block md:inline my-2 md:my-0">
+              <span className="text-[#d8cd91] italic font-normal drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] block md:inline my-2 md:my-0">
                 "Eta Kotha Theke Kinechish?"
               </span>
               <br className="hidden md:inline" />{" "}
@@ -121,21 +121,13 @@ const Home: React.FC = () => {
         <div className="container mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center mb-16 text-center md:text-left">
             <div className="max-w-xl">
-              <motion.span
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.4em] text-[10px] md:text-xs font-bold mb-4 block"
-              >
-                Curated Excellence
-              </motion.span>
+
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-3xl md:text-5xl uppercase font-display font-bold tracking-tighter mb-4 leading-tight"
-              >
+                className="text-3xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-2 leading-tight">
                 most pochhonder
               </motion.h2>
               <motion.p
@@ -188,20 +180,12 @@ const Home: React.FC = () => {
         <div className="container mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center mb-16 text-center md:text-left">
             <div className="max-w-xl">
-              <motion.span
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.2rem] text-[10px] md:text-xs font-bold mb-4 block"
-              >
-                Latest Essentials
-              </motion.span>
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-3xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-4 leading-tight"
+                className="text-3xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-2 leading-tight"
               >
                 Taatka Drops
               </motion.h2>
@@ -250,7 +234,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* Brand Ethos / Philosophy Section */}
-      <section className="section-padding bg-black text-white overflow-hidden relative">
+      <section className="section-padding bg-[#fff8e9] text-white overflow-hidden relative border-t-6 border-b-6 border-[#a6101b]">
 
 
         <div className="container mx-auto relative z-10">
@@ -259,7 +243,7 @@ const Home: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-accent uppercase tracking-[0.4em] text-[10px] md:text-xs font-bold mb-6 block"
+              className="text-[#a6101b] uppercase tracking-[0.4em] text-[10px] md:text-sm font-bold mb-6 block"
             >
               Our Philosophy
             </motion.span>
@@ -268,17 +252,17 @@ const Home: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
-              className="text-2xl md:text-6xl font-display font-bold uppercase tracking-tighter mb-8 leading-tight"
+              className="text-2xl md:text-6xl text-black font-display font-bold uppercase tracking-tighter mb-8 leading-tight"
             >
               The Soul of Bengal, <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-yellow">Stitched for the World.</span>
+              <span className="text-[#a6101b]">Stitched for the World.</span>
             </motion.h2>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
-              className="text-neutral-400 text-[12px] md:text-lg font-light leading-relaxed max-w-2xl mx-auto"
+              className="text-gray-600 text-[12px] md:text-lg font-light leading-relaxed max-w-3xl mx-auto"
             >
               At Gorer Mart, every design is a love letter to Bangla cinema, Moharothis, and unfiltered street spirit. Crafted for people who wear their culture proudly.
             </motion.p>
@@ -311,19 +295,19 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: item.delay, duration: 0.6 }}
-                className="glass-dark p-6 md:p-10 rounded-2xl group border border-accent/30 md:border-white/10 md:hover:border-accent/50 shadow-lg shadow-accent/20 md:shadow-none transition-all duration-500 hover:-translate-y-2"
+                className="bg-[#a6101b] p-6 md:p-10 rounded-2xl group hover:shadow-black/30 hover:shadow-xl transition-all duration-500 hover:-translate-y-2"
               >
                 <div className="flex flex-row md:flex-col-reverse justify-between items-center md:items-start gap-4 md:gap-0 mb-6 md:mb-0">
 
-                  <h3 className="text-2xl font-bold md:mb-4 group-hover:text-accent transition-colors">{item.title}</h3>
+                  <h3 className="text-2xl font-bold md:mb-4 text-[#fff8e9]">{item.title}</h3>
 
-                  <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-accent/20 md:bg-accent/10 flex items-center justify-center md:mb-8 group-hover:bg-accent/20 transition-colors shrink-0">
-                    <FontAwesomeIcon icon={item.icon} className="text-lg md:text-2xl text-accent" />
+                  <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-black/60 md:bg-black/50 flex items-center justify-center md:mb-8 shrink-0">
+                    <FontAwesomeIcon icon={item.icon} className="text-lg md:text-2xl text-[#fff8e9]" />
                   </div>
 
                 </div>
 
-                <p className="text-neutral-400 leading-relaxed text-sm md:text-base">
+                <p className="text-[#d8cd91] leading-relaxed text-sm md:text-base">
                   {item.description}
                 </p>
               </motion.div>
@@ -337,7 +321,7 @@ const Home: React.FC = () => {
             transition={{ delay: 0.6 }}
             className="flex justify-center"
           >
-            <Button asChild className="bg-white text-black hover:bg-yellow hover:scale-105 transition-all shadow-premium px-12">
+            <Button asChild className="bg-white text-[#a6101b] border-2 hover:bg-white border-[#a6101b] hover:scale-105 transition-all shadow-premium px-12">
               <Link href="/about">Discover Our Story</Link>
             </Button>
           </motion.div>
@@ -353,7 +337,7 @@ const Home: React.FC = () => {
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                className="text-accent uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
+                className="text-[#a6101b] uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
               >
                 The Community
               </motion.span>
@@ -427,10 +411,10 @@ const Home: React.FC = () => {
               ]).map((feedback, idx) => (
                 <motion.div
                   key={idx}
-                  className="w-[calc(100vw-6rem)] min-w-[calc(100vw-6rem)] md:w-[340px] md:min-w-[340px] bg-white p-6 md:p-8 rounded-2xl border border-neutral-100 flex flex-col justify-between hover:border-accent/40 hover:shadow-xl transition-all duration-500 group relative snap-center md:snap-start"
+                  className="w-[calc(100vw-6rem)] min-w-[calc(100vw-6rem)] md:w-[340px] md:min-w-[340px] bg-white p-6 md:p-8 rounded-2xl border border-neutral-100 flex flex-col justify-between hover:border-[#d8cd91] hover:shadow-xl transition-all duration-500 group relative snap-center md:snap-start"
                 >
                   <div className="relative z-10">
-                    <div className="text-accent/20 mb-4 group-hover:text-accent transition-colors">
+                    <div className="text-accent/20 mb-4 group-hover:text-[#d8cd91] transition-colors">
                       <FontAwesomeIcon icon={faQuoteLeft} className="text-2xl" />
                     </div>
                     <p className="text-base italic text-neutral-800 leading-relaxed mb-8">
@@ -493,7 +477,7 @@ const Home: React.FC = () => {
                   container.scrollBy({ left: -step, behavior: 'smooth' });
                 }
               }}
-              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-all group cursor-pointer text-black"
+              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-[#a6101b] hover:text-white transition-all group cursor-pointer text-black"
             >
               <FontAwesomeIcon icon={faChevronLeft} className="text-sm group-active:-translate-x-1 transition-transform" />
             </button>
@@ -515,7 +499,7 @@ const Home: React.FC = () => {
                   container.scrollBy({ left: step, behavior: 'smooth' });
                 }
               }}
-              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-all group cursor-pointer text-black"
+              className="w-12 h-12 rounded-full border border-neutral-200 flex items-center justify-center hover:bg-[#a6101b] hover:text-white transition-all group cursor-pointer text-black"
             >
               <FontAwesomeIcon icon={faChevronRight} className="text-sm group-active:translate-x-1 transition-transform" />
             </button>

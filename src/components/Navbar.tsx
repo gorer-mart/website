@@ -10,8 +10,9 @@ import { faInstagram, faFacebookF, faReddit } from '@fortawesome/free-brands-svg
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../ui/input';
-import logoBlack from '../assets/logo-black.webp';
-import logoWhite from '../assets/logo-white.webp';
+
+import logoBlack from '../assets/logo/logo-blacknavbar.webp';
+import logoRed from '../assets/logo/logo-rednavbar.webp';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
@@ -64,17 +65,17 @@ const Navbar: React.FC = () => {
       <nav
         className={`relative w-full h-16 transition-all duration-500 border-b shadow-premium lg:shadow-none px-6 md:px-12 lg:px-24
         ${isHomePage
-          ? `bg-white border-neutral-100 lg:border-transparent ${
+          ? `bg-[#a6101b] border-[#b12026] lg:border-transparent ${
               isScrolled 
-                ? 'lg:bg-white/80 lg:backdrop-blur-xl lg:border-neutral-100 lg:shadow-premium' 
+            ? 'lg:bg-[#a6101b] lg:backdrop-blur-xl lg:border-[#b12026] lg:shadow-premium' 
                 : 'lg:bg-transparent lg:shadow-none lg:border-transparent'
             }`
-          : 'bg-white border-neutral-100'
+          : 'bg-[#a6101b] border-[#b12026]'
         }`}
       >
         <div className="container mx-auto h-full flex items-center justify-between">
           <button
-            className="lg:hidden text-xl text-black transition-colors duration-300 cursor-pointer w-8 h-8 flex items-center justify-center"
+            className="lg:hidden text-xl text-white transition-colors duration-300 cursor-pointer w-8 h-8 flex items-center justify-center"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
@@ -96,10 +97,7 @@ const Navbar: React.FC = () => {
                   className={`relative text-xs font-bold uppercase tracking-widest transition-all duration-300 py-1.5
                     after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px]
                     after:origin-left after:transition-transform after:duration-300 after:ease-[cubic-bezier(0.16,1,0.3,1)] after:bg-current
-                    ${isHomePage && !isScrolled
-                      ? `${isActive ? 'text-black lg:text-white after:scale-x-100' : 'text-black lg:text-white/80 after:scale-x-0 hover:after:scale-x-100'}`
-                      : `${isActive ? 'text-black after:scale-x-100' : 'text-black after:scale-x-0 hover:after:scale-x-100'}`
-                    }
+                    text-white ${isActive ? 'after:scale-x-100' : 'after:scale-x-0 hover:after:scale-x-100'}
                   `}
                 >
                   {link.name}
@@ -112,37 +110,52 @@ const Navbar: React.FC = () => {
             href="/"
             className="absolute left-1/2 -translate-x-1/2"
           >
-            {/* Desktop Transparent logo (white) */}
+            {/* Desktop Transparent logo */}
             <img
-              src={typeof logoWhite === 'object' ? logoWhite.src : logoWhite}
+              src={typeof logoBlack === 'object' ? logoBlack.src : logoBlack}
               alt="Gorer Mart"
-              className={`h-5 sm:h-6 md:h-8 w-auto object-contain transition-all duration-500 hidden lg:block ${
+              className={`h-5 md:h-10 w-auto object-contain transition-all duration-500 hidden lg:block ${
                 isHomePage && !isScrolled ? 'lg:block' : 'lg:hidden'
               }`}
             />
             {/* Desktop Scrolled / Mobile logo (black) */}
             <img
-              src={typeof logoBlack === 'object' ? logoBlack.src : logoBlack}
+              src={typeof logoRed === 'object' ? logoRed.src : logoRed}
               alt="Gorer Mart"
-              className={`h-5 sm:h-6 md:h-8 w-auto object-contain transition-all duration-500 ${
+              className={`h-5 md:h-10 w-auto object-contain transition-all duration-500 ${
                 isHomePage && !isScrolled ? 'block lg:hidden' : 'block'
               }`}
             />
           </Link>
 
-          <div className={`flex items-center space-x-6 transition-colors duration-500 text-black ${
-            isHomePage && !isScrolled ? 'lg:text-white' : 'text-black'
-          }`}>
+          <div className="flex items-center h-full space-x-6 transition-colors duration-500 text-white">
             <button 
               onClick={() => setIsSearchOpen(true)}
               className="transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
             >
               <FontAwesomeIcon icon={faMagnifyingGlass} />
             </button>
+            <button
+              className="relative transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
+              onClick={() => setIsCartOpen(true)}
+            >
+              <FontAwesomeIcon icon={faBagShopping} className="text-lg" />
+              {cartCount > 0 && (
+                <span className={`absolute -top-2 -right-2 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${isHomePage && !isScrolled
+                  ? 'bg-black text-white lg:bg-white lg:text-black'
+                  : 'bg-black text-white'
+                  }`}>
+                  {cartCount}
+                </span>
+              )}
+            </button>
             {isAuthenticated ? (
-              <div className="relative">
+              <div
+                className="relative h-full flex items-center"
+                onMouseEnter={() => setIsUserMenuOpen(true)}
+                onMouseLeave={() => setIsUserMenuOpen(false)}
+              >
                 <button 
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer flex items-center"
                 >
                   {profile?.avatar_url ? (
@@ -161,34 +174,32 @@ const Navbar: React.FC = () => {
                 {/* Desktop User Dropdown */}
                 <AnimatePresence>
                   {isUserMenuOpen && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setIsUserMenuOpen(false)}
-                      />
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-premium border border-neutral-100 overflow-hidden z-50 py-2 text-neutral-800"
-                      >
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-[-48px] top-full w-60 z-50 text-neutral-800 before:content-[''] before:absolute before:-top-6 before:h-6 before:inset-x-0"
+                    >
+                      <div className="bg-white/95 backdrop-blur-md rounded-none shadow-xl border border-neutral-100 overflow-hidden py-2.5">
                         <div className="px-4 py-3 border-b border-neutral-100 mb-2">
-                          <p className="text-sm font-bold text-black truncate">{profile?.full_name || 'User'}</p>
-                          <p className="text-xs text-neutral-500 truncate">{profile?.email || user?.email}</p>
+                          <p className="text-sm font-medium text-neutral-900 truncate">
+                            Hello {((profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '').trim().split(' ')[0] || (profile?.email || user?.email || '').split('@')[0] || 'User')}
+                          </p>
+                          <p className="text-xs text-neutral-400 truncate mt-0.5">{profile?.email || user?.email}</p>
                         </div>
                         <Link 
                           href="/account" 
-                          className="flex items-center space-x-3 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-neutral-600 hover:text-black hover:bg-neutral-50 transition-colors"
+                          className="group flex items-center space-x-3 px-4 py-2 text-sm font-normal text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50/50 transition-colors"
                         >
-                          <FontAwesomeIcon icon={faUser} className="w-4" />
+                          <FontAwesomeIcon icon={faUser} className="w-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
                           <span>My Account</span>
                         </Link>
                         <Link 
                           href="/account" 
-                          className="flex items-center space-x-3 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-neutral-600 hover:text-black hover:bg-neutral-50 transition-colors"
+                          className="group flex items-center space-x-3 px-4 py-2 text-sm font-normal text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50/50 transition-colors"
                         >
-                          <FontAwesomeIcon icon={faBox} className="w-4" />
+                          <FontAwesomeIcon icon={faBox} className="w-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
                           <span>My Orders</span>
                         </Link>
                         <div className="h-px bg-neutral-100 my-2" />
@@ -197,13 +208,13 @@ const Navbar: React.FC = () => {
                             setIsUserMenuOpen(false);
                             signOut();
                           }}
-                          className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-red-500 hover:bg-red-50 transition-colors text-left"
+                          className="group w-full flex items-center space-x-3 px-4 py-2 text-sm font-normal text-red-500 hover:bg-red-50/50 transition-colors text-left cursor-pointer"
                         >
-                          <FontAwesomeIcon icon={faRightFromBracket} className="w-4" />
+                          <FontAwesomeIcon icon={faRightFromBracket} className="w-4 text-red-400 group-hover:text-red-500 transition-colors" />
                           <span>Sign Out</span>
                         </button>
-                      </motion.div>
-                    </>
+                      </div>
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </div>
@@ -212,21 +223,6 @@ const Navbar: React.FC = () => {
                 <FontAwesomeIcon icon={faUser} />
               </Link>
             )}
-            <button
-              className="relative transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
-              onClick={() => setIsCartOpen(true)}
-            >
-              <FontAwesomeIcon icon={faBagShopping} className="text-lg" />
-              {cartCount > 0 && (
-                <span className={`absolute -top-2 -right-2 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${
-                  isHomePage && !isScrolled
-                    ? 'bg-black text-white lg:bg-white lg:text-black'
-                    : 'bg-black text-white'
-                }`}>
-                  {cartCount}
-                </span>
-              )}
-            </button>
           </div>
         </div>
 
@@ -360,7 +356,7 @@ const Navbar: React.FC = () => {
                             </div>
                           )}
                           <div className="text-left min-w-0">
-                            <p className="text-xs font-bold uppercase tracking-widest text-black truncate">
+                            <p className="text-xs font-medium text-neutral-800 truncate">
                               {profile?.full_name || 'My Account'}
                             </p>
                             <p className="text-[10px] text-neutral-400 truncate">{profile?.email || user?.email}</p>
@@ -387,17 +383,17 @@ const Navbar: React.FC = () => {
                             <div className="pl-3 pr-1 pt-0.5 pb-1 space-y-0.5">
                               <Link
                                 href="/account"
-                                className="flex items-center space-x-3 px-4 py-3 rounded-none text-neutral-600 hover:bg-neutral-50 hover:text-black transition-all duration-200"
+                                className="flex items-center space-x-3 px-4 py-3 rounded-none text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-all duration-200"
                               >
                                 <FontAwesomeIcon icon={faUser} className="text-sm w-4 text-neutral-400" />
-                                <span className="text-xs font-bold uppercase tracking-widest">Account</span>
+                                <span className="text-xs font-normal">My Account</span>
                               </Link>
                               <button
                                 onClick={() => { setIsMobileMenuOpen(false); signOut(); }}
                                 className="flex items-center space-x-3 w-full px-4 py-3 rounded-none text-red-500 hover:bg-red-50 transition-all duration-200 cursor-pointer text-left"
                               >
-                                <FontAwesomeIcon icon={faRightFromBracket} className="text-sm w-4" />
-                                <span className="text-xs font-bold uppercase tracking-widest">Logout</span>
+                                <FontAwesomeIcon icon={faRightFromBracket} className="text-sm w-4 text-red-400" />
+                                <span className="text-xs font-normal">Sign Out</span>
                               </button>
                             </div>
                           </motion.div>

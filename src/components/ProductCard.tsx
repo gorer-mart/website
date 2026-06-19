@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../context/CartContext';
 import { Product } from '../types/product';
 import { Button } from '../ui/button';
@@ -73,17 +73,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className="hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 items-center space-x-3 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 z-30 w-full px-6">
           <Button 
             onClick={() => addToCart(product, 1, product.sizes[0], selectedColor)}
-            className="flex-1 h-12 bg-black text-white text-[10px] font-bold uppercase tracking-widest flex items-center justify-center space-x-2 hover:bg-neutral-800 transition-colors shadow-2xl rounded-none cursor-pointer"
+            className="flex-1 h-12 bg-[#a6101b] text-white text-[10px] font-bold uppercase tracking-widest flex items-center justify-center space-x-2 hover:bg-[#8e0c15] transition-colors shadow-2xl rounded-none cursor-pointer"
           >
             <FontAwesomeIcon icon={faPlus} />
             <span>Add to Cart</span>
           </Button>
-          <Link 
-            href={`/product/${product.id}`}
-            className="w-12 h-12 bg-white text-black border border-neutral-100 flex items-center justify-center hover:bg-black hover:text-white transition-all shadow-2xl cursor-pointer"
-          >
-            <FontAwesomeIcon icon={faEye} className="text-xs" />
-          </Link>
         </div>
 
         {/* Mobile Quick Add Button */}

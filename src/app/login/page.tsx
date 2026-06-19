@@ -10,7 +10,7 @@ import { faEye, faEyeSlash, faArrowRight, faArrowLeft } from '@fortawesome/free-
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../ui/button';
 
-import hero from '../../assets/login_page_display.webp';
+import hero from '../../assets/login/login_page_display.webp';
 import logoWhite from '../../assets/logo-white.webp';
 
 interface SolidInputProps {
@@ -112,7 +112,10 @@ const LoginContent: React.FC = () => {
         setError(signUpError.message);
       } else {
         setSuccess('Account created! Please check your email to verify your account.');
-        resetForm();
+        setFirstName('');
+        setLastName('');
+        setEmail('');
+        setPassword('');
       }
     } else {
       const { error: signInError } = await signIn(email, password);

@@ -296,7 +296,7 @@ const Checkout: React.FC = () => {
                               <img src={item.images[0]?.src || item.images[0]} alt={item.name} className="w-full h-full object-cover" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold uppercase truncate">{item.name}</p>
+                              <p className="text-xs font-normal truncate">{item.name}</p>
                               <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">
                                 Size: {item.selectedSize} • Qty: {item.quantity}
                               </p>
@@ -538,7 +538,7 @@ const Checkout: React.FC = () => {
                         <img src={item.images[0]?.src || item.images[0]} alt={item.name} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs font-bold uppercase tracking-tight">{item.name}</p>
+                        <p className="text-xs font-normal tracking-tight">{item.name}</p>
                         <p className="text-[10px] text-neutral-400 uppercase tracking-widest mt-1">
                           Size: {item.selectedSize} • Qty: {item.quantity}
                         </p>

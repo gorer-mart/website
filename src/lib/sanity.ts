@@ -1,5 +1,5 @@
 import { createClient } from '@sanity/client';
-import imageUrlBuilder from '@sanity/image-url';
+import { createImageUrlBuilder } from '@sanity/image-url';
 import { PRODUCTS, CATEGORIES } from '../data/products';
 import { Product, Category } from '../types/product';
 
@@ -28,7 +28,7 @@ export const client = createClient({
   token: token || undefined,
 });
 
-const builder = imageUrlBuilder(client);
+const builder = createImageUrlBuilder(client);
 
 export function urlFor(source: any) {
   return builder.image(source);
