@@ -331,7 +331,7 @@ const ProductDetail: React.FC = () => {
 
           {/* Product Info */}
           <div className="flex flex-col">
-            <h1 className="text-2xl md:text-3xl font-display font-normal tracking-tighter mb-2 leading-tight">
+            <h1 className="text-2xl md:text-3xl font-display font-normal mb-2 leading-tight">
               {product.name}
             </h1>
             
