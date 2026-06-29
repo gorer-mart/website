@@ -79,6 +79,7 @@ const Home: React.FC = () => {
         </div>
 
         <div className="container mx-auto relative z-10">
+          <h1 className="sr-only">Gorer Mart</h1>
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
