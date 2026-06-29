@@ -57,6 +57,7 @@ const Home: React.FC = () => {
   return (
     <div className="flex flex-col">
       <title>Gorer Mart</title>
+      <meta name="application-name" content="Gorer Mart" />
       <meta name="description" content="Explore Gorer Mart, the premier Kolkata-inspired streetwear brand. Shop premium t-shirts and hoodies that blend Bengal heritage with modern urban style. Ethically sourced, sustainably made." />
       <meta name="keywords" content="Kolkata streetwear, premium t-shirts Kolkata, Bengal heritage fashion, sustainable streetwear India, Gorer Mart, authentic urban apparel, designer graphic tees" />
       <meta property="og:title" content="Gorer Mart | Authentic Kolkata Streetwear & Premium Apparel" />
