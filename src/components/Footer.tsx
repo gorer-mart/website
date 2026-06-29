@@ -97,6 +97,7 @@ const Footer = () => {
               <li><Link href="/about" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Our Story</Link></li>
               <li><Link href="/refund-policy" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Refund Policy</Link></li>
               <li><Link href="/terms-and-conditions" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Terms & Conditions</Link></li>
+              <li><Link href="/privacy-policy" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Privacy Policy</Link></li>
               <li><Link href="/size-guide" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Size Guide</Link></li>
               <li><Link href="/contact" className="text-sm text-neutral-500 hover:text-black transition-colors uppercase font-medium tracking-wider">Contact Us</Link></li>
             </ul>

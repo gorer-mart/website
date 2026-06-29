@@ -4,20 +4,19 @@ import React from 'react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { 
-  Scale, 
-  ShieldAlert, 
-  FileText, 
-  Clock, 
+  ShieldCheck, 
+  Lock, 
+  Eye, 
+  Database, 
+  Globe, 
+  UserCheck, 
   ArrowRight,
-  ShieldCheck,
-  Info,
-  Lock,
-  UserCheck,
-  Globe,
-  ShoppingBag
+  Cookie,
+  Mail,
+  Shield
 } from 'lucide-react';
 
-const TermsAndConditions: React.FC = () => {
+const PrivacyPolicy: React.FC = () => {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -38,43 +37,43 @@ const TermsAndConditions: React.FC = () => {
     }
   };
 
-  const termSections = [
+  const policySections = [
     {
-      title: "Acceptance of Terms",
-      description: "By accessing Gorer Mart, creating an account, or purchasing products, you agree to be bound by these Terms and Conditions and all applicable laws and regulations.",
-      icon: <FileText className="text-[#a6101b] w-5 h-5" />
+      title: "Information We Collect",
+      description: "When you visit or make a purchase, we collect necessary personal details including your name, shipping/billing address, phone number, email address, and order selections to fulfill your purchases.",
+      icon: <Database className="text-[#a6101b] w-5 h-5" />
     },
     {
-      title: "Account Registration",
-      description: "To make purchases, you may be required to register. You agree to provide accurate and complete details and to keep your credentials secure. You are fully responsible for account activity.",
-      icon: <UserCheck className="text-[#a6101b] w-5 h-5" />
+      title: "How We Use Your Data",
+      description: "We use your details to process payments, coordinate with delivery partners, send order confirmation and tracking details, and (if opted in) send occasional promotional updates about our cultural streetwear drops.",
+      icon: <Eye className="text-[#a6101b] w-5 h-5" />
     },
     {
-      title: "Product Accuracy & Pricing",
-      description: "We display product colors and designs as accurately as possible. However, actual colors depend on your monitor display. Prices and availability are subject to change without prior notice.",
-      icon: <ShoppingBag className="text-[#a6101b] w-5 h-5" />
-    },
-    {
-      title: "Intellectual Property",
-      description: "All content on this site, including designs, text, graphics, logos, and images, is the exclusive intellectual property of Gorer Mart. Any unauthorized reproduction is strictly prohibited.",
-      icon: <ShieldCheck className="text-[#a6101b] w-5 h-5" />
-    },
-    {
-      title: "Shipping & Delivery",
-      description: "Delivery estimates are provided in good faith. As an early-stage startup, we partner with external logistics providers. Gorer Mart is not liable for delayed delivery due to shipping carrier issues.",
-      icon: <Clock className="text-[#a6101b] w-5 h-5" />
-    },
-    {
-      title: "Limitation of Liability",
-      description: "Gorer Mart shall not be liable for any indirect, incidental, or consequential damages arising from your use of the website or purchase of any of our products.",
+      title: "Payment Security Protocols",
+      description: "All payments are processed securely through certified, industry-standard gateways (such as Razorpay or Stripe). Gorer Mart does not store or have direct access to your credit card number or bank credentials.",
       icon: <Lock className="text-[#a6101b] w-5 h-5" />
+    },
+    {
+      title: "Third-Party Data Sharing",
+      description: "We share essential data with trusted service providers to run our store. This includes shipping carriers for logistics, Supabase for secure database management, and Sanity CMS for product listings and media.",
+      icon: <Globe className="text-[#a6101b] w-5 h-5" />
+    },
+    {
+      title: "Cookies & Local Storage",
+      description: "We utilize local storage and cookies to provide essential store features, such as retaining items in your shopping cart across sessions and analyzing site traffic to optimize navigation.",
+      icon: <Cookie className="text-[#a6101b] w-5 h-5" />
+    },
+    {
+      title: "Your Rights & Control",
+      description: "You have complete ownership of your personal data. You can request access, corrections, or deletion of your information, or choose to opt out of promotional emails at any time by contacting our support team.",
+      icon: <UserCheck className="text-[#a6101b] w-5 h-5" />
     }
   ];
 
   return (
     <div className="bg-white text-neutral-900 selection:bg-black selection:text-white pt-24 pb-32">
-      <title>Terms & Conditions | Gorer Mart India</title>
-      <meta name="description" content="Official Terms and Conditions for Gorer Mart India." />
+      <title>Privacy Policy | Gorer Mart India</title>
+      <meta name="description" content="Official Privacy Policy for Gorer Mart India." />
 
       {/* Header */}
       <section className="py-20 border-b border-neutral-100 mb-20 px-6 md:px-12 lg:px-24">
@@ -84,10 +83,10 @@ const TermsAndConditions: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className="text-[#a6101b] font-bold uppercase tracking-[0.3em] text-[10px] mb-4 block">Legal Agreement</span>
-            <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight mb-6">Terms & Conditions</h1>
+            <span className="text-[#a6101b] font-bold uppercase tracking-[0.3em] text-[10px] mb-4 block">Security & Trust</span>
+            <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight mb-6">Privacy Policy</h1>
             <p className="text-neutral-500 max-w-xl mx-auto leading-relaxed">
-              Please review our terms carefully before using our platform. As a growing startup, we appreciate your trust and cooperation.
+              We value your privacy. Learn how Gorer Mart collects, uses, and safeguards your personal information when you visit or purchase from us.
             </p>
           </motion.div>
         </div>
@@ -96,7 +95,7 @@ const TermsAndConditions: React.FC = () => {
       <section className="px-6 md:px-12 lg:px-24">
         <div className="container max-w-5xl mx-auto">
         
-        {/* Startup Note */}
+        {/* Trust Notice */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -104,17 +103,17 @@ const TermsAndConditions: React.FC = () => {
           className="mb-24 p-10 bg-neutral-50 rounded-3xl border border-neutral-100 flex flex-col md:flex-row items-center gap-8 text-center md:text-left"
         >
           <div className="w-16 h-16 rounded-2xl bg-[#a6101b] flex items-center justify-center shrink-0">
-            <Globe className="text-white w-8 h-8" />
+            <ShieldCheck className="text-white w-8 h-8" />
           </div>
           <div>
-            <h2 className="text-xl font-bold uppercase tracking-tight mb-2">Early-Stage Startup Note</h2>
+            <h2 className="text-xl font-bold uppercase tracking-tight mb-2">Commitment to Data Privacy</h2>
             <p className="text-neutral-600 leading-relaxed">
-              Gorer Mart is currently in its initial rollout phase. We are committed to providing premium cultural streetwear. During this phase, operations, logistics, and digital services are continuously optimized. By using our website, you support our early journey and agree to these flexible growth conditions.
+              Gorer Mart India respects your privacy. We are committed to protecting your personal data and ensuring that your shopping experience is secure, private, and built on trust.
             </p>
           </div>
         </motion.div>
 
-        {/* Terms Sections Grid */}
+        {/* Policy Sections Grid */}
         <motion.div 
           variants={containerVariants}
           initial="hidden"
@@ -122,7 +121,7 @@ const TermsAndConditions: React.FC = () => {
           viewport={{ once: true }}
           className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-32"
         >
-          {termSections.map((section, idx) => (
+          {policySections.map((section, idx) => (
             <motion.div 
               key={idx}
               variants={itemVariants}
@@ -139,7 +138,7 @@ const TermsAndConditions: React.FC = () => {
           ))}
         </motion.div>
 
-        {/* Refund Policy Alignment Notice */}
+        {/* Security & Data Retention Notice */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-32">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -149,19 +148,19 @@ const TermsAndConditions: React.FC = () => {
           >
             <div>
               <h2 className="text-2xl font-display font-bold uppercase tracking-tight mb-6 flex items-center gap-3">
-                <ShieldAlert className="w-6 h-6 text-[#a6101b]" />
-                <span>Strict Policy Agreement</span>
+                <Shield className="w-6 h-6 text-[#a6101b]" />
+                <span>Secure Data Management</span>
               </h2>
               <p className="text-neutral-400 text-sm leading-relaxed mb-6">
-                All purchases are final. In alignment with our official Refund & Return Policy, Gorer Mart maintains a strict <span className="text-white font-bold underline">NO RETURN / NO REFUND</span> standard once an order is placed, unless items are delivered damaged, defective, or incorrect.
+                All data collected on Gorer Mart is encrypted in transit and at rest. As an early-stage startup, we strictly enforce minimum privilege access rules. This means only essential operations personnel have access to shipping addresses and contact details for the sole purpose of delivery fulfillment.
               </p>
             </div>
             <div>
               <Link 
-                href="/refund-policy"
+                href="/terms-and-conditions"
                 className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#a6101b] hover:text-[#a6101b]/80 transition-colors"
               >
-                <span>Read Full Refund Policy</span>
+                <span>Read Terms & Conditions</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -175,11 +174,11 @@ const TermsAndConditions: React.FC = () => {
           >
             <div>
               <h2 className="text-xl font-bold uppercase tracking-tight mb-4 flex items-center gap-2">
-                <Scale className="w-5 h-5 text-neutral-400" />
-                <span>Governing Law</span>
+                <Mail className="w-5 h-5 text-neutral-400" />
+                <span>Contact Officer</span>
               </h2>
               <p className="text-neutral-500 text-sm leading-relaxed">
-                These Terms and Conditions are governed by and construed in accordance with the laws of India. Any legal proceedings or disputes shall be subject to the exclusive jurisdiction of the courts located in Kolkata, West Bengal.
+                If you have any questions or concerns regarding our privacy practices, or if you would like to request access or deletion of your customer information, please contact our designated privacy support officers.
               </p>
             </div>
           </motion.div>
@@ -221,4 +220,4 @@ const TermsAndConditions: React.FC = () => {
   );
 };
 
-export default TermsAndConditions;
+export default PrivacyPolicy;

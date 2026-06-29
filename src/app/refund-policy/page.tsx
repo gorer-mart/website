@@ -71,14 +71,14 @@ const RefundPolicy: React.FC = () => {
       <meta name="description" content="Official return and refund policy for Gorer Mart India." />
 
       {/* Header */}
-      <section className="py-12 border-b border-neutral-100 mb-20 px-6 md:px-12">
-        <div className="container mx-auto text-center">
+      <section className="py-20 border-b border-neutral-100 mb-20 px-6 md:px-12 lg:px-24">
+        <div className="container max-w-5xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className="text-[#a6101b] font-bold uppercase tracking-[0.3em] text-base mb-4 block">Official Policy</span>
+            <span className="text-[#a6101b] font-bold uppercase tracking-[0.3em] text-[10px] mb-4 block">Official Policy</span>
             <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight mb-6">Return & Refund Policy</h1>
             <p className="text-neutral-500 max-w-xl mx-auto leading-relaxed">
               Please read our policies carefully before making a purchase. We prioritize quality and transparency in every transaction.
@@ -97,7 +97,7 @@ const RefundPolicy: React.FC = () => {
           viewport={{ once: true }}
           className="mb-24 p-10 bg-neutral-50 rounded-3xl border border-neutral-100 flex flex-col md:flex-row items-center gap-8 text-center md:text-left"
         >
-          <div className="w-16 h-16 rounded-2xl bg-black flex items-center justify-center shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-[#a6101b] flex items-center justify-center shrink-0">
             <AlertTriangle className="text-white w-8 h-8" />
           </div>
           <div>
@@ -143,7 +143,7 @@ const RefundPolicy: React.FC = () => {
               className="p-10 bg-[#a6101b] text-white rounded-3xl"
           >
             <h2 className="text-2xl font-display font-bold uppercase tracking-tight mb-8 flex items-center gap-3">
-              <Info className="w-6 h-6 text-accent" />
+              <Info className="w-6 h-6 text-white" />
               <span>Damage Protocol</span>
             </h2>
             <ul className="space-y-6">
@@ -154,13 +154,13 @@ const RefundPolicy: React.FC = () => {
                 "Product must be unused and in original condition"
               ].map((text, idx) => (
                 <li key={idx} className="flex gap-4 items-start">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2 flex-shrink-0" />
-                  <span className="text-neutral-400 text-sm leading-relaxed">{text}</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 flex-shrink-0" />
+                  <span className="text-white/80 text-sm leading-relaxed">{text}</span>
                 </li>
               ))}
             </ul>
             <div className="mt-10 pt-10 border-t border-white/10">
-               <span className="text-[10px] uppercase tracking-widest text-neutral-500 block mb-4">Report At</span>
+               <span className="text-[10px] uppercase tracking-widest text-white/60 block mb-4">Report At</span>
                <div className="space-y-2">
                   <a href="mailto:contact@gorermart.in" className="text-white hover:text-white transition-colors block font-medium">contact@gorermart.in</a>
                </div>
@@ -207,7 +207,7 @@ const RefundPolicy: React.FC = () => {
                   transition={{ delay: idx * 0.1 }}
                   className="text-center group"
                 >
-                  <div className="w-12 h-12 rounded-full border border-neutral-100 flex items-center justify-center mx-auto mb-6 group-hover:bg-black group-hover:text-white transition-all text-neutral-400">
+                  <div className="w-12 h-12 rounded-full border border-neutral-100 flex items-center justify-center mx-auto mb-6 group-hover:bg-[#a6101b] group-hover:border-[#a6101b] group-hover:text-white transition-all text-neutral-400">
                     {idx + 1}
                   </div>
                   <h3 className="text-sm font-bold uppercase tracking-tight mb-2">{step.title}</h3>
@@ -248,12 +248,20 @@ const RefundPolicy: React.FC = () => {
         {/* Contact Info */}
         <div className="text-center">
            <h2 className="text-sm uppercase tracking-widest text-neutral-400 font-bold mb-6">Contact Information</h2>
-           <a 
-             href="mailto:gorermart@gmail.com" 
-             className="text-2xl md:text-3xl font-display font-bold hover:text-accent transition-colors underline decoration-neutral-200 underline-offset-8"
-           >
-             gorermart@gmail.com
-           </a>
+           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-10">
+             <a 
+               href="mailto:gorermart.india@gmail.com" 
+               className="text-lg md:text-xl font-display font-bold hover:text-[#a6101b] transition-colors underline decoration-neutral-200 underline-offset-8"
+             >
+               gorermart.india@gmail.com
+             </a>
+             <a 
+               href="mailto:contact@gorermart.in" 
+               className="text-lg md:text-xl font-display font-bold hover:text-[#a6101b] transition-colors underline decoration-neutral-200 underline-offset-8"
+             >
+               contact@gorermart.in
+             </a>
+           </div>
         </div>
 
        </div>
