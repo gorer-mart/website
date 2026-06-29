@@ -110,6 +110,7 @@ const Navbar: React.FC = () => {
             href="/"
             className="absolute left-1/2 -translate-x-1/2"
           >
+            <span className="sr-only">Gorer Mart</span>
             {/* Desktop Transparent logo */}
             <img
               src={typeof logoBlack === 'object' ? logoBlack.src : logoBlack}
