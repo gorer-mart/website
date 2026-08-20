@@ -6,7 +6,7 @@ import Navbar from './Navbar';
 
 const Header = () => {
   const pathname = usePathname();
-  const hideHeader = pathname === '/login' || pathname?.startsWith('/studio');
+  const hideHeader = pathname === '/login' || pathname?.startsWith('/studio') || pathname?.startsWith('/admin');
 
   if (hideHeader) return null;
 

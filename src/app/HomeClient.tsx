@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { motion } from 'motion/react';
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLeaf, faCity, faGem, faQuoteLeft, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
-import { Product } from '../types/product';
+import { Product, HeroData } from '../types/product';
 import ProductCard from '../components/ProductCard';
 import { Button } from '../ui/button';
 
-import hero from '../assets/home/hero_image.webp';
 import heroMobile from '../assets/home/hero-mobile.webp';
 import atoshi from '../assets/feedback/atoshi.webp';
 import sourav from '../assets/feedback/sourav.webp';
@@ -18,11 +17,58 @@ import manish from '../assets/feedback/manish.webp';
 import tiyasha from '../assets/feedback/tiyasha.webp';
 
 interface HomeClientProps {
+  heroData?: HeroData;
   topPicks: Product[];
   newArrivals: Product[];
 }
 
-const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
+const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals }) => {
+  const desktopHeroSrc = heroData?.desktopImage || (typeof heroMobile === 'object' ? heroMobile.src : heroMobile);
+  const mobileHeroImages = (heroData?.mobileImages && heroData.mobileImages.length > 0)
+    ? heroData.mobileImages
+    : [typeof heroMobile === 'object' ? heroMobile.src : heroMobile];
+
+  const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<number>(1);
+
+  const nextMobileSlide = () => {
+    setSlideDirection(1);
+    setMobileSlideIndex((prev) => (prev + 1) % mobileHeroImages.length);
+  };
+
+  const prevMobileSlide = () => {
+    setSlideDirection(-1);
+    setMobileSlideIndex((prev) => (prev - 1 + mobileHeroImages.length) % mobileHeroImages.length);
+  };
+
+  const goToMobileSlide = (index: number) => {
+    setSlideDirection(index > mobileSlideIndex ? 1 : -1);
+    setMobileSlideIndex(index);
+  };
+
+  useEffect(() => {
+    if (mobileHeroImages.length <= 1) return;
+    const interval = setInterval(() => {
+      nextMobileSlide();
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [mobileHeroImages.length, mobileSlideIndex]);
+
+  const slideVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? '100%' : '-100%',
+      opacity: 0.3,
+    }),
+    center: {
+      x: '0%',
+      opacity: 1,
+    },
+    exit: (direction: number) => ({
+      x: direction < 0 ? '100%' : '-100%',
+      opacity: 0.3,
+    }),
+  };
+
   useEffect(() => {
     const container = document.getElementById('feedback-container');
     if (!container) return;
@@ -44,31 +90,86 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
-      <section className="relative h-[65vh] md:h-screen mt-16 lg:mt-0 w-full flex items-center overflow-hidden bg-neutral-900 px-6 md:px-12 lg:px-24">
+      <section className="relative aspect-[4/5] sm:aspect-auto h-auto sm:h-[65vh] md:h-screen mt-16 lg:mt-0 w-full flex items-center overflow-hidden bg-neutral-900 px-6 md:px-12 lg:px-24">
         <div className="absolute inset-0 z-0">
-          <picture>
-            <source
-              media="(max-width: 1023px)"
-              srcSet={typeof heroMobile === 'object' ? heroMobile.src : heroMobile}
-            />
-            <img
-              src={typeof hero === 'object' ? hero.src : hero}
-              alt="Model posing in Gorer Mart streetwear with Kolkata-themed background graphics"
-              className="w-full h-full object-cover opacity-80"
-            />
-          </picture>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent" />
+          {/* Desktop background (Single image) */}
+          <img
+            src={desktopHeroSrc}
+            alt="Gorer Mart Streetwear Hero Banner"
+            className="hidden lg:block w-full h-full object-cover opacity-80"
+          />
+
+          {/* Mobile background (Carousel or single fallback image) */}
+          <div className="block lg:hidden w-full h-full relative overflow-hidden bg-neutral-950">
+            <AnimatePresence custom={slideDirection} initial={false}>
+              <motion.img
+                key={mobileSlideIndex}
+                src={mobileHeroImages[mobileSlideIndex] || mobileHeroImages[0]}
+                custom={slideDirection}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  x: { type: 'spring', stiffness: 300, damping: 30 },
+                  opacity: { duration: 0.25 },
+                }}
+                alt={`Mobile Hero Banner ${mobileSlideIndex + 1}`}
+                className="w-full h-full object-cover absolute inset-0 select-none"
+              />
+            </AnimatePresence>
+
+            {/* Manual Arrow Controls for Mobile */}
+            {mobileHeroImages.length > 1 && (
+              <>
+                <button
+                  onClick={prevMobileSlide}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md text-white/90 border border-white/15 flex items-center justify-center hover:bg-black/70 hover:text-white active:scale-95 transition-all cursor-pointer shadow-md"
+                  aria-label="Previous banner"
+                >
+                  <FontAwesomeIcon icon={faChevronLeft} className="text-xs" aria-hidden="true" />
+                </button>
+                <button
+                  onClick={nextMobileSlide}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md text-white/90 border border-white/15 flex items-center justify-center hover:bg-black/70 hover:text-white active:scale-95 transition-all cursor-pointer shadow-md"
+                  aria-label="Next banner"
+                >
+                  <FontAwesomeIcon icon={faChevronRight} className="text-xs" aria-hidden="true" />
+                </button>
+              </>
+            )}
+
+            {/* Mobile Carousel Circular/Dot Indicators */}
+            {mobileHeroImages.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-2">
+                {mobileHeroImages.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => goToMobileSlide(idx)}
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                      idx === mobileSlideIndex
+                        ? 'bg-[#d8cd91] scale-125 shadow-[0_0_6px_rgba(216,205,145,0.8)]'
+                        : 'bg-white/50 hover:bg-white/90'
+                    }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent pointer-events-none hidden lg:block" />
         </div>
 
-        <div className="container mx-auto relative z-10">
+        <div className="container mx-auto relative z-10 hidden lg:block">
           <motion.div
-            initial={{ opacity: 0, x: -50 }}
+            initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
             className="max-w-2xl text-white"
           >
             <h1 className="inline-block text-[#d8cd91] font-bold uppercase tracking-[0.4em] text-[10px] md:text-xs mb-4">
-              Gorer Mart • Bengal's Own Drip
+              Bengal's Own Drip
             </h1>
             <h2 className="text-2xl md:text-5xl font-bold leading-[1.2] mb-8 tracking-relaxed">
               Get Ready For Endless{" "}
@@ -105,18 +206,18 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
             <div className="max-w-xl">
               <motion.h2
                 id="top-picks-heading"
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
+                transition={{ duration: 0.35, delay: 0.05 }}
                 className="text-3xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-2 leading-tight">
                 most pochhonder
               </motion.h2>
               <motion.p
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
+                transition={{ duration: 0.35, delay: 0.1 }}
                 className="text-gray-400 text-sm md:text-base"
               >
                 People said that they loved it.{" "}
@@ -124,9 +225,10 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
               </motion.p>
             </div>
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 15 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
+              transition={{ duration: 0.35, delay: 0.1 }}
               className="hidden md:block mt-8 md:mt-0"
             >
               <Button asChild>
@@ -139,10 +241,10 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
             {topPicks.slice(0, 4).map((product, idx) => (
               <motion.div
                 key={product.id}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: idx * 0.1, duration: 0.6 }}
+                transition={{ delay: idx * 0.05, duration: 0.35 }}
               >
                 <ProductCard product={product} />
               </motion.div>
@@ -164,28 +266,29 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
             <div className="max-w-xl">
               <motion.h2
                 id="new-arrivals-heading"
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
+                transition={{ duration: 0.35, delay: 0.05 }}
                 className="text-3xl md:text-5xl text-black font-display font-bold uppercase tracking-tighter mb-2 leading-tight"
               >
                 Taatka Drops
               </motion.h2>
               <motion.p
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
+                transition={{ duration: 0.35, delay: 0.1 }}
                 className="text-gray-400 text-sm md:text-base"
               >
                 Every piece, exclusive.{" "}<span className="block md:inline">Every design, intentional.</span>
               </motion.p>
             </div>
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 15 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
+              transition={{ duration: 0.35, delay: 0.1 }}
               className="hidden md:block mt-8 md:mt-0"
             >
               <Button asChild>
@@ -198,10 +301,10 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
             {newArrivals.slice(0, 4).map((product, idx) => (
               <motion.div
                 key={product.id}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: idx * 0.1, duration: 0.6 }}
+                transition={{ delay: idx * 0.05, duration: 0.35 }}
               >
                 <ProductCard product={product} />
               </motion.div>
@@ -221,29 +324,30 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
         <div className="container mx-auto relative z-10">
           <div className="max-w-4xl mx-auto text-center mb-20">
             <motion.span
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
+              transition={{ duration: 0.35 }}
               className="text-[#a6101b] uppercase tracking-[0.4em] text-[10px] md:text-sm font-bold mb-6 block"
             >
               Our Philosophy
             </motion.span>
             <motion.h2
               id="philosophy-heading"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
+              transition={{ duration: 0.35, delay: 0.05 }}
               className="text-2xl md:text-6xl text-black font-display font-bold uppercase tracking-tighter mb-8 leading-tight"
             >
               The Soul of Bengal, <br />
               <span className="text-[#a6101b]">Stitched for the World.</span>
             </motion.h2>
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
+              transition={{ duration: 0.35, delay: 0.1 }}
               className="text-gray-600 text-[12px] md:text-lg font-light leading-relaxed max-w-3xl mx-auto"
             >
               At Gorer Mart, every design is a love letter to Bangla cinema, Moharothis, and unfiltered street spirit. Crafted for people who wear their culture proudly.
@@ -256,19 +360,16 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 icon: faLeaf,
                 title: "Jotno-fully Built",
                 description: "Built with high-GSM organic cotton that breathes like a fresh December er Sokal and the print survives hundred washes like Bangali Oitijhyo. Expect no less than a Bhaat-Ghum comfort.",
-                delay: 0.3
               },
               {
                 icon: faCity,
                 title: "Paara Certified",
                 description: "Gorer Mart is the Howrah Bridge between Cultural Heritage and Modern Urban fashion. From Babai to Bablu Kaku, everyone loves it.",
-                delay: 0.4
               },
               {
                 icon: faGem,
                 title: "Hok Kolorob",
                 description: "They say Banglay naki rock aar bhalo tshirt hoynah. Show them Fossils and Gorer Mart.",
-                delay: 0.5
               }
             ].map((item, idx) => (
               <article
@@ -276,10 +377,10 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
                 className="bg-[#a6101b] p-6 md:p-10 rounded-2xl group hover:shadow-black/30 hover:shadow-xl transition-all duration-500 hover:-translate-y-2"
               >
                 <motion.div
-                  initial={{ opacity: 0, y: 30 }}
+                  initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: item.delay, duration: 0.6 }}
+                  transition={{ delay: idx * 0.08, duration: 0.35 }}
                 >
                   <div className="flex flex-row md:flex-col-reverse justify-between items-center md:items-start gap-4 md:gap-0 mb-6 md:mb-0">
                     <h3 className="text-2xl font-bold md:mb-4 text-[#fff8e9]">{item.title}</h3>
@@ -296,10 +397,10 @@ const HomeClient: React.FC<HomeClientProps> = ({ topPicks, newArrivals }) => {
           </div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.6 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
             className="flex justify-center"
           >
             <Button asChild className="bg-white text-[#a6101b] border-2 hover:bg-white border-[#a6101b] hover:scale-105 transition-all shadow-premium px-12">

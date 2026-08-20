@@ -1,7 +1,7 @@
 import { createClient } from '@sanity/client';
 import { createImageUrlBuilder } from '@sanity/image-url';
 import { PRODUCTS, CATEGORIES } from '../data/products';
-import { Product, Category } from '../types/product';
+import { Product, Category, HeroData } from '../types/product';
 
 const rawProjectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'heqswlxk';
 const projectId = rawProjectId.replace(/['"]/g, '');
@@ -157,6 +157,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export interface HomePageShowcase {
+  heroData?: HeroData;
   mostPochhonder: Product[];
   taatkaDrop: Product[];
 }
@@ -174,11 +175,15 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
   }
 
   if (!isSanityConfigured()) {
-    return { mostPochhonder: [], taatkaDrop: [] };
+    return { heroData: { desktopImage: undefined, mobileImages: [] }, mostPochhonder: [], taatkaDrop: [] };
   }
 
   try {
     const query = `*[_type == "homePage"] | order(_updatedAt desc)[0] {
+      hero {
+        desktopImage,
+        mobileImages
+      },
       mostPochhonder[] {
         category-> { name },
         products[]-> {
@@ -224,6 +229,30 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
     }`;
 
     const showcaseData = await client.fetch(query, {}, { cache: 'no-store' });
+
+    let heroData: HeroData = {
+      desktopImage: undefined,
+      mobileImages: []
+    };
+
+    if (showcaseData?.hero) {
+      if (showcaseData.hero.desktopImage) {
+        try {
+          heroData.desktopImage = urlFor(showcaseData.hero.desktopImage).url();
+        } catch (e) {
+          console.warn("Failed to resolve desktop hero image URL", e);
+        }
+      }
+      if (showcaseData.hero.mobileImages && Array.isArray(showcaseData.hero.mobileImages)) {
+        heroData.mobileImages = showcaseData.hero.mobileImages.map((img: any) => {
+          try {
+            return urlFor(img).url();
+          } catch (e) {
+            return '';
+          }
+        }).filter(Boolean);
+      }
+    }
 
     const mapProducts = (productsRaw: any[]) => {
       if (!productsRaw || !Array.isArray(productsRaw)) return [];
@@ -277,11 +306,12 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
     }
 
     return {
+      heroData,
       mostPochhonder,
       taatkaDrop
     };
   } catch (error) {
     console.error("Failed to fetch home page showcase from Sanity. Falling back to empty lists.", error);
-    return { mostPochhonder: [], taatkaDrop: [] };
+    return { heroData: { desktopImage: undefined, mobileImages: [] }, mostPochhonder: [], taatkaDrop: [] };
   }
 }

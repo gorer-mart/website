@@ -47,6 +47,7 @@ export default async function Page() {
   const showcase = await getHomePageShowcase();
   return (
     <HomeClient
+      heroData={showcase.heroData}
       topPicks={showcase.mostPochhonder || []}
       newArrivals={showcase.taatkaDrop || []}
     />
