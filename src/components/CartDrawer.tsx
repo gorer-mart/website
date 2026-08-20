@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faMinus, faTrashCan, faXmark, faBagShopping } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../context/CartContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 const SPRING = {
   type: 'spring' as const,
@@ -20,6 +20,11 @@ const OVERLAY_TRANSITION = { duration: 0.35, ease: [0.32, 0.72, 0, 1] as const }
 const CartDrawer = () => {
   const { cart, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, cartTotal } = useCart();
   const router = useRouter();
+  const pathname = usePathname();
+
+  if (pathname === '/login' || pathname?.startsWith('/studio') || pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   // Lock body scroll while cart is open
   useEffect(() => {
