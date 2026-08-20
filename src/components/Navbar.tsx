@@ -63,7 +63,7 @@ const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className={`relative w-full h-16 transition-all duration-500 border-b shadow-premium lg:shadow-none px-6 md:px-12 lg:px-24
+        className={`relative w-full h-16 transition-all duration-500 border-b shadow-premium lg:shadow-none px-4 sm:px-6 md:px-12 lg:px-24
         ${isHomePage
           ? `bg-[#a6101b] border-[#b12026] lg:border-transparent ${
               isScrolled 
@@ -108,14 +108,14 @@ const Navbar: React.FC = () => {
 
           <Link
             href="/"
-            className="absolute left-1/2 -translate-x-1/2"
+            className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center"
           >
             <span className="sr-only">Gorer Mart</span>
             {/* Desktop Transparent logo */}
             <img
               src={typeof logoBlack === 'object' ? logoBlack.src : logoBlack}
               alt="Gorer Mart"
-              className={`h-5 md:h-10 w-auto object-contain transition-all duration-500 hidden lg:block ${
+              className={`h-9 md:h-10 w-auto object-contain transition-all duration-500 hidden lg:block ${
                 isHomePage && !isScrolled ? 'lg:block' : 'lg:hidden'
               }`}
             />
@@ -123,26 +123,28 @@ const Navbar: React.FC = () => {
             <img
               src={typeof logoRed === 'object' ? logoRed.src : logoRed}
               alt="Gorer Mart"
-              className={`h-5 md:h-10 w-auto object-contain transition-all duration-500 ${
+              className={`h-9 md:h-10 w-auto object-contain transition-all duration-500 ${
                 isHomePage && !isScrolled ? 'block lg:hidden' : 'block'
               }`}
             />
           </Link>
 
-          <div className="flex items-center h-full space-x-6 transition-colors duration-500 text-white">
+          <div className="flex items-center h-full space-x-3 sm:space-x-6 transition-colors duration-500 text-white">
             <button 
               onClick={() => setIsSearchOpen(true)}
-              className="transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
+              aria-label="Search"
             >
               <FontAwesomeIcon icon={faMagnifyingGlass} />
             </button>
             <button
-              className="relative transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
+              className="relative w-8 h-8 flex items-center justify-center transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
               onClick={() => setIsCartOpen(true)}
+              aria-label="Shopping Cart"
             >
               <FontAwesomeIcon icon={faBagShopping} className="text-lg" />
               {cartCount > 0 && (
-                <span className={`absolute -top-2 -right-2 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${isHomePage && !isScrolled
+                <span className={`absolute -top-1 -right-1 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${isHomePage && !isScrolled
                   ? 'bg-black text-white lg:bg-white lg:text-black'
                   : 'bg-black text-white'
                   }`}>
@@ -157,7 +159,8 @@ const Navbar: React.FC = () => {
                 onMouseLeave={() => setIsUserMenuOpen(false)}
               >
                 <button 
-                  className="transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer flex items-center"
+                  className="w-8 h-8 flex items-center justify-center transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
+                  aria-label="User Account"
                 >
                   {profile?.avatar_url ? (
                     <img

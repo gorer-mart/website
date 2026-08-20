@@ -23,3 +23,8 @@ export interface Category {
   itemCount?: string;
   [key: string]: any;
 }
+
+export interface HeroData {
+  desktopImage?: string;
+  mobileImages?: string[];
+}
