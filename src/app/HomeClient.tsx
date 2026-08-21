@@ -340,7 +340,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
               transition={{ duration: 0.35, delay: 0.05 }}
               className="text-2xl md:text-6xl text-black font-display font-bold uppercase tracking-tighter mb-8 leading-tight"
             >
-              The Soul of Bengal, <br />
+              <span className='text-3xl md:text-6xl'>The Soul of Bengal,</span> <br />
               <span className="text-[#a6101b]">Stitched for the World.</span>
             </motion.h2>
             <motion.p
@@ -421,7 +421,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
                 viewport={{ once: true }}
                 className="text-[#a6101b] uppercase tracking-[0.4em] text-xs font-bold mb-4 block"
               >
-                The Community
+                Reviews
               </motion.span>
               <motion.h2
                 id="community-heading"

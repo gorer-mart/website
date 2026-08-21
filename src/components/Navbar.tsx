@@ -129,7 +129,7 @@ const Navbar: React.FC = () => {
             />
           </Link>
 
-          <div className="flex items-center h-full space-x-3 sm:space-x-6 transition-colors duration-500 text-white">
+          <div className="flex items-center h-full gap-3 sm:gap-6 transition-colors duration-500 text-white">
             <button 
               onClick={() => setIsSearchOpen(true)}
               className="w-8 h-8 flex items-center justify-center transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
@@ -154,7 +154,7 @@ const Navbar: React.FC = () => {
             </button>
             {isAuthenticated ? (
               <div
-                className="relative h-full flex items-center"
+                className="relative h-full items-center hidden lg:flex"
                 onMouseEnter={() => setIsUserMenuOpen(true)}
                 onMouseLeave={() => setIsUserMenuOpen(false)}
               >
