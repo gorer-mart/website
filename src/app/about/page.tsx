@@ -1,24 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-import OurHeritageImage from '../../assets/about/about-image-1.webp';
-import OurCommitmentImage from '../../assets/about/about-image-2.webp';
-
-
+import { getAboutPageData } from '../../lib/sanity';
 
 const About: React.FC = () => {
+  const [sanityHeritageImage, setSanityHeritageImage] = useState<string | null>(null);
+  const [sanityCommitmentImage, setSanityCommitmentImage] = useState<string | null>(null);
 
+  useEffect(() => {
+    async function fetchImages() {
+      try {
+        const { heritageImage, commitmentImage } = await getAboutPageData();
+        if (heritageImage) setSanityHeritageImage(heritageImage);
+        if (commitmentImage) setSanityCommitmentImage(commitmentImage);
+      } catch (err) {
+        console.error("Failed to load About page images from Sanity:", err);
+      }
+    }
+    fetchImages();
+  }, []);
 
   return (
     <div className="bg-white selection:bg-black selection:text-white">
       <title>Our Story & Team | Gorer Mart - Kolkata Premium Streetwear</title>
       <meta name="description" content="Discover the origins of Gorer Mart. We blend Bengal's rich cultural heritage with modern, ethical streetwear. Meet the passionate team behind the brand." />
       <meta name="keywords" content="Gorer Mart story, Kolkata streetwear brand, ethical fashion India, premium apparel Bengal, our team, clothing brand founders" />
-
-
 
       {/* Editorial Content Blocks */}
       <section className="pb-32 px-6 md:px-12 lg:px-24 pt-12">
@@ -31,13 +40,19 @@ const About: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="w-full lg:w-1/2 aspect-[4/5] relative group overflow-hidden"
+              className="w-full lg:w-1/2 aspect-[4/5] relative group overflow-hidden bg-neutral-100"
             >
-              <img
-                src={OurHeritageImage.src}
-                alt="Kolkata Street Culture"
-                className="w-full h-full object-cover"
-              />
+              {sanityHeritageImage ? (
+                <img
+                  src={sanityHeritageImage}
+                  alt="Kolkata Street Culture"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-neutral-400 text-xs font-semibold uppercase tracking-wider">
+                  <span>Upload Image in Sanity CMS</span>
+                </div>
+              )}
             </motion.div>
             <div className="w-full lg:w-1/2 space-y-8">
               <span className="block text-sm uppercase tracking-[0.4em] font-bold text-[#a6101b] mb-4">Our Heritage</span>
@@ -62,13 +77,19 @@ const About: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="w-full lg:w-1/2 aspect-[4/5] relative group overflow-hidden"
+              className="w-full lg:w-1/2 aspect-[4/5] relative group overflow-hidden bg-neutral-100"
             >
-              <img
-                src={OurCommitmentImage.src}
-                alt="Ethical Fashion Craftsmanship"
-                className="w-full h-full object-cover"
-              />
+              {sanityCommitmentImage ? (
+                <img
+                  src={sanityCommitmentImage}
+                  alt="Ethical Fashion Craftsmanship"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-neutral-400 text-xs font-semibold uppercase tracking-wider">
+                  <span>Upload Image in Sanity CMS</span>
+                </div>
+              )}
             </motion.div>
             <div className="w-full lg:w-1/2 space-y-8">
               <span className="block text-sm uppercase tracking-[0.4em] font-bold text-[#a6101b] mb-4">Our Commitment</span>

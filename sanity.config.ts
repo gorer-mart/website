@@ -3,7 +3,7 @@ import { defineConfig } from 'sanity';
 import { structureTool } from 'sanity/structure';
 import { visionTool } from '@sanity/vision';
 import { schemaTypes } from './src/sanity/schemas';
-import { Folder, Package, LayoutGrid, Tags, Bookmark, Home } from 'lucide-react';
+import { Folder, Package, LayoutGrid, Tags, Bookmark, Home, LogIn, Info } from 'lucide-react';
 
 const rawProjectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'heqswlxk';
 const projectId = rawProjectId.replace(/['"]/g, '');
@@ -101,6 +101,26 @@ export default defineConfig({
                   .schemaType('homePage')
                   .documentId('homePage')
                   .title('Home Page')
+              ),
+            // Singleton: About Page
+            S.listItem()
+              .title('About Page')
+              .icon(Info)
+              .child(
+                S.document()
+                  .schemaType('aboutPage')
+                  .documentId('aboutPage')
+                  .title('About Page')
+              ),
+            // Singleton: Login Page
+            S.listItem()
+              .title('Login Page')
+              .icon(LogIn)
+              .child(
+                S.document()
+                  .schemaType('loginPage')
+                  .documentId('loginPage')
+                  .title('Login Page')
               ),
             S.divider(),
 
