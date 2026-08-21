@@ -315,3 +315,39 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
     return { heroData: { desktopImage: undefined, mobileImages: [] }, mostPochhonder: [], taatkaDrop: [] };
   }
 }
+
+/**
+ * Fetches the Login Page display image URL from Sanity CMS.
+ */
+export async function getLoginPageImage(): Promise<string | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    const data = await client.fetch(`*[_type == "loginPage" && _id == "loginPage"][0]{
+      "imageUrl": image.asset->url
+    }`, {}, { cache: 'no-store' });
+    return data?.imageUrl || null;
+  } catch (err) {
+    console.error("Failed to fetch login page image from Sanity:", err);
+    return null;
+  }
+}
+
+/**
+ * Fetches the About Page image URLs from Sanity CMS.
+ */
+export async function getAboutPageData(): Promise<{ heritageImage: string | null; commitmentImage: string | null }> {
+  if (!isSanityConfigured()) return { heritageImage: null, commitmentImage: null };
+  try {
+    const data = await client.fetch(`*[_type == "aboutPage" && _id == "aboutPage"][0]{
+      "heritageImage": ourHeritageImage.asset->url,
+      "commitmentImage": ourCommitmentImage.asset->url
+    }`, {}, { cache: 'no-store' });
+    return {
+      heritageImage: data?.heritageImage || null,
+      commitmentImage: data?.commitmentImage || null,
+    };
+  } catch (err) {
+    console.error("Failed to fetch about page images from Sanity:", err);
+    return { heritageImage: null, commitmentImage: null };
+  }
+}
