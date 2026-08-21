@@ -10,8 +10,7 @@ import { faEye, faEyeSlash, faArrowRight, faArrowLeft } from '@fortawesome/free-
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../ui/button';
 
-import hero from '../../assets/login/login_page_display.webp';
-import logoWhite from '../../assets/logo-white.webp';
+import { getLoginPageImage } from '../../lib/sanity';
 
 interface SolidInputProps {
   placeholder: string;
@@ -39,7 +38,7 @@ const SolidInput: React.FC<SolidInputProps> = ({
       type={type}
       value={value}
       onChange={onChange}
-      className="w-full px-4 py-3.5 text-sm text-white bg-[#27273A] border border-white/10 rounded-none focus:outline-none focus:border-yellow placeholder:text-neutral-500 transition-colors"
+      className="w-full px-4 py-3.5 text-sm font-medium text-[#a6101b] bg-white border-2 border-[#a6101b] rounded-none focus:outline-none focus:ring-2 focus:ring-[#a6101b]/20 placeholder:text-[#a6101b]/50 transition-colors"
       placeholder={placeholder}
       required={required}
     />
@@ -47,7 +46,7 @@ const SolidInput: React.FC<SolidInputProps> = ({
       <button
         type="button"
         onClick={() => setShowPassword(!showPassword)}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors z-10 cursor-pointer"
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#a6101b]/70 hover:text-[#a6101b] transition-colors z-10 cursor-pointer"
       >
         <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
       </button>
@@ -65,12 +64,27 @@ const LoginContent: React.FC = () => {
   const [formLoading, setFormLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [sanityHeroImage, setSanityHeroImage] = useState<string | null>(null);
 
   // Form fields
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+
+  useEffect(() => {
+    async function fetchSanityImage() {
+      try {
+        const imageUrl = await getLoginPageImage();
+        if (imageUrl) {
+          setSanityHeroImage(imageUrl);
+        }
+      } catch (err) {
+        console.error("Failed to load Sanity login image:", err);
+      }
+    }
+    fetchSanityImage();
+  }, []);
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -128,8 +142,8 @@ const LoginContent: React.FC = () => {
 
   if (loading || isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1C1C28] text-white">
-        <div className="w-8 h-8 border-2 border-yellow border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[#fff8e9] text-[#a6101b]">
+        <div className="w-8 h-8 border-2 border-[#a6101b] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -139,22 +153,28 @@ const LoginContent: React.FC = () => {
       <title>{isSignUp ? 'Create Account — Gorer Mart' : 'Sign In — Gorer Mart'}</title>
       <meta name="description" content="Sign in or create your Gorer Mart account" />
 
-      {/* Outer Page Wrapper with very thin padding */}
+      {/* Outer Page Wrapper */}
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="min-h-screen w-full flex items-stretch justify-center bg-[#1C1C28] p-2 md:p-4 select-none gap-2 md:gap-4"
+        className="min-h-screen w-full flex items-stretch justify-center bg-[#fff8e9] p-2 md:p-4 select-none gap-2 md:gap-4"
       >
         {/* Left section */}
         <div className="w-full min-h-[calc(100vh-1rem)] md:min-h-[calc(100vh-2rem)] hidden lg:flex items-center justify-center">
-          <div className="w-full h-full rounded-2xl relative overflow-hidden bg-black flex flex-col justify-between shadow-2xl border border-white/5">
+          <div className="w-full h-full rounded-2xl relative overflow-hidden bg-white flex flex-col justify-between shadow-xl border border-[#a6101b]/15">
             <div className="absolute inset-0 z-0">
-              <img
-                src={typeof hero === 'object' ? hero.src : hero}
-                alt="Gorer Mart Streetwear"
-                className="w-full h-full object-cover"
-              />
+              {sanityHeroImage ? (
+                <img
+                  src={sanityHeroImage}
+                  alt="Gorer Mart Streetwear"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-[#fff8e9]/80 flex flex-col items-center justify-center p-8 text-center border border-[#a6101b]/10">
+                  <span className="text-xs uppercase tracking-widest font-semibold text-[#a6101b]/60">Upload Image in Sanity CMS</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -166,7 +186,7 @@ const LoginContent: React.FC = () => {
             <div className="flex justify-start items-center mb-8 w-full">
               <Link
                 href="/"
-                className="text-neutral-400 hover:text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors group cursor-pointer"
+                className="text-[#a6101b] hover:text-[#8e0c15] text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors group cursor-pointer"
               >
                 <FontAwesomeIcon icon={faArrowLeft} className="text-[10px] group-hover:-translate-x-0.5 transition-transform" />
                 <span>Back to website</span>
@@ -181,17 +201,17 @@ const LoginContent: React.FC = () => {
             >
               {/* Header */}
               <div className="mb-8">
-                <h1 className="text-3xl sm:text-4xl font-display font-semibold text-white tracking-tight mb-2">
+                <h1 className="text-3xl sm:text-4xl font-display font-semibold text-[#a6101b] tracking-tight mb-2">
                   {isSignUp ? 'Create an account' : 'Log in'}
                 </h1>
-                <div className="flex items-center space-x-2 text-sm text-neutral-400">
+                <div className="flex items-center space-x-2 text-sm text-[#a6101b]/80">
                   <span>{isSignUp ? 'Already have an account?' : "Don't have an account?"}</span>
                   <button
                     onClick={() => {
                       setIsSignUp(!isSignUp);
                       resetForm();
                     }}
-                    className="text-yellow hover:text-white font-semibold underline transition-colors cursor-pointer"
+                    className="text-[#a6101b] hover:text-[#8e0c15] font-bold underline transition-colors cursor-pointer"
                   >
                     {isSignUp ? 'Log in' : 'Create account'}
                   </button>
@@ -207,7 +227,7 @@ const LoginContent: React.FC = () => {
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden mb-6"
                   >
-                    <div className="bg-red-500/10 text-red-400 text-sm px-4 py-3 border border-red-500/20 rounded-none font-light">
+                    <div className="bg-red-50 text-[#a6101b] text-sm px-4 py-3 border border-[#a6101b]/30 rounded-none font-medium">
                       {error}
                     </div>
                   </motion.div>
@@ -219,7 +239,7 @@ const LoginContent: React.FC = () => {
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden mb-6"
                   >
-                    <div className="bg-green-500/10 text-green-400 text-sm px-4 py-3 border border-green-500/20 rounded-none font-light">
+                    <div className="bg-emerald-50 text-emerald-800 text-sm px-4 py-3 border border-emerald-200 rounded-none font-medium">
                       {success}
                     </div>
                   </motion.div>
@@ -272,49 +292,48 @@ const LoginContent: React.FC = () => {
                 />
 
                 {isSignUp ? (
-                  <label className="flex items-center space-x-3 text-xs text-neutral-400 pt-2 pb-1 cursor-pointer group">
+                  <label className="flex items-center space-x-3 text-xs text-[#a6101b]/90 pt-2 pb-1 cursor-pointer group">
                     <input
                       type="checkbox"
                       required
-                      className="w-4 h-4 rounded-none border-white/20 bg-[#27273A] text-yellow focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      className="w-4 h-4 rounded-none border-[#a6101b] bg-white accent-[#a6101b] focus:ring-0 focus:ring-offset-0 cursor-pointer"
                     />
-                    <span>I agree to the <Link href="/terms-and-conditions" className="text-yellow hover:underline">Terms & Conditions</Link></span>
+                    <span>I agree to the <Link href="/terms-and-conditions" className="text-[#a6101b] font-bold hover:underline">Terms & Conditions</Link></span>
                   </label>
                 ) : (
                   <div className="flex justify-end pt-1 pb-2">
-                    <button type="button" className="text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer">
+                    <button type="button" className="text-xs text-[#a6101b] hover:text-[#8e0c15] hover:underline transition-colors cursor-pointer font-medium">
                       Forgot password?
                     </button>
                   </div>
                 )}
 
-                <Button
+                <button
                   type="submit"
                   disabled={formLoading}
-                  variant="premium"
-                  className="w-full py-6 mt-2 cursor-pointer rounded-none font-bold"
+                  className="w-full py-4 mt-2 cursor-pointer rounded-none font-bold bg-[#a6101b] hover:bg-[#8e0c15] text-white transition-all uppercase tracking-wider text-sm shadow-md disabled:opacity-50"
                 >
                   {formLoading ? 'Please wait...' : (isSignUp ? 'Create account' : 'Log in')}
-                </Button>
+                </button>
               </form>
 
               {/* Divider */}
               <div className="flex items-center my-8">
-                <div className="flex-1 h-px bg-white/10" />
-                <span className="px-4 text-xs text-neutral-500 font-medium">Or</span>
-                <div className="flex-1 h-px bg-white/10" />
+                <div className="flex-1 h-px bg-[#a6101b]/20" />
+                <span className="px-4 text-xs text-[#a6101b]/70 font-semibold uppercase tracking-wider">Or</span>
+                <div className="flex-1 h-px bg-[#a6101b]/20" />
               </div>
 
               {/* Social Buttons */}
               <div className="grid grid-cols-1 gap-4">
-                <Button
+                <button
                   type="button"
                   onClick={signInWithGoogle}
-                  className="w-full flex items-center justify-center space-x-3 border border-white/20 hover:border-white bg-transparent hover:bg-white hover:text-black py-6 text-sm text-white transition-all cursor-pointer rounded-none font-medium"
+                  className="w-full flex items-center justify-center space-x-3 border-2 border-[#a6101b] text-[#a6101b] bg-white hover:bg-[#a6101b] hover:text-white py-4 text-sm transition-all cursor-pointer rounded-none font-bold shadow-sm"
                 >
                   <FontAwesomeIcon icon={faGoogle} className="text-base" />
                   <span>Continue with Google</span>
-                </Button>
+                </button>
               </div>
             </motion.div>
           </div>
@@ -327,8 +346,8 @@ const LoginContent: React.FC = () => {
 const Login: React.FC = () => {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#1C1C28] text-white">
-        <div className="w-8 h-8 border-2 border-yellow border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[#fff8e9] text-[#a6101b]">
+        <div className="w-8 h-8 border-2 border-[#a6101b] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <LoginContent />
