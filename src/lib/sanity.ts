@@ -68,7 +68,10 @@ export async function getProducts(): Promise<Product[]> {
       },
       sizes,
       "details": category->details,
-      "washCare": category->washCare
+      "washCare": category->washCare,
+      "sizeGuideDesktopImages": category->sizeGuideDesktopImages[].asset->url,
+      "sizeGuideMobileImages": category->sizeGuideMobileImages[].asset->url,
+      "sizeGuideImages": category->sizeGuideImages[].asset->url
     }`;
     const sanityProducts = await client.fetch(query, {}, { cache: 'no-store' });
 
@@ -101,7 +104,14 @@ export async function getProducts(): Promise<Product[]> {
           tag: (p.collections && p.collections.length > 0) ? p.collections[0] : (p.tags?.[0] || p.tag || ''),
           tags: (p.collections && p.collections.length > 0) ? p.collections : (p.tags || (p.tag ? [p.tag] : [])),
           details: p.details || [],
-          washCare: p.washCare || ''
+          washCare: p.washCare || '',
+          sizeGuideDesktopImages: (p.sizeGuideDesktopImages && p.sizeGuideDesktopImages.length > 0) ? p.sizeGuideDesktopImages.filter(Boolean) : [],
+          sizeGuideMobileImages: (p.sizeGuideMobileImages && p.sizeGuideMobileImages.length > 0) ? p.sizeGuideMobileImages.filter(Boolean) : [],
+          sizeGuideImages: (p.sizeGuideDesktopImages && p.sizeGuideDesktopImages.length > 0)
+            ? p.sizeGuideDesktopImages.filter(Boolean)
+            : ((p.sizeGuideMobileImages && p.sizeGuideMobileImages.length > 0)
+                ? p.sizeGuideMobileImages.filter(Boolean)
+                : (p.sizeGuideImages ? p.sizeGuideImages.filter(Boolean) : []))
         };
       });
     }
@@ -138,14 +148,24 @@ export async function getCategories(): Promise<Category[]> {
       _id,
       name,
       image,
-      itemCount
+      itemCount,
+      "sizeGuideDesktopImages": sizeGuideDesktopImages[].asset->url,
+      "sizeGuideMobileImages": sizeGuideMobileImages[].asset->url,
+      "sizeGuideImages": sizeGuideImages[].asset->url
     }`;
     const sanityCategories = await client.fetch(query, {}, { cache: 'no-store' });
 
     if (sanityCategories && sanityCategories.length > 0) {
       return sanityCategories.map((c: any) => ({
         ...c,
-        image: c.image ? urlFor(c.image).url() : ''
+        image: c.image ? urlFor(c.image).url() : '',
+        sizeGuideDesktopImages: (c.sizeGuideDesktopImages && c.sizeGuideDesktopImages.length > 0) ? c.sizeGuideDesktopImages.filter(Boolean) : [],
+        sizeGuideMobileImages: (c.sizeGuideMobileImages && c.sizeGuideMobileImages.length > 0) ? c.sizeGuideMobileImages.filter(Boolean) : [],
+        sizeGuideImages: (c.sizeGuideDesktopImages && c.sizeGuideDesktopImages.length > 0)
+          ? c.sizeGuideDesktopImages.filter(Boolean)
+          : ((c.sizeGuideMobileImages && c.sizeGuideMobileImages.length > 0)
+              ? c.sizeGuideMobileImages.filter(Boolean)
+              : (c.sizeGuideImages ? c.sizeGuideImages.filter(Boolean) : []))
       }));
     }
 
@@ -202,7 +222,10 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
           },
           sizes,
           "details": category->details,
-          "washCare": category->washCare
+          "washCare": category->washCare,
+          "sizeGuideDesktopImages": category->sizeGuideDesktopImages[].asset->url,
+          "sizeGuideMobileImages": category->sizeGuideMobileImages[].asset->url,
+          "sizeGuideImages": category->sizeGuideImages[].asset->url
         }
       },
       taatkaDrop[] {
@@ -223,7 +246,10 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
           },
           sizes,
           "details": category->details,
-          "washCare": category->washCare
+          "washCare": category->washCare,
+          "sizeGuideDesktopImages": category->sizeGuideDesktopImages[].asset->url,
+          "sizeGuideMobileImages": category->sizeGuideMobileImages[].asset->url,
+          "sizeGuideImages": category->sizeGuideImages[].asset->url
         }
       }
     }`;
@@ -282,7 +308,14 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
           tag: (p.collections && p.collections.length > 0) ? p.collections[0] : (p.tags?.[0] || p.tag || ''),
           tags: (p.collections && p.collections.length > 0) ? p.collections : (p.tags || (p.tag ? [p.tag] : [])),
           details: p.details || [],
-          washCare: p.washCare || ''
+          washCare: p.washCare || '',
+          sizeGuideDesktopImages: (p.sizeGuideDesktopImages && p.sizeGuideDesktopImages.length > 0) ? p.sizeGuideDesktopImages.filter(Boolean) : [],
+          sizeGuideMobileImages: (p.sizeGuideMobileImages && p.sizeGuideMobileImages.length > 0) ? p.sizeGuideMobileImages.filter(Boolean) : [],
+          sizeGuideImages: (p.sizeGuideDesktopImages && p.sizeGuideDesktopImages.length > 0)
+            ? p.sizeGuideDesktopImages.filter(Boolean)
+            : ((p.sizeGuideMobileImages && p.sizeGuideMobileImages.length > 0)
+                ? p.sizeGuideMobileImages.filter(Boolean)
+                : (p.sizeGuideImages ? p.sizeGuideImages.filter(Boolean) : []))
         };
       });
     };
