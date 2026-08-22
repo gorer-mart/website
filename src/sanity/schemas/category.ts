@@ -43,6 +43,20 @@ export default {
       initialValue: 'Machine wash cold with like colors. Tumble dry low. Do not bleach. Iron on low heat if necessary. For best results and to maintain the longevity of the fabric, we recommend air drying.',
       description: 'The care instructions that will automatically be inherited by all products in this category.',
     },
+    {
+      name: 'sizeGuideDesktopImages',
+      title: 'Size Guide Images — Desktop View',
+      type: 'array',
+      of: [{ type: 'image', options: { hotspot: true } }],
+      description: 'Upload size guide images for desktop screens (supports 1 or multiple images).',
+    },
+    {
+      name: 'sizeGuideMobileImages',
+      title: 'Size Guide Images — Mobile View',
+      type: 'array',
+      of: [{ type: 'image', options: { hotspot: true } }],
+      description: 'Upload size guide images for mobile screens (supports 1 or multiple images).',
+    },
   ],
   preview: {
     select: {
