@@ -47,6 +47,7 @@ const ProductDetail: React.FC = () => {
 
   // Share state
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [showSizeGuideModal, setShowSizeGuideModal] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -349,9 +350,22 @@ const ProductDetail: React.FC = () => {
             {/* Selectors */}
             <div className="space-y-8 mb-10 pt-10 border-t border-neutral-100">
               <div>
-                <div className="flex justify-between mb-4">
+                <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xs font-bold uppercase tracking-widest">Select Size</h3>
-                  <Link href="/size-guide" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-4">Size Guide</Link>
+                  <button
+                    type="button"
+                    onClick={() => setShowSizeGuideModal(true)}
+                    className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-4 hover:text-[#a6101b] transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0z"/>
+                      <path d="m14.5 12.5 2-2"/>
+                      <path d="m11.5 9.5 2-2"/>
+                      <path d="m8.5 6.5 2-2"/>
+                      <path d="m17.5 15.5 2-2"/>
+                    </svg>
+                    Size Guide
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map(size => (
@@ -808,6 +822,127 @@ const ProductDetail: React.FC = () => {
               </Button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Size Guide Modal */}
+      <AnimatePresence>
+        {showSizeGuideModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSizeGuideModal(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-md"
+            />
+
+            {/* Modal Dialog Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-2xl bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 rounded-sm shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden z-10 my-auto flex flex-col max-h-[85vh] border border-neutral-200 dark:border-neutral-800"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 dark:border-neutral-900 bg-white dark:bg-neutral-950">
+                <h2 className="text-base font-display font-bold uppercase tracking-widest text-black dark:text-white">
+                  Size Guide
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowSizeGuideModal(false)}
+                  className="p-2 rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-400 hover:text-black dark:hover:text-white transition-all cursor-pointer"
+                  aria-label="Close modal"
+                >
+                  <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <div className="p-6 overflow-y-auto max-h-[calc(85vh-65px)] space-y-5">
+                {/* Category Header on top of image section */}
+                <div className="flex items-center space-x-2.5 pb-2 border-b border-neutral-200 dark:border-neutral-800/80">
+                  <span className="w-1.5 h-4 bg-[#a6101b] inline-block rounded-xs" />
+                  <span className="text-xs font-display font-extrabold uppercase tracking-widest text-black dark:text-white">
+                    {product.category || 'T-SHIRTS'}
+                  </span>
+                </div>
+
+                {(() => {
+                  const desktopImgs = (product.sizeGuideDesktopImages && product.sizeGuideDesktopImages.length > 0)
+                    ? product.sizeGuideDesktopImages
+                    : (product.sizeGuideImages || []);
+                  
+                  const mobileImgs = (product.sizeGuideMobileImages && product.sizeGuideMobileImages.length > 0)
+                    ? product.sizeGuideMobileImages
+                    : (product.sizeGuideImages || []);
+
+                  const hasCustomImages = desktopImgs.length > 0 || mobileImgs.length > 0;
+
+                  if (!hasCustomImages) {
+                    return (
+                      <div className="py-12 px-4 text-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-sm">
+                        <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">
+                          No size guide uploaded for this category yet
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-5 pt-1">
+                      {/* Desktop View Images */}
+                      {desktopImgs.length > 0 && (
+                        <div className="hidden md:block space-y-5">
+                          {desktopImgs.map((imgUrl: string, idx: number) => (
+                            <div key={`desktop-${idx}`} className="space-y-2">
+                              {desktopImgs.length > 1 && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                                  Image {idx + 1} of {desktopImgs.length}
+                                </span>
+                              )}
+                              <div className="overflow-hidden rounded-sm border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+                                <img
+                                  src={imgUrl}
+                                  alt={`${product.category || 'Category'} Size Guide ${idx + 1}`}
+                                  className="w-full h-auto object-contain max-h-[650px] mx-auto"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Mobile View Images */}
+                      {mobileImgs.length > 0 && (
+                        <div className="block md:hidden space-y-5">
+                          {mobileImgs.map((imgUrl: string, idx: number) => (
+                            <div key={`mobile-${idx}`} className="space-y-2">
+                              {mobileImgs.length > 1 && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                                  Image {idx + 1} of {mobileImgs.length}
+                                </span>
+                              )}
+                              <div className="overflow-hidden rounded-sm border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+                                <img
+                                  src={imgUrl}
+                                  alt={`${product.category || 'Category'} Size Guide ${idx + 1}`}
+                                  className="w-full h-auto object-contain max-h-[550px] mx-auto"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

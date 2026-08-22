@@ -14,13 +14,21 @@ export interface Product {
   sizes: string[];
   colors?: string[];
   details?: string[];
+  washCare?: string;
+  sizeGuideDesktopImages?: string[];
+  sizeGuideMobileImages?: string[];
+  sizeGuideImages?: string[];
   [key: string]: any;
 }
 
 export interface Category {
+  _id?: string;
   name: string;
   image: any;
   itemCount?: string;
+  sizeGuideDesktopImages?: string[];
+  sizeGuideMobileImages?: string[];
+  sizeGuideImages?: string[];
   [key: string]: any;
 }
 
