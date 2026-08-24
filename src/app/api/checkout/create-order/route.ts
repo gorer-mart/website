@@ -1,205 +1,301 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import { z } from "zod";
 import { env } from "@/lib/env";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { client as sanityClient } from "@/lib/sanity";
+import { getAuthenticatedUser } from "@/lib/server/auth";
+import { ensureProductRow } from "@/lib/server/product-sync";
+import { apiError, readJson } from "@/lib/server/http";
+import { hit, rateLimitResponse } from "@/lib/server/rate-limit";
 
-// Utility to check if a string is a valid UUID
-const isUUID = (str: string) => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-};
+export const dynamic = "force-dynamic";
 
-// Helper function to sync product from Sanity to Supabase database if missing
-async function ensureProductExists(supabase: any, sanityProduct: any) {
-  const productId = sanityProduct._id;
-  if (!isUUID(productId)) {
-    console.error(`Sanity product ID is not a valid UUID: ${productId}`);
-    return false;
-  }
+const MAX_QTY_PER_LINE = 10;
+const MAX_LINES = 20;
+const MAX_ORDER_VALUE = 500_000; // ₹5,00,000 sanity ceiling
 
-  const { data: existing } = await supabase
-    .from("products")
-    .select("id")
-    .eq("id", productId)
-    .maybeSingle();
+const cartItemSchema = z.object({
+  _id: z.string().trim().min(1).max(200).optional(),
+  id: z.union([z.string().trim().min(1).max(200), z.number()]).optional(),
+  name: z.string().trim().max(300).optional(),
+  price: z.number().nonnegative().optional(),
+  quantity: z.number().int().positive().max(MAX_QTY_PER_LINE),
+  size: z.string().trim().max(40).optional(),
+  color: z.string().trim().max(60).optional(),
+});
 
-  if (existing) return true;
+const shippingAddressSchema = z.object({
+  firstName: z
+    .string({ error: "Please enter your first name" })
+    .trim()
+    .min(1, "Please enter your first name")
+    .max(80, "That first name is too long"),
+  lastName: z.string().trim().max(80, "That last name is too long").optional().default(""),
+  email: z.email("Please enter a valid email address").trim().max(254).optional(),
+  phone: z
+    .string({ error: "Please enter your mobile number" })
+    .trim()
+    .regex(/^[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number"),
+  address: z
+    .string({ error: "Please enter your street address" })
+    .trim()
+    .min(5, "Please enter a complete street address")
+    .max(300, "That address is too long"),
+  city: z.string({ error: "Please enter your city" }).trim().min(1, "Please enter your city").max(100),
+  state: z.string({ error: "Please enter your state" }).trim().min(1, "Please enter your state").max(100),
+  zipCode: z
+    .string({ error: "Please enter your PIN code" })
+    .trim()
+    .regex(/^\d{6}$/, "Please enter a valid 6-digit PIN code"),
+  country: z.string().trim().max(60).optional().default("India"),
+});
 
-  const { error } = await supabase.from("products").insert({
-    id: productId,
-    title: sanityProduct.name || "Gorer Mart Product",
-    slug: sanityProduct.slug || `product-${productId}`,
-    price: Number(sanityProduct.price),
-    status: "active",
-  });
+const bodySchema = z.object({
+  cartItems: z.array(cartItemSchema).min(1).max(MAX_LINES),
+  shippingAddress: shippingAddressSchema,
+});
 
-  if (error) {
-    console.error("Failed to sync product to database:", error);
-    return false;
-  }
-
-  return true;
+interface CatalogProduct {
+  _id: string;
+  id?: number | string | null;
+  name?: string | null;
+  slug?: string | null;
+  price?: number | null;
+  sizes?: string[] | null;
 }
 
 export async function POST(request: Request) {
+  // ---- 1. Authenticate -------------------------------------------------
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return apiError("Please sign in to place an order.", 401);
+  }
+
+  const limit = hit(`create-order:${user.id}`, 12, 10 * 60 * 1000);
+  const limited = rateLimitResponse(limit, "Too many checkout attempts. Please wait a moment and try again.");
+  if (limited) return limited;
+
+  // ---- 2. Validate input ----------------------------------------------
+  const parsed = bodySchema.safeParse(await readJson(request));
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return apiError(first?.message || "Your order details are incomplete.", 400);
+  }
+  const { cartItems, shippingAddress } = parsed.data;
+
   try {
-    const supabase = await createServerSupabaseClient();
+    // ---- 3. Resolve the catalog from Sanity (server is the price authority)
+    const sanityIds = cartItems
+      .map((item) => item._id ?? (typeof item.id === "string" ? item.id : undefined))
+      .filter((v): v is string => typeof v === "string");
 
-    // 1. Authenticate user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const numericIds = cartItems
+      .map((item) => {
+        const raw = item.id ?? item._id;
+        const n = typeof raw === "number" ? raw : Number(raw);
+        return Number.isFinite(n) ? n : undefined;
+      })
+      .filter((v): v is number => typeof v === "number");
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { cartItems, shippingAddress } = body;
-
-    if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
-      return NextResponse.json({ error: "Invalid cart items" }, { status: 400 });
-    }
-
-    if (!shippingAddress) {
-      return NextResponse.json({ error: "Shipping address is required" }, { status: 400 });
-    }
-
-    // 2. Fetch fresh product details from Sanity for price validation
-    const productIds = cartItems.map((item: any) => item._id || item.id);
-    const sanityProducts = await sanityClient.fetch(
-      `*[_type == "product" && (_id in $productIds || id in $productIds)] {
-        _id,
-        name,
-        "slug": slug.current,
-        price
+    const catalog: CatalogProduct[] = await sanityClient.fetch(
+      `*[_type == "product" && (_id in $sanityIds || id in $numericIds)] {
+        _id, id, name, "slug": slug.current, price, sizes
       }`,
-      { productIds }
+      { sanityIds, numericIds }
     );
 
-    const priceMap = new Map();
-    const productMap = new Map();
-    sanityProducts.forEach((p: any) => {
-      priceMap.set(p._id, Number(p.price));
-      productMap.set(p._id, p);
-    });
-
-    // 3. Verify prices and ensure products exist in Supabase DB
-    let calculatedSubtotal = 0;
-    for (const item of cartItems) {
-      const itemId = item._id || item.id;
-      const sanityPrice = priceMap.get(itemId);
-      const sanityProduct = productMap.get(itemId);
-
-      if (sanityPrice === undefined || !sanityProduct) {
-        return NextResponse.json(
-          { error: `Product not found: ${item.name}` },
-          { status: 400 }
-        );
-      }
-
-      // Verify that client-provided price matches the server/CMS price
-      if (Math.round(Number(item.price)) !== Math.round(sanityPrice)) {
-        return NextResponse.json(
-          { error: `Price mismatch for product: ${item.name}` },
-          { status: 400 }
-        );
-      }
-
-      calculatedSubtotal += sanityPrice * item.quantity;
-
-      // Sync product to public.products table to prevent foreign key errors
-      const synced = await ensureProductExists(supabase, sanityProduct);
-      if (!synced) {
-        return NextResponse.json(
-          { error: `Database sync failed for product: ${item.name}` },
-          { status: 500 }
-        );
+    // Index by every identifier a client could legitimately send.
+    const byKey = new Map<string, CatalogProduct>();
+    for (const product of catalog) {
+      byKey.set(product._id, product);
+      if (product.id !== undefined && product.id !== null) {
+        byKey.set(String(product.id), product);
       }
     }
 
-    // 4. Save/Insert shipping address to Supabase
+    const supabase = createAdminSupabaseClient();
+
+    const resolvedLines: {
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      size: string | null;
+      color: string | null;
+      name: string;
+    }[] = [];
+
+    let subtotal = 0;
+
+    for (const item of cartItems) {
+      const lookupKeys = [item._id, item.id !== undefined ? String(item.id) : undefined].filter(
+        (v): v is string => typeof v === "string"
+      );
+
+      const product = lookupKeys.map((k) => byKey.get(k)).find(Boolean);
+
+      if (!product) {
+        return apiError(
+          `"${item.name || "An item in your bag"}" is no longer available. Please remove it and try again.`,
+          400
+        );
+      }
+
+      const serverPrice = Number(product.price);
+      if (!Number.isFinite(serverPrice) || serverPrice < 0) {
+        return apiError(`Pricing is unavailable for "${product.name}". Please try again later.`, 400);
+      }
+
+      // The server price is authoritative. A mismatch means the price moved
+      // while the item sat in the bag — tell the customer instead of silently
+      // charging a different amount than the one they were shown.
+      if (item.price !== undefined && Math.round(item.price) !== Math.round(serverPrice)) {
+        return apiError(
+          `The price of "${product.name}" has changed. Please review your bag and try again.`,
+          409
+        );
+      }
+
+      // Size must be one the catalog actually offers.
+      const availableSizes = Array.isArray(product.sizes) ? product.sizes : [];
+      const size: string | null = item.size ?? null;
+      if (availableSizes.length > 0) {
+        if (!size || !availableSizes.includes(size)) {
+          return apiError(`Please choose an available size for "${product.name}".`, 400);
+        }
+      }
+
+      const sync = await ensureProductRow(supabase, product);
+      if (!sync.ok) {
+        return apiError(
+          `We could not process "${product.name}" right now. Please try again shortly.`,
+          503,
+          { scope: "create-order.productSync", cause: sync.reason }
+        );
+      }
+
+      subtotal += serverPrice * item.quantity;
+      resolvedLines.push({
+        productId: sync.productId,
+        quantity: item.quantity,
+        unitPrice: serverPrice,
+        size,
+        color: item.color ?? null,
+        name: product.name || item.name || "Gorer Mart Product",
+      });
+    }
+
+    subtotal = Math.round(subtotal * 100) / 100;
+
+    if (subtotal <= 0) {
+      return apiError("Your order total is invalid. Please review your bag.", 400);
+    }
+    if (subtotal > MAX_ORDER_VALUE) {
+      return apiError("This order exceeds the maximum value we can process online.", 400);
+    }
+
+    const shippingCost = 0;
+    const total = Math.round((subtotal + shippingCost) * 100) / 100;
+
+    // ---- 4. Persist the shipping address --------------------------------
     const { data: addressData, error: addressError } = await supabase
       .from("addresses")
       .insert({
         user_id: user.id,
-        full_name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-        phone: shippingAddress.phone || "9999999999",
+        full_name: `${shippingAddress.firstName} ${shippingAddress.lastName}`.trim(),
+        phone: shippingAddress.phone,
         address_line_1: shippingAddress.address,
         city: shippingAddress.city,
-        state: shippingAddress.state || shippingAddress.city,
+        state: shippingAddress.state,
         postal_code: shippingAddress.zipCode,
         country: shippingAddress.country || "India",
         is_default: false,
       })
-      .select()
+      .select("id")
       .single();
 
-    if (addressError) {
-      console.error("Address creation error:", addressError);
-      return NextResponse.json({ error: "Failed to save shipping address" }, { status: 500 });
+    if (addressError || !addressData) {
+      return apiError("We could not save your shipping address. Please try again.", 500, {
+        scope: "create-order.address",
+        cause: addressError,
+      });
     }
 
-    // 5. Create Pending Order in local Supabase DB
+    // ---- 5. Create the Razorpay order BEFORE the local record ------------
+    // Creating it first means the local order row is never written without the
+    // `razorpay_order_id` that payment verification is required to match.
     const orderNumber = `GM-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        order_number: orderNumber,
-        subtotal: calculatedSubtotal,
-        shipping_cost: 0,
-        total: calculatedSubtotal,
-        payment_status: "pending",
-        order_status: "pending",
-        payment_provider: "razorpay",
-        shipping_address_id: addressData.id,
-        billing_address_id: addressData.id,
-      })
-      .select()
-      .single();
+    const amountInPaise = Math.round(total * 100);
 
-    if (orderError) {
-      console.error("Order creation error:", orderError);
-      return NextResponse.json({ error: "Failed to create order record" }, { status: 500 });
-    }
-
-    // 6. Insert Order Items
-    const orderItems = cartItems.map((item: any) => ({
-      order_id: orderData.id,
-      product_id: item._id || item.id,
-      quantity: item.quantity,
-      price: priceMap.get(item._id || item.id),
-    }));
-
-    const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
-
-    if (itemsError) {
-      console.error("Order items insert error:", itemsError);
-      return NextResponse.json({ error: "Failed to create order items" }, { status: 500 });
-    }
-
-    // 7. Create Razorpay order
     const razorpay = new Razorpay({
       key_id: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       key_secret: env.RAZORPAY_KEY_SECRET,
     });
 
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(calculatedSubtotal * 100), // amount in paise
-      currency: "INR",
-      receipt: orderNumber,
-      notes: {
-        orderNumber,
-      },
-    });
+    let razorpayOrder;
+    try {
+      razorpayOrder = await razorpay.orders.create({
+        amount: amountInPaise,
+        currency: "INR",
+        receipt: orderNumber,
+        notes: { orderNumber, userId: user.id },
+      });
+    } catch (error) {
+      return apiError("The payment gateway is unavailable right now. Please try again shortly.", 502, {
+        scope: "create-order.razorpay",
+        cause: error,
+      });
+    }
 
-    // Update order with razorpay order ID (using metadata or we can track it)
-    // We can store razorpay order id in orders.order_number or keep it as is.
-    // Let's store razorpay_order_id inside a custom metadata field if it exists,
-    // or just return it to the client. The client will pass it back on verification.
-    
+    // ---- 6. Record the pending order -------------------------------------
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        user_id: user.id,
+        order_number: orderNumber,
+        subtotal,
+        shipping_cost: shippingCost,
+        total,
+        payment_status: "pending",
+        order_status: "pending",
+        payment_provider: "razorpay",
+        razorpay_order_id: razorpayOrder.id,
+        customer_email: shippingAddress.email || user.email || null,
+        customer_phone: shippingAddress.phone,
+        shipping_address_id: addressData.id,
+        billing_address_id: addressData.id,
+      })
+      .select("id")
+      .single();
+
+    if (orderError || !orderData) {
+      return apiError("We could not create your order. Please try again.", 500, {
+        scope: "create-order.order",
+        cause: orderError,
+      });
+    }
+
+    const { error: itemsError } = await supabase.from("order_items").insert(
+      resolvedLines.map((line) => ({
+        order_id: orderData.id,
+        product_id: line.productId,
+        product_name: line.name,
+        quantity: line.quantity,
+        price: line.unitPrice,
+        size: line.size,
+        color: line.color,
+      }))
+    );
+
+    if (itemsError) {
+      // Roll the order back so a half-written order can never be paid for.
+      await supabase.from("orders").delete().eq("id", orderData.id);
+      return apiError("We could not finalise your order. Please try again.", 500, {
+        scope: "create-order.items",
+        cause: itemsError,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       razorpayOrder: {
@@ -208,12 +304,12 @@ export async function POST(request: Request) {
         currency: razorpayOrder.currency,
       },
       orderNumber,
+      total,
     });
-  } catch (error: any) {
-    console.error("Create order API error:", error);
-    return NextResponse.json(
-      { error: "An unexpected error occurred while processing your order" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return apiError("An unexpected error occurred while processing your order.", 500, {
+      scope: "create-order",
+      cause: error,
+    });
   }
 }

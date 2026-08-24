@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/button';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faMinus, faTrashCan, faXmark, faBagShopping } from '@fortawesome/free-solid-svg-icons';
-import { useCart } from '../context/CartContext';
+import { useCart, MAX_QUANTITY_PER_ITEM } from '../context/CartContext';
+import { imageSrcSet, resolveImageUrl, sizedImageUrl } from '../lib/image';
 import { useRouter, usePathname } from 'next/navigation';
 
 const SPRING = {
@@ -22,15 +23,21 @@ const CartDrawer = () => {
   const router = useRouter();
   const pathname = usePathname();
 
-  if (pathname === '/login' || pathname?.startsWith('/studio') || pathname?.startsWith('/admin')) {
+  const hidden =
+    pathname === '/login' || pathname?.startsWith('/studio') || pathname?.startsWith('/admin');
+
+  // Lock body scroll while cart is open.
+  // NOTE: every hook must run before the `hidden` early-return below — bailing
+  // out first made the hook count change between routes, which React rejects.
+  useEffect(() => {
+    const shouldLock = isCartOpen && !hidden;
+    document.body.style.overflow = shouldLock ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [isCartOpen, hidden]);
+
+  if (hidden) {
     return null;
   }
-
-  // Lock body scroll while cart is open
-  useEffect(() => {
-    document.body.style.overflow = isCartOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [isCartOpen]);
 
   return (
     <AnimatePresence>
@@ -108,8 +115,14 @@ const CartDrawer = () => {
                     >
                       <div className="w-24 h-32 bg-neutral-100 flex-shrink-0 overflow-hidden">
                         <img
-                          src={item.images[0]}
+                          src={sizedImageUrl(resolveImageUrl(item.images[0]), 192)}
+                          srcSet={imageSrcSet(resolveImageUrl(item.images[0]), [96, 192, 288])}
+                          sizes="96px"
                           alt={item.name}
+                          width={96}
+                          height={128}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -129,7 +142,8 @@ const CartDrawer = () => {
                           <div className="flex items-center border border-neutral-200">
                             <button
                               onClick={() => updateQuantity(item.id, item.selectedSize, item.quantity - 1)}
-                              className="px-2.5 py-1.5 hover:bg-neutral-100 transition-colors cursor-pointer"
+                              disabled={item.quantity <= 1}
+                              className="px-2.5 py-1.5 hover:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                               aria-label="Decrease quantity"
                             >
                               <FontAwesomeIcon icon={faMinus} size="xs" />
@@ -137,7 +151,8 @@ const CartDrawer = () => {
                             <span className="px-3 text-sm font-medium min-w-[2rem] text-center">{item.quantity}</span>
                             <button
                               onClick={() => updateQuantity(item.id, item.selectedSize, item.quantity + 1)}
-                              className="px-2.5 py-1.5 hover:bg-neutral-100 transition-colors cursor-pointer"
+                              disabled={item.quantity >= MAX_QUANTITY_PER_ITEM}
+                              className="px-2.5 py-1.5 hover:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                               aria-label="Increase quantity"
                             >
                               <FontAwesomeIcon icon={faPlus} size="xs" />

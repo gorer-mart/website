@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/server/auth";
+import { apiError } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return apiError(
+      auth.status === 401 ? "Authentication required." : "Administrator access required.",
+      auth.status
+    );
+  }
+
   try {
     const supabase = createAdminSupabaseClient();
 
@@ -24,7 +34,7 @@ export async function GET() {
 
     if (error) {
       console.error("Fetch admin reviews error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not complete the review operation." }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -33,11 +43,19 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error("GET admin reviews API error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Could not complete the review operation." }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return apiError(
+      auth.status === 401 ? "Authentication required." : "Administrator access required.",
+      auth.status
+    );
+  }
+
   try {
     const body = await request.json();
     const { reviewId, status } = body;
@@ -76,7 +94,7 @@ export async function PUT(request: Request) {
 
     if (updateErr) {
       console.error("Error updating review status:", updateErr);
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not complete the review operation." }, { status: 500 });
     }
 
     // 3. Recalculate average_rating and review_count for the product
@@ -107,6 +125,6 @@ export async function PUT(request: Request) {
     });
   } catch (error: any) {
     console.error("PUT admin review status update API error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Could not complete the review operation." }, { status: 500 });
   }
 }

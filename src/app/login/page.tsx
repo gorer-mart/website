@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../ui/button';
 
 import { getLoginPageImage } from '../../lib/sanity';
+import { imageProps } from '../../lib/image';
 
 interface SolidInputProps {
   placeholder: string;
@@ -58,7 +59,13 @@ const LoginContent: React.FC = () => {
   const { loading, signUp, signIn, signInWithGoogle, isAuthenticated } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/account';
+  // Only accept same-origin relative paths — a full URL here would let an
+  // attacker send users to an external site straight after they log in.
+  const rawRedirect = searchParams.get('redirect');
+  const redirectTo =
+    rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+      ? rawRedirect
+      : '/account';
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [formLoading, setFormLoading] = useState<boolean>(false);
@@ -166,8 +173,14 @@ const LoginContent: React.FC = () => {
             <div className="absolute inset-0 z-0">
               {sanityHeroImage ? (
                 <img
-                  src={sanityHeroImage}
+                  {...imageProps(sanityHeroImage, {
+                    widths: [640, 960, 1280],
+                    sizes: '50vw',
+                    quality: 80,
+                    fallbackWidth: 960,
+                  })}
                   alt="Gorer Mart Streetwear"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -328,7 +341,7 @@ const LoginContent: React.FC = () => {
               <div className="grid grid-cols-1 gap-4">
                 <button
                   type="button"
-                  onClick={signInWithGoogle}
+                  onClick={() => signInWithGoogle(redirectTo)}
                   className="w-full flex items-center justify-center space-x-3 border-2 border-[#a6101b] text-[#a6101b] bg-white hover:bg-[#a6101b] hover:text-white py-4 text-sm transition-all cursor-pointer rounded-none font-bold shadow-sm"
                 >
                   <FontAwesomeIcon icon={faGoogle} className="text-base" />

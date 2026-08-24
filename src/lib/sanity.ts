@@ -19,12 +19,25 @@ export function isSanityConfigured(): boolean {
          projectId !== 'your-sanity-project-id';
 }
 
+/**
+ * How long a catalog read stays in Next's data cache.
+ *
+ * Every catalog query previously ran with `cache: 'no-store'`, so each page view
+ * paid a fresh round trip to Sanity before any image URL even reached the
+ * browser. A short window keeps the storefront fast while still picking up
+ * Studio edits on its own. Lower it if you need edits to appear sooner.
+ */
+export const CATALOG_REVALIDATE_SECONDS = 60;
+
 // Initialize the client only if projectId is present and valid
 export const client = createClient({
   projectId: isSanityConfigured() ? projectId! : 'your-sanity-project-id',
   dataset,
   apiVersion: '2024-01-01',
-  useCdn: !token, // Disable CDN when using token for fresh data
+  // The storefront only ever reads published documents, so route them through
+  // the edge CDN. This was previously disabled purely because a token is set,
+  // which sent every product query to the slower live API.
+  useCdn: true,
   token: token || undefined,
 });
 
@@ -37,7 +50,7 @@ export function urlFor(source: any) {
 export async function getProducts(): Promise<Product[]> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/products', { cache: 'no-store' });
+      const res = await fetch('/api/products');
       if (res.ok) {
         return await res.json();
       }
@@ -64,7 +77,10 @@ export async function getProducts(): Promise<Product[]> {
       "collections": collections[]->name,
       images[] {
         color,
-        images
+        images[] {
+          ...,
+          "lqip": asset->metadata.lqip
+        }
       },
       sizes,
       "details": category->details,
@@ -73,22 +89,33 @@ export async function getProducts(): Promise<Product[]> {
       "sizeGuideMobileImages": category->sizeGuideMobileImages[].asset->url,
       "sizeGuideImages": category->sizeGuideImages[].asset->url
     }`;
-    const sanityProducts = await client.fetch(query, {}, { cache: 'no-store' });
+    const sanityProducts = await client.fetch(query, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
 
     if (sanityProducts && sanityProducts.length > 0) {
       return sanityProducts.map((p: any) => {
-        const mappedVariants = p.images ? p.images.map((v: any) => ({
-          color: v.color,
-          images: v.images ? v.images.map((img: any) => {
+        const mappedVariants = p.images ? p.images.map((v: any) => {
+          // Resolve url and preview together so a failed image drops both and
+          // the two arrays stay index-aligned.
+          const resolved = (v.images || []).map((img: any) => {
             try {
-              return urlFor(img).url();
-            } catch (e) {
-              return '';
+              return { url: urlFor(img).url(), lqip: img?.lqip || '' };
+            } catch {
+              return null;
             }
-          }).filter(Boolean) : [],
-        })).filter((v: any) => v.color && v.images.length > 0) : [];
+          }).filter((entry: any) => entry && entry.url);
+
+          return {
+            color: v.color,
+            images: resolved.map((entry: any) => entry.url),
+            // Base64 previews Sanity generates for every asset (~700 bytes).
+            // They ride along in the JSON we already fetch, so a card can paint
+            // its image immediately instead of holding an empty box.
+            lqip: resolved.map((entry: any) => entry.lqip),
+          };
+        }).filter((v: any) => v.color && v.images.length > 0) : [];
 
         const allFlatImages = mappedVariants.flatMap((v: any) => v.images);
+        const allFlatLqip = mappedVariants.flatMap((v: any) => v.lqip);
 
         return {
           ...p,
@@ -96,6 +123,7 @@ export async function getProducts(): Promise<Product[]> {
           id: typeof p.id === 'number' ? p.id : parseInt(p.id) || p._id,
           // Map images to a flat list of absolute URLs across all color variants
           images: allFlatImages,
+          lqip: allFlatLqip,
           sizes: p.sizes || ['S', 'M', 'L', 'XL', 'XXL'],
           colorVariants: mappedVariants,
           colors: (mappedVariants.length > 0)
@@ -130,7 +158,7 @@ export async function getProducts(): Promise<Product[]> {
 export async function getCategories(): Promise<Category[]> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/categories', { cache: 'no-store' });
+      const res = await fetch('/api/categories');
       if (res.ok) {
         return await res.json();
       }
@@ -153,7 +181,7 @@ export async function getCategories(): Promise<Category[]> {
       "sizeGuideMobileImages": sizeGuideMobileImages[].asset->url,
       "sizeGuideImages": sizeGuideImages[].asset->url
     }`;
-    const sanityCategories = await client.fetch(query, {}, { cache: 'no-store' });
+    const sanityCategories = await client.fetch(query, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
 
     if (sanityCategories && sanityCategories.length > 0) {
       return sanityCategories.map((c: any) => ({
@@ -185,7 +213,7 @@ export interface HomePageShowcase {
 export async function getHomePageShowcase(): Promise<HomePageShowcase> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/showcase', { cache: 'no-store' });
+      const res = await fetch('/api/showcase');
       if (res.ok) {
         return await res.json();
       }
@@ -218,7 +246,10 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
           "collections": collections[]->name,
           images[] {
             color,
-            images
+            images[] {
+              ...,
+              "lqip": asset->metadata.lqip
+            }
           },
           sizes,
           "details": category->details,
@@ -242,7 +273,10 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
           "collections": collections[]->name,
           images[] {
             color,
-            images
+            images[] {
+              ...,
+              "lqip": asset->metadata.lqip
+            }
           },
           sizes,
           "details": category->details,
@@ -254,9 +288,9 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
       }
     }`;
 
-    const showcaseData = await client.fetch(query, {}, { cache: 'no-store' });
+    const showcaseData = await client.fetch(query, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
 
-    let heroData: HeroData = {
+    const heroData: HeroData = {
       desktopImage: undefined,
       mobileImages: []
     };
@@ -283,23 +317,35 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
     const mapProducts = (productsRaw: any[]) => {
       if (!productsRaw || !Array.isArray(productsRaw)) return [];
       return productsRaw.filter(Boolean).map((p: any) => {
-        const mappedVariants = p.images ? p.images.map((v: any) => ({
-          color: v.color,
-          images: v.images ? v.images.map((img: any) => {
+        const mappedVariants = p.images ? p.images.map((v: any) => {
+          // Resolve url and preview together so a failed image drops both and
+          // the two arrays stay index-aligned.
+          const resolved = (v.images || []).map((img: any) => {
             try {
-              return urlFor(img).url();
-            } catch (e) {
-              return '';
+              return { url: urlFor(img).url(), lqip: img?.lqip || '' };
+            } catch {
+              return null;
             }
-          }).filter(Boolean) : [],
-        })).filter((v: any) => v.color && v.images.length > 0) : [];
+          }).filter((entry: any) => entry && entry.url);
+
+          return {
+            color: v.color,
+            images: resolved.map((entry: any) => entry.url),
+            // Base64 previews Sanity generates for every asset (~700 bytes).
+            // They ride along in the JSON we already fetch, so a card can paint
+            // its image immediately instead of holding an empty box.
+            lqip: resolved.map((entry: any) => entry.lqip),
+          };
+        }).filter((v: any) => v.color && v.images.length > 0) : [];
 
         const allFlatImages = mappedVariants.flatMap((v: any) => v.images);
+        const allFlatLqip = mappedVariants.flatMap((v: any) => v.lqip);
 
         return {
           ...p,
           id: typeof p.id === 'number' ? p.id : parseInt(p.id) || p._id,
           images: allFlatImages,
+          lqip: allFlatLqip,
           sizes: p.sizes || ['S', 'M', 'L', 'XL', 'XXL'],
           colorVariants: mappedVariants,
           colors: (mappedVariants.length > 0)
@@ -357,7 +403,7 @@ export async function getLoginPageImage(): Promise<string | null> {
   try {
     const data = await client.fetch(`*[_type == "loginPage" && _id == "loginPage"][0]{
       "imageUrl": image.asset->url
-    }`, {}, { cache: 'no-store' });
+    }`, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
     return data?.imageUrl || null;
   } catch (err) {
     console.error("Failed to fetch login page image from Sanity:", err);
@@ -374,7 +420,7 @@ export async function getAboutPageData(): Promise<{ heritageImage: string | null
     const data = await client.fetch(`*[_type == "aboutPage" && _id == "aboutPage"][0]{
       "heritageImage": ourHeritageImage.asset->url,
       "commitmentImage": ourCommitmentImage.asset->url
-    }`, {}, { cache: 'no-store' });
+    }`, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
     return {
       heritageImage: data?.heritageImage || null,
       commitmentImage: data?.commitmentImage || null,

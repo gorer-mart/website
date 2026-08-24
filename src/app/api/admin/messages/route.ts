@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/server/auth";
+import { apiError } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return apiError(
+      auth.status === 401 ? "Authentication required." : "Administrator access required.",
+      auth.status
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.toLowerCase() || "";
@@ -25,7 +35,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Fetch contact messages error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not load messages." }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -34,6 +44,6 @@ export async function GET(request: Request) {
     });
   } catch (error: any) {
     console.error("GET contact messages API error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Could not load messages." }, { status: 500 });
   }
 }
