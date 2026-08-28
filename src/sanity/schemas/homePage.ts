@@ -62,6 +62,29 @@ export default {
       ],
     },
     {
+      name: 'showNotificationBar',
+      title: 'Notification Bar (Toggle ON/OFF)',
+      type: 'boolean',
+      initialValue: true,
+      description: 'Toggle ON to display the Notification Bar on the home page, or OFF to hide it completely when not needed.',
+      components: {
+        field: SectionHeaderFieldWrapper,
+      },
+    },
+    {
+      name: 'notificationBar',
+      title: 'Notification Bar Messages',
+      type: 'array',
+      description: 'Add individual announcement points/messages to display in the homepage Notification Bar right below the Hero section.',
+      of: [
+        {
+          type: 'string',
+          name: 'announcement',
+          title: 'Announcement Point',
+        },
+      ],
+    },
+    {
       name: 'mostPochhonder',
       title: 'Most Pochhonder',
       type: 'array',

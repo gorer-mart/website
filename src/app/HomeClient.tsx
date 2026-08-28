@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLeaf, faCity, faGem, faQuoteLeft, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { Product, HeroData } from '../types/product';
 import ProductCard from '../components/ProductCard';
+import NotificationBar from '../components/NotificationBar';
 import { Button } from '../ui/button';
 import { HERO_WIDTHS, imageProps, imageSrcSet, sizedImageUrl } from '../lib/image';
 
@@ -19,6 +20,8 @@ import tiyasha from '../assets/feedback/tiyasha.webp';
 
 interface HomeClientProps {
   heroData?: HeroData;
+  showNotificationBar?: boolean;
+  notificationBar?: string[];
   topPicks: Product[];
   newArrivals: Product[];
 }
@@ -31,7 +34,7 @@ interface HomeClientProps {
 const BLANK_PIXEL =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals }) => {
+const HomeClient: React.FC<HomeClientProps> = ({ heroData, showNotificationBar, notificationBar, topPicks, newArrivals }) => {
   const desktopHeroSrc = heroData?.desktopImage || (typeof heroMobile === 'object' ? heroMobile.src : heroMobile);
   const mobileHeroImages = (heroData?.mobileImages && heroData.mobileImages.length > 0)
     ? heroData.mobileImages
@@ -249,6 +252,22 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
               </Button>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Notification Bar / Store Announcement Ticker */}
+      {showNotificationBar !== false && <NotificationBar items={notificationBar} />}
+
+      {/* Mobile-Only Hero Text Banner */}
+
+      <section className="block md:hidden bg-[#fff8e9] border-y border-[#a6101b] py-6 px-4 text-center shadow-xs">
+        <div className="container mx-auto max-w-xl">
+          <h2 className="text-xl font-display tracking-tight leading-tight">
+            <span className="text-neutral-950">Get Ready For Endless</span>
+            <span className="text-[#a6101b] italic normal-case">
+              "Eta Kotha Theke Kinechish?" <span className="not-italic text-neutral-950">replies</span>
+            </span>
+          </h2>
         </div>
       </section>
 
