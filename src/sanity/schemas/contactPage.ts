@@ -23,15 +23,15 @@ const SectionHeaderFieldWrapper = (props: any) => {
 };
 
 export default {
-  name: 'loginPage',
-  title: 'Login Page',
+  name: 'contactPage',
+  title: 'Contact Page',
   type: 'document',
   fields: [
     {
-      name: 'image',
-      title: 'Login Page Display Image',
+      name: 'backgroundImage',
+      title: 'Contact Page Background Image',
       type: 'image',
-      description: 'Upload the image to display on the left panel of the Login and Sign Up pages.',
+      description: 'Upload the background image to display behind the Contact Us section.',
       options: {
         hotspot: true,
       },
@@ -42,14 +42,13 @@ export default {
   ],
   preview: {
     select: {
-      media: 'image',
+      media: 'backgroundImage',
     },
     prepare(selection: any) {
       return {
-        title: 'Login Page Image',
+        title: 'Contact Page Background Image',
         media: selection.media,
       };
     },
   },
 };
-

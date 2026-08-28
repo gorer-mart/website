@@ -3,7 +3,7 @@ import { defineConfig } from 'sanity';
 import { structureTool } from 'sanity/structure';
 import { visionTool } from '@sanity/vision';
 import { schemaTypes } from './src/sanity/schemas';
-import { Folder, Package, LayoutGrid, Tags, Bookmark, Home, LogIn, Info } from 'lucide-react';
+import { Folder, Package, LayoutGrid, Tags, Bookmark, Home, LogIn, Info, Mail } from 'lucide-react';
 
 const rawProjectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'heqswlxk';
 const projectId = rawProjectId.replace(/['"]/g, '');
@@ -54,41 +54,7 @@ export default defineConfig({
   },
   plugins: [
     structureTool({
-      structure: async (S, context) => {
-        const client = context.getClient({ apiVersion });
-        
-        // Fetch only published categories with dynamic product counts to use as folder names
-        let categories: Array<{ _id: string; name: string; productCount?: number }> = [];
-        try {
-          categories = await client.fetch(`*[_type == "category" && !(_id in path("drafts.**"))]{
-            _id,
-            name,
-            "productCount": count(*[_type == "product" && category._ref == ^._id])
-          } | order(name asc)`);
-        } catch (err) {
-          console.error('Error fetching categories for desk structure:', err);
-        }
-
-        const categoryFolderItems = categories.map((cat) =>
-          S.listItem()
-            .title(`${cat.name} (${cat.productCount || 0})`)
-            .id(`category-folder-${cat._id}`)
-            .icon(Folder)
-            .child(
-              S.documentList()
-                .title(`Products in ${cat.name}`)
-                .apiVersion(apiVersion)
-                .filter('_type == "product" && category._ref == $categoryId')
-                .params({ categoryId: cat._id })
-                .schemaType('product')
-                .initialValueTemplates([
-                  S.initialValueTemplateItem('product-with-category', {
-                    categoryId: cat._id,
-                  }),
-                ])
-            )
-        );
-
+      structure: (S) => {
         return S.list()
           .title('Gorer Mart Catalog')
           .items([
@@ -122,11 +88,22 @@ export default defineConfig({
                   .documentId('loginPage')
                   .title('Login Page')
               ),
+            // Singleton: Contact Page
+            S.listItem()
+              .title('Contact Page')
+              .icon(Mail)
+              .child(
+                S.document()
+                  .schemaType('contactPage')
+                  .documentId('contactPage')
+                  .title('Contact Page')
+              ),
             S.divider(),
 
             // Group: All Products (with Category folders inside)
             S.listItem()
               .title('All Products')
+
               .icon(Package)
               .child(
                 S.list()
@@ -141,8 +118,27 @@ export default defineConfig({
                     
                     S.divider(),
 
-                    // 2. Category folders
-                    ...categoryFolderItems,
+                    // 2. Products By Category
+                    S.listItem()
+                      .title('Products By Category')
+                      .icon(Folder)
+                      .child(
+                        S.documentTypeList('category')
+                          .title('Select Category')
+                          .child((categoryId) =>
+                            S.documentList()
+                              .title('Products in Category')
+                              .apiVersion(apiVersion)
+                              .filter('_type == "product" && category._ref == $categoryId')
+                              .params({ categoryId })
+                              .schemaType('product')
+                              .initialValueTemplates([
+                                S.initialValueTemplateItem('product-with-category', {
+                                  categoryId,
+                                }),
+                              ])
+                          )
+                      ),
                   ])
               ),
             S.divider(),
