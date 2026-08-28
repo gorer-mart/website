@@ -1,66 +1,105 @@
 # Gorer Mart — Launch Checklist
 
-Remaining tasks after the pre-launch audit (24 Aug 2026).
+Pre-launch audit: 24 Aug 2026 · Last updated: 25 Aug 2026
 Full audit with findings and before/after detail: https://claude.ai/code/artifact/92feb830-5ba5-4506-af37-559ffaee4e64
 
 Legend: **[BLOCKER]** must be done before taking a real order · **[DECISION]** needs a
-product/business call before it can be built · **[NICE]** improves the store, not launch-critical
+product/business call · **[NICE]** improves the store, not launch-critical
 
 ---
 
-## 1. Blockers — the site cannot take a real order without these
+## ✅ Done
 
-### 1.1 Run the checkout integrity migration — ✅ DONE (25 Aug 2026)
-- File: `supabase/migrations/013_checkout_integrity.sql`
-- Adds `orders.razorpay_order_id` (the payment ↔ order binding), `orders.razorpay_payment_id`,
-  `order_items.size` / `.color` / `.product_name`, `products.sanity_id`, and supporting indexes.
-- **Every payment fix depends on this.** Without it, order creation and payment verification fail.
-- Written to be safely re-runnable (`IF NOT EXISTS` throughout).
+| Task | Verified |
+|------|----------|
+| Checkout integrity migration (`013_checkout_integrity.sql`) run against Supabase | Confirmed 25 Aug |
+| Razorpay live keys + env vars set in Vercel | Confirmed 25 Aug |
+| Razorpay webhook registered at `https://gorermart.in/api/webhook/razorpay`, Enabled | Confirmed 25 Aug |
+| `NEXT_PUBLIC_SITE_URL=https://gorermart.in` set | Confirmed 25 Aug |
+| Vercel redirect flipped — apex is now canonical | `curl` verified: apex `200` |
+| `www.gorermart.in` redirects to apex | `curl` verified: `308 → https://gorermart.in/` |
+| Webhook endpoint reachable directly, no longer behind a redirect | `curl` verified: `400 Invalid webhook signature` — reached the handler |
+| `website-eight-tau-92.vercel.app` removed — no duplicate-content host | `curl` verified: `404` |
 
-### 1.2 Switch Razorpay to live credentials — ✅ DONE (25 Aug 2026)
-- Set in Vercel → Project → Settings → Environment Variables:
-  - `NEXT_PUBLIC_RAZORPAY_KEY_ID` — the live `rzp_live_*` key
-  - `RAZORPAY_KEY_SECRET` — server only, never `NEXT_PUBLIC_`
-  - `RAZORPAY_WEBHOOK_SECRET` — must match the secret entered in the Razorpay dashboard
-- All 10 required variables must be present. `NEXT_PUBLIC_SUPABASE_URL` and
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY` were not visible in the first pass — confirm they exist.
-- **Any env var change on Vercel requires a redeploy to take effect** (this applies to the
-  server-only secrets too, not just the `NEXT_PUBLIC_*` ones).
+---
 
-### 1.3 Verify the registered Razorpay webhook **[BLOCKER]**
-A webhook already exists (created 06 Jun 2026, "Enabled", 2 events). The URL is correct for the
-apex-canonical setup; what needs checking is that it stops receiving a redirect (1.4), that the
-secret matches, and that it was set up before the audit so nothing about it has been validated
-against the current code.
+## 🔴 Blockers remaining
 
-**1.3a — URL is correct; the Vercel redirect is what's wrong — see 1.4**
-- Registered: `https://gorermart.in/api/webhook/razorpay` — **correct, leave it as is.**
-- The apex is the intended canonical host, so this URL is right. The problem is that Vercel
-  currently has apex 308-redirecting to `www`, so Razorpay receives a redirect instead of the
-  endpoint. Fixing 1.4 fixes this; no webhook change needed.
-- After flipping the redirect, confirm the endpoint answers directly:
-  ```bash
-  curl -s -o /dev/null -w "%{http_code}\n" -X POST https://gorermart.in/api/webhook/razorpay \
-    -H 'Content-Type: application/json' -d '{}'
-  ```
-  Expect **400** (`Invalid webhook signature` — it reached the handler), not 308.
+### B1. Verify Supabase + Google OAuth use the apex origin **[BLOCKER — do BEFORE deploy]**
+This build moves auth from localStorage to cookies, which makes it origin-sensitive, and the
+deploy invalidates every existing session.
 
-**1.3b — Confirm the subscribed events**
-Required:
-- `payment.captured` — flips the order to paid/confirmed
-- `payment.failed` — marks it failed/cancelled
+If the apex origin is not registered in both places, the sequence is: deploy → everyone signed
+out → sign-in fails → **you cannot get into `/admin` either.** Recoverable, but not something to
+discover on launch day.
 
-Deliberately OFF for now (decision, 25 Aug 2026):
-- `refund.processed` — left off until the refund policy goes live.
-  Note: this event is inbound data sync only and is inert until a refund actually occurs. While
-  it is off, any refund issued from the Razorpay dashboard (duplicate charge, undeliverable
-  order, dispute settlement) leaves the order showing **paid** in `/admin` and overstates
-  revenue. **Enable it the day the first refund is processed.**
+- **Supabase → Authentication → URL Configuration**
+  - Site URL: `https://gorermart.in`
+  - Redirect URLs must include `https://gorermart.in/**`
+- **Google Cloud Console → APIs & Services → Credentials → your OAuth 2.0 Client**
+  - Authorised JavaScript origins: `https://gorermart.in`
+  - Authorised redirect URIs: your Supabase callback
+    (`https://<project-ref>.supabase.co/auth/v1/callback`)
 
-Also handled by the code if ever needed: `payment.authorized` (only subscribe under
-auto-capture) and `refund.created`.
+### B1b. Set up instant content updates from Sanity **[BLOCKER — do with B2]**
+Publishing in Studio previously took up to 5 minutes to appear on the storefront, because the
+catalog is cached and nothing invalidated it. A publish webhook now clears that cache on the
+spot. Two things to configure:
 
-**1.3c — Verify the secret matches**
+**1. Add the env var in Vercel** (any long random string you invent):
+```
+SANITY_REVALIDATE_SECRET=<a long random string>
+```
+
+**2. Create the webhook** — Sanity → **API** → **Webhooks** → **Create webhook**:
+
+| Field | Value |
+|---|---|
+| Name | Storefront revalidation |
+| URL | `https://gorermart.in/api/revalidate/sanity` |
+| Dataset | `production` |
+| Trigger on | Create, Update, Delete |
+| Filter | `_type in ["product","category","collection","homePage","aboutPage","loginPage"]` |
+| HTTP method | `POST` |
+| API version | `v2021-03-25` |
+| Secret | **exactly** the `SANITY_REVALIDATE_SECRET` value above |
+
+Verified behaviour (tested locally against the real `@sanity/webhook` signer):
+- correctly signed request → `200 {"revalidated":true,...}`
+- missing signature, malformed signature, or signature from a different secret → `401`
+- secret not configured on the server → `500` (Sanity retries; check the Vercel logs)
+
+If a delivery is ever missed, a 5-minute time-based backstop still refreshes the catalog.
+
+### B2. Deploy **[BLOCKER]**
+As of 25 Aug 2026 production is **still running pre-audit code** — verified by the absence of
+every security header the audit added, and the presence of `x-powered-by: Next.js` which the new
+config disables.
+
+Until this happens, live:
+- checkout still cannot complete an order (the cookie/localStorage auth bug)
+- the payment signature-replay vulnerability is still open
+- admin APIs still have no in-handler authorization
+- the webhook is reachable but hits the **old** handler, which matches on
+  `payment.notes.orderNumber` and never verifies the amount
+- none of the image work is live (the 1.7 MB hero, the 82% payload reduction)
+
+```bash
+git add -A
+git commit -m "Pre-launch audit: payment integrity, auth, security headers, image delivery"
+git push origin anirban
+```
+If Vercel's production branch is `main`, merge `anirban` into it — pushing to `anirban` alone
+only produces a preview deployment.
+
+**Confirm it landed:**
+```bash
+curl -sI https://gorermart.in/ | grep -iE "x-content-type-options|referrer-policy|x-powered-by"
+```
+Expect `x-content-type-options: nosniff` and `referrer-policy` present, and **no**
+`x-powered-by`.
+
+### B3. Verify the webhook secret matches **[BLOCKER — after deploy]**
 The secret is typed in by you, not generated by Razorpay, and must be byte-identical to
 `RAZORPAY_WEBHOOK_SECRET` in Vercel. If it differs, every delivery returns 400 and orders from
 customers who close the tab after paying silently never confirm.
@@ -75,184 +114,139 @@ curl -s -X POST https://gorermart.in/api/webhook/razorpay \
 - `{"success":true,"ignored":"unknown order"}` → secret matches (authenticated, no such order).
 - `{"error":"Invalid webhook signature"}` → mismatch. Fix before launching.
 
-**Response codes this endpoint returns**, for reading Razorpay's delivery log:
+**Response codes**, for reading Razorpay's delivery log:
 - `200` — processed, or deliberately ignored (unknown order / duplicate / amount mismatch).
   200 stops Razorpay retrying events that can never succeed.
 - `400` — bad or missing signature. Always a config problem.
 - `500` — signature valid but the database write failed; asks Razorpay to retry.
 
-### 1.4 Flip the Vercel redirect so the apex is canonical **[BLOCKER]**
-**Decision (25 Aug 2026): `gorermart.in` (apex) is canonical.** Vercel currently has it
-backwards — apex 308-redirects to `www`, and `www` is the Production domain.
-
-DNS is already valid for both hosts, so this is a settings change only, no DNS edits:
-1. **Project → Settings → Domains**
-2. **Edit** on `www.gorermart.in` → **Redirect to** → select `gorermart.in`
-3. **Edit** on `gorermart.in` → **Redirect to** = **No Redirect**; confirm it is assigned to
-   Production
-
-Verify:
-```bash
-curl -sI https://www.gorermart.in/ | grep -iE "^HTTP|^location"   # expect 308 -> https://gorermart.in/
-curl -sI https://gorermart.in/     | grep -iE "^HTTP"             # expect 200
-```
-
-Once flipped, the rest of the configuration is already consistent:
-- `NEXT_PUBLIC_SITE_URL=https://gorermart.in` — already correct
-- Razorpay webhook `https://gorermart.in/api/webhook/razorpay` — already correct
-
-Still to verify before deploying (auth becomes cookie-based and origin-sensitive with this
-build — a mismatch locks you out of `/admin` after the deploy signs everyone out):
-- **Supabase → Authentication → URL Configuration** — Site URL and Redirect URLs must list the
-  **apex** origin
-- **Google Cloud Console** OAuth client — authorised redirect URIs must use the apex, not www
-
-Trade-off accepted: the DNS spec forbids CNAME on an apex, so `gorermart.in` resolves via an A
-record. Vercel recommends `www` because a CNAME lets it re-steer traffic during a DDoS or for
-performance routing. Apex-as-primary is explicitly supported via Anycast — this is a sanctioned
-configuration, just a deliberate trade.
-
-### 1.4b Deploy **[BLOCKER]**
-As of 25 Aug 2026 the live site is still running **pre-audit code** — verified by the absence of
-every security header added in the audit, and the presence of `x-powered-by: Next.js` which the
-new config disables.
-
-Until a deploy happens, in production:
-- checkout still cannot complete an order (the cookie/localStorage auth bug)
-- the payment-binding vulnerability is still open
-- admin APIs still have no in-handler authorization
-- the webhook has no `razorpay_order_id` to match against
-
-**Nothing in this checklist takes effect until you deploy.**
-
-Confirm the deploy landed:
-```bash
-curl -sI https://gorermart.in/ | grep -iE "x-content-type-options|referrer-policy|x-powered-by"
-```
-Expect `x-content-type-options: nosniff` and `referrer-policy` present, and **no**
-`x-powered-by`.
-
-### 1.5 Place one real end-to-end test order **[BLOCKER]**
-Walk the whole path with live keys, on the lowest-priced item:
+### B4. Place one real end-to-end test order **[BLOCKER — after deploy]**
+Live keys, lowest-priced item:
 1. Sign in
 2. Add to bag with a specific size
 3. Pay through Razorpay
 4. Land on the confirmation screen
-5. Confirm the order shows in `/account` **with the correct size**
-6. Confirm it shows **paid** in the admin console at `/admin`
-7. Refund it from the Razorpay dashboard to recover the money.
-   Note: with `refund.processed` off (see 1.3b), the order will **stay showing paid** in
-   `/admin`. That is expected right now — mark it manually. It is the one step of this test
-   that cannot pass until that event is enabled.
+5. Confirm the order appears in `/account` **with the correct size**
+6. Confirm it shows **paid** in `/admin`
+7. Refund it in Razorpay to recover the money.
+   With `refund.processed` off (see D1), the order will **stay showing paid** in `/admin`. That
+   is expected — mark it manually.
 
-Every boundary was verified without live credentials, but no store should launch without one
-true transaction on the record.
-
-Harder test of the path that actually matters: pay, then **close the tab immediately** before
-the confirmation screen appears. The browser never calls `verify-payment`, so only the webhook
-can confirm that order. If it still shows paid in `/admin` seconds later, the webhook works.
+**Then the harder test — this is the path that actually matters:** pay, then close the tab
+immediately, before the confirmation screen appears. The browser never calls `verify-payment`,
+so only the webhook can confirm that order. If it still shows **paid** in `/admin` seconds
+later, the webhook is doing its job.
 
 ---
 
-## 2. Needs a decision before it can be built
+## ⏸️ Deferred by decision
+
+### D1. `refund.processed` webhook event — OFF until the refund policy goes live
+Decision, 25 Aug 2026. The webhook currently subscribes to 2 events (`payment.captured`,
+`payment.failed`).
+
+The event is inbound data sync only and is inert until a refund actually occurs. While it is
+off, any refund issued from the Razorpay dashboard — duplicate charge, undeliverable order,
+dispute settlement — leaves the order showing **paid** in `/admin` and overstates revenue.
+
+**Enable it the day the first refund is processed.**
+
+Also handled by the code if ever needed: `payment.authorized` (only subscribe under
+auto-capture) and `refund.created`.
+
+---
+
+## 🟡 Needs a decision
 
 ### 2.1 Order confirmation emails **[DECISION]**
-- **Current state:** no email provider is installed (no Resend / SendGrid / Postmark).
-  Customers receive no confirmation, no receipt and no shipping notification.
-- The checkout success screen previously *claimed* an email had been sent. That false promise
-  was removed; the screen no longer mentions email.
+- No email provider is installed (no Resend / SendGrid / Postmark). Customers receive no
+  confirmation, no receipt, no shipping notification.
+- The checkout screen previously *claimed* an email had been sent; that false promise was
+  removed.
 - **Biggest remaining functional gap for a store taking money.** Customers who get no
   confirmation will email you instead — that support load lands in launch week.
-- **Decision needed:** which provider.
-- Once chosen, wire into: `api/checkout/verify-payment`, `api/webhook/razorpay`
-  (both settle an order), plus an admin alert on each new order.
+- **Decision needed:** which provider. Then wire into `api/checkout/verify-payment` and
+  `api/webhook/razorpay` (both settle an order), plus an admin alert on each new order.
 
 ### 2.2 Stock / inventory enforcement **[DECISION]**
-- **Current state:** `product_variants.stock` exists in Supabase and the admin console edits it,
-  but nothing ever creates variants, and the Sanity product schema has no stock field.
+- `product_variants.stock` exists and `/admin` edits it, but nothing creates variants and the
+  Sanity product schema has no stock field.
 - **Consequence: any item can be oversold without limit.** Nothing checks availability at
   checkout and nothing decrements on purchase.
-- **Decision needed:** where does stock live — authored in Sanity per size, or managed in
-  Supabase `product_variants`?
+- **Decision needed:** does stock live in Sanity per size, or in Supabase `product_variants`?
 - Can wait if the first drop is small enough to spot an oversell manually. Not past the first
   busy day.
 
 ---
 
-## 3. Dead UI — visible controls that currently do nothing
+## 🔵 Dead UI — visible controls that do nothing
 
 ### 3.1 "Wishlist" button on the product page **[NICE]**
-- `src/app/product/[slug]/ProductClient.tsx` — button has no `onClick`.
-- The `wishlists` and `wishlist_items` tables exist in the schema, but no feature was built.
-- **Either** build it **or** hide the button. A button that does nothing reads as a broken site.
+`src/app/product/[slug]/ProductClient.tsx` — no `onClick`. The `wishlists` /
+`wishlist_items` tables exist but no feature was built. Build it or hide the button.
 
 ### 3.2 "Forgot password?" on the login page **[NICE]**
-- `src/app/login/page.tsx` — button has no `onClick`.
-- Supabase provides `resetPasswordForEmail` out of the box; roughly 30 minutes of work.
-- Customers **will** hit this.
+`src/app/login/page.tsx` — no `onClick`. Supabase provides `resetPasswordForEmail` out of the
+box; roughly 30 minutes. Customers **will** hit this.
 
-### 3.3 "New Arrivals" sort option on the shop page **[NICE]**
-- `src/app/shop/ShopClient.tsx` — the `newest` case falls through to a no-op comparator.
-- The catalog carries no created/published date to sort by.
-- **Either** drop the option **or** add a date field to the Sanity product schema.
+### 3.3 "New Arrivals" sort on the shop page **[NICE]**
+`src/app/shop/ShopClient.tsx` — the `newest` case falls through to a no-op comparator; the
+catalog carries no date to sort by. Drop the option or add a date field in Sanity.
 
 ---
 
-## 4. Smaller items
+## ⚪ Smaller items
 
 ### 4.1 Add `public/og-image.webp` **[NICE]**
-- Layout metadata points at a 1200×630 image that does not exist, so links shared on WhatsApp
-  and Instagram show no preview.
-- Product pages now generate their own preview images, so this affects the home page and
-  generic links only.
+Layout metadata points at a 1200×630 image that does not exist, so links shared on WhatsApp and
+Instagram show no preview. Product pages now generate their own preview images, so this affects
+the home page and generic links only.
 
 ### 4.2 Consider moderating reviews **[NICE]**
-- New reviews auto-approve and appear instantly on product pages
-  (`src/app/api/reviews/route.ts`, `status: "approved"`).
-- Existing behaviour was kept rather than changed silently.
-- The admin console already has the approve/reject workflow — switching new reviews to
-  `"pending"` is a one-word change and spares you public spam.
+New reviews auto-approve and appear instantly (`src/app/api/reviews/route.ts`,
+`status: "approved"`). Existing behaviour was kept rather than changed silently. `/admin`
+already has the approve/reject workflow — switching to `"pending"` is a one-word change and
+spares you public spam.
 
 ### 4.3 Know the limit of the rate limiting **[NICE]**
-- `src/lib/server/rate-limit.ts` is in-process: on Vercel each instance counts separately and
-  counters reset on cold start.
-- Enough to stop form spam and checkout hammering.
-- Every call site routes through one `hit()` function, so swapping in Upstash Redis later is a
-  small, contained change.
+`src/lib/server/rate-limit.ts` is in-process: on Vercel each instance counts separately and
+counters reset on cold start. Enough to stop form spam and checkout hammering. Every call site
+routes through one `hit()` function, so swapping in Upstash Redis later is contained.
 
 ### 4.4 Tighten the Content Security Policy **[NICE]**
-- Currently sent as `Content-Security-Policy-Report-Only` in `next.config.mjs` so it cannot
-  break Razorpay checkout or Sanity Studio at launch.
-- **To enforce:** load the site, check the browser console for violations, fix any, then rename
-  the header to `Content-Security-Policy`.
+Currently sent as `Content-Security-Policy-Report-Only` in `next.config.mjs` so it cannot break
+Razorpay checkout or Sanity Studio at launch. To enforce: load the site, check the console for
+violations, fix any, then rename the header to `Content-Security-Policy`.
 
 ### 4.5 Repo housekeeping **[NICE]**
 - `test-all-datasets.mjs` (repo root) and `scripts/*.mjs` are development leftovers.
 - Empty directories: `src/hooks`, `src/utils`, `src/styles`.
 - `IMPLEMENTATION_SUMMARY.md`, `PAYMENT_SETUP.md`, `README_SETUP.md` predate the audit and
-  describe the old payment flow — worth refreshing or removing so they don't mislead later.
+  describe the **old** payment flow — refresh or remove so they don't mislead later.
 
 ---
 
-## 5. Expect this on the first deploy
+## ⚠️ Expect this on the first deploy
 
-Auth moved from **localStorage** to **cookies** (this was why every authenticated API call
-returned 401 and no order could complete). That change invalidates existing browser sessions:
+Auth moved from **localStorage** to **cookies** — this was why every authenticated API call
+returned 401 and no order could complete. That change invalidates existing browser sessions:
 
-- Everyone signed in right now — **including you** — will be signed out once.
+- Everyone signed in right now, **including you**, will be signed out once.
 - Nothing is lost. It happens only on this deploy.
+- This is why **B1 must be done before B2.**
 
 ---
 
-## Recommended order
+## Order of operations
 
-1. **Today:** 1.4 (flip Vercel redirect to apex) → verify Supabase + Google OAuth use the apex
-   → **1.4b deploy** → 1.3a (webhook answers 400 not 308) → 1.3c (verify secret) →
-   1.5 (test order)
-2. **Before you announce:** 2.1 (confirmation emails)
-3. **Before the first busy day:** 2.2 (stock enforcement)
-4. **When there's a gap:** section 3 (dead UI — these are what customers notice)
-5. **Any time after:** section 4
+1. **B1** — verify Supabase + Google OAuth use the apex origin
+2. **B1b** — add `SANITY_REVALIDATE_SECRET`, create the Sanity publish webhook
+3. **B2** — deploy, confirm the security headers appear
+4. **B3** — verify the Razorpay webhook secret
+5. **B4** — test order, then the close-the-tab test
+6. **2.1** — confirmation emails, before you announce
+7. **2.2** — stock enforcement, before the first busy day
+8. Sections 3 and 4 whenever there's a gap
 
 ---
 
@@ -265,4 +259,4 @@ npm run typecheck  # tsc --noEmit
 npm run lint       # eslint (now covers .ts/.tsx; was broken before the audit)
 ```
 
-All three of build, typecheck and lint were clean at the time this checklist was written.
+Build, typecheck and lint were all clean at the time of the audit.

@@ -8,7 +8,15 @@ const STUDIO_HOSTNAME = 'studio.gorermart.in';
  * The Razorpay webhook in particular is signature-authenticated and called by
  * Razorpay, not by a browser — touching auth there only adds latency and risk.
  */
-const BYPASS_PREFIXES = ['/api/webhook', '/_next', '/favicon', '/robots.txt', '/sitemap.xml'];
+const BYPASS_PREFIXES = [
+  '/api/webhook',      // Razorpay — signature-authenticated, not cookie-authenticated
+  '/api/revalidate',   // Sanity publish hook — signature-authenticated
+  '/studio',           // Sanity Studio authenticates against Sanity, not Supabase
+  '/_next',
+  '/favicon',
+  '/robots.txt',
+  '/sitemap.xml',
+];
 
 function createClient(request: NextRequest) {
   let response = NextResponse.next({ request });

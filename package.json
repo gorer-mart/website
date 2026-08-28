@@ -2,7 +2,7 @@
   "name": "gorermart-tees",
   "private": true,
   "version": "0.1.0",
-  "description": "Gorer Mart — Kolkata-inspired t-shirts and streetwear",
+  "description": "Gorer Mart \u2014 Kolkata-inspired t-shirts and streetwear",
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=3072' next dev --webpack",
@@ -28,6 +28,7 @@
     "@sanity/client": "^7.22.0",
     "@sanity/image-url": "^2.1.1",
     "@sanity/vision": "^5.26.0",
+    "@sanity/webhook": "^4.0.4",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tailwindcss/postcss": "^4.3.0",

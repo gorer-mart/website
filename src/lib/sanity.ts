@@ -20,24 +20,38 @@ export function isSanityConfigured(): boolean {
 }
 
 /**
- * How long a catalog read stays in Next's data cache.
+ * Cache tag applied to every catalog read.
  *
- * Every catalog query previously ran with `cache: 'no-store'`, so each page view
- * paid a fresh round trip to Sanity before any image URL even reached the
- * browser. A short window keeps the storefront fast while still picking up
- * Studio edits on its own. Lower it if you need edits to appear sooner.
+ * Publishing in Sanity Studio fires a webhook at /api/revalidate/sanity, which
+ * calls `revalidateTag(SANITY_CACHE_TAG)` — so an edit appears on the storefront
+ * on the very next request rather than waiting for a timer. Everything shares
+ * one tag on purpose: products embed category fields (details, wash care, size
+ * guides) and the home page embeds products, so a change to any of them can
+ * affect the others.
  */
-export const CATALOG_REVALIDATE_SECONDS = 60;
+export const SANITY_CACHE_TAG = 'sanity';
+
+/**
+ * Time-based backstop, in case a webhook delivery is ever missed. Normal
+ * freshness comes from the webhook above, not from this.
+ */
+export const CATALOG_REVALIDATE_SECONDS = 300;
+
+/** Cache options shared by every catalog query. */
+const catalogCache = {
+  next: { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [SANITY_CACHE_TAG] },
+};
 
 // Initialize the client only if projectId is present and valid
 export const client = createClient({
   projectId: isSanityConfigured() ? projectId! : 'your-sanity-project-id',
   dataset,
   apiVersion: '2024-01-01',
-  // The storefront only ever reads published documents, so route them through
-  // the edge CDN. This was previously disabled purely because a token is set,
-  // which sent every product query to the slower live API.
-  useCdn: true,
+  // Next's data cache sits in front of every query (see `catalogCache`), so
+  // Sanity is only contacted on a cache miss. The edge CDN would add nothing at
+  // that point and can briefly serve a pre-publish document, which would then be
+  // re-cached for the full backstop window. Read from the live API instead.
+  useCdn: false,
   token: token || undefined,
 });
 
@@ -89,7 +103,7 @@ export async function getProducts(): Promise<Product[]> {
       "sizeGuideMobileImages": category->sizeGuideMobileImages[].asset->url,
       "sizeGuideImages": category->sizeGuideImages[].asset->url
     }`;
-    const sanityProducts = await client.fetch(query, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
+    const sanityProducts = await client.fetch(query, {}, catalogCache);
 
     if (sanityProducts && sanityProducts.length > 0) {
       return sanityProducts.map((p: any) => {
@@ -181,7 +195,7 @@ export async function getCategories(): Promise<Category[]> {
       "sizeGuideMobileImages": sizeGuideMobileImages[].asset->url,
       "sizeGuideImages": sizeGuideImages[].asset->url
     }`;
-    const sanityCategories = await client.fetch(query, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
+    const sanityCategories = await client.fetch(query, {}, catalogCache);
 
     if (sanityCategories && sanityCategories.length > 0) {
       return sanityCategories.map((c: any) => ({
@@ -288,7 +302,7 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
       }
     }`;
 
-    const showcaseData = await client.fetch(query, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
+    const showcaseData = await client.fetch(query, {}, catalogCache);
 
     const heroData: HeroData = {
       desktopImage: undefined,
@@ -403,7 +417,7 @@ export async function getLoginPageImage(): Promise<string | null> {
   try {
     const data = await client.fetch(`*[_type == "loginPage" && _id == "loginPage"][0]{
       "imageUrl": image.asset->url
-    }`, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
+    }`, {}, catalogCache);
     return data?.imageUrl || null;
   } catch (err) {
     console.error("Failed to fetch login page image from Sanity:", err);
@@ -420,7 +434,7 @@ export async function getAboutPageData(): Promise<{ heritageImage: string | null
     const data = await client.fetch(`*[_type == "aboutPage" && _id == "aboutPage"][0]{
       "heritageImage": ourHeritageImage.asset->url,
       "commitmentImage": ourCommitmentImage.asset->url
-    }`, {}, { next: { revalidate: CATALOG_REVALIDATE_SECONDS } });
+    }`, {}, catalogCache);
     return {
       heritageImage: data?.heritageImage || null,
       commitmentImage: data?.commitmentImage || null,
