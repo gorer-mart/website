@@ -220,6 +220,8 @@ export async function getCategories(): Promise<Category[]> {
 
 export interface HomePageShowcase {
   heroData?: HeroData;
+  showNotificationBar?: boolean;
+  notificationBar?: string[];
   mostPochhonder: Product[];
   taatkaDrop: Product[];
 }
@@ -237,7 +239,7 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
   }
 
   if (!isSanityConfigured()) {
-    return { heroData: { desktopImage: undefined, mobileImages: [] }, mostPochhonder: [], taatkaDrop: [] };
+    return { heroData: { desktopImage: undefined, mobileImages: [] }, showNotificationBar: true, notificationBar: [], mostPochhonder: [], taatkaDrop: [] };
   }
 
   try {
@@ -246,6 +248,8 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
         desktopImage,
         mobileImages
       },
+      showNotificationBar,
+      notificationBar,
       mostPochhonder[] {
         category-> { name },
         products[]-> {
@@ -400,12 +404,14 @@ export async function getHomePageShowcase(): Promise<HomePageShowcase> {
 
     return {
       heroData,
+      showNotificationBar: showcaseData?.showNotificationBar !== false,
+      notificationBar: (showcaseData?.notificationBar && Array.isArray(showcaseData.notificationBar)) ? showcaseData.notificationBar.filter(Boolean) : [],
       mostPochhonder,
       taatkaDrop
     };
   } catch (error) {
     console.error("Failed to fetch home page showcase from Sanity. Falling back to empty lists.", error);
-    return { heroData: { desktopImage: undefined, mobileImages: [] }, mostPochhonder: [], taatkaDrop: [] };
+    return { heroData: { desktopImage: undefined, mobileImages: [] }, showNotificationBar: true, notificationBar: [], mostPochhonder: [], taatkaDrop: [] };
   }
 }
 
