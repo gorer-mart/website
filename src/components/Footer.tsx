@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '../lib/supabase';
+import Image from 'next/image';
 import { useToast } from '../ui/use-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram, faFacebookF, faTwitter, faReddit } from '@fortawesome/free-brands-svg-icons';
@@ -19,35 +19,40 @@ const Footer = () => {
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    const trimmed = email.trim();
+    if (!trimmed) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('newsletter_subscribers')
-        .insert([{ email: email.trim().toLowerCase() }]);
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      });
 
-      if (error) {
-        if (error.code === '23505') {
-          toast({
-            title: "Already Subscribed",
-            description: "You are already subscribed to our newsletter! Stay tuned for updates.",
-          });
-        } else {
-          throw error;
-        }
-      } else {
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
         toast({
-          title: "Subscribed Successfully!",
-          description: "Thank you for subscribing to the Gorer Mart newsletter.",
+          title: "Subscription Failed",
+          description: data.error || "Something went wrong. Please try again.",
+          variant: "destructive",
         });
-        setEmail('');
+        return;
       }
-    } catch (err: any) {
+
+      toast({
+        title: data.alreadySubscribed ? "Already Subscribed" : "Subscribed Successfully!",
+        description: data.alreadySubscribed
+          ? "You are already on our list! Stay tuned for updates."
+          : "Thank you for subscribing to the Gorer Mart newsletter.",
+      });
+      setEmail('');
+    } catch (err) {
       console.error('Subscription error:', err);
       toast({
         title: "Subscription Failed",
-        description: err.message || "Something went wrong. Please try again.",
+        description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -62,7 +67,7 @@ const Footer = () => {
           {/* Brand Info */}
           <div className="md:col-span-6 lg:col-span-4 flex flex-col space-y-6 pr-0 lg:pr-8">
             <Link href="/">
-              <img src={typeof logo === 'object' ? logo.src : logo} alt="Gorer Mart" className="h-14 w-auto object-contain align-left self-start" />
+              <Image src={logo} alt="Gorer Mart" width={224} height={56} className="h-14 w-auto object-contain align-left self-start" />
             </Link>
             <p className="text-neutral-500 text-sm leading-relaxed max-w-sm">
               Curating premium apparel that blends cultural heritage with contemporary streetwear. Be a part of this Kolorob.

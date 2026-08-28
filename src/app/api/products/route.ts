@@ -10,6 +10,6 @@ export async function GET() {
     return NextResponse.json(products);
   } catch (error: any) {
     console.error("API products error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Could not load products." }, { status: 500 });
   }
 }

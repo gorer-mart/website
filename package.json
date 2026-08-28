@@ -2,13 +2,14 @@
   "name": "gorermart-tees",
   "private": true,
   "version": "0.1.0",
-  "description": "Gorer Mart — Kolkata-inspired t-shirts and streetwear",
+  "description": "Gorer Mart \u2014 Kolkata-inspired t-shirts and streetwear",
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=3072' next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
@@ -27,6 +28,7 @@
     "@sanity/client": "^7.22.0",
     "@sanity/image-url": "^2.1.1",
     "@sanity/vision": "^5.26.0",
+    "@sanity/webhook": "^4.0.4",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tailwindcss/postcss": "^4.3.0",
@@ -45,7 +47,8 @@
     "styled-components": "^6.4.2",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.1.14",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -54,7 +57,8 @@
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
-    "globals": "^16.4.0"
+    "globals": "^16.4.0",
+    "typescript-eslint": "^8.67.0"
   },
   "overrides": {
     "react": "^19.2.5",

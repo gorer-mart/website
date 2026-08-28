@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -112,17 +113,23 @@ const Navbar: React.FC = () => {
           >
             <span className="sr-only">Gorer Mart</span>
             {/* Desktop Transparent logo */}
-            <img
-              src={typeof logoBlack === 'object' ? logoBlack.src : logoBlack}
+            <Image
+              src={logoBlack}
               alt="Gorer Mart"
+              width={160}
+              height={40}
+              priority
               className={`h-9 md:h-10 w-auto object-contain transition-all duration-500 hidden lg:block ${
                 isHomePage && !isScrolled ? 'lg:block' : 'lg:hidden'
               }`}
             />
             {/* Desktop Scrolled / Mobile logo (black) */}
-            <img
-              src={typeof logoRed === 'object' ? logoRed.src : logoRed}
+            <Image
+              src={logoRed}
               alt="Gorer Mart"
+              width={160}
+              height={40}
+              priority
               className={`h-9 md:h-10 w-auto object-contain transition-all duration-500 ${
                 isHomePage && !isScrolled ? 'block lg:hidden' : 'block'
               }`}

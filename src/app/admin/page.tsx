@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
@@ -158,6 +159,7 @@ interface Subscriber {
 }
 
 const AdminDashboard: React.FC = () => {
+  const router = useRouter();
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -211,54 +213,56 @@ const AdminDashboard: React.FC = () => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
 
+    // All seven panels are independent, so fetch them concurrently rather than
+    // waiting for seven sequential round trips before the console renders.
+    const endpoints = [
+      { key: 'stats', url: '/api/admin/stats', field: 'stats', apply: setStats },
+      { key: 'orders', url: '/api/admin/orders?limit=100', field: 'orders', apply: setOrders },
+      { key: 'products', url: '/api/admin/products', field: 'products', apply: setProducts },
+      { key: 'customers', url: '/api/admin/customers', field: 'customers', apply: setCustomers },
+      { key: 'reviews', url: '/api/admin/reviews', field: 'reviews', apply: setReviews },
+      { key: 'messages', url: '/api/admin/messages', field: 'messages', apply: setMessages },
+      { key: 'subscribers', url: '/api/admin/subscribers', field: 'subscribers', apply: setSubscribers },
+    ] as const;
+
     try {
-      // 1. Fetch Stats
-      const statsRes = await fetch('/api/admin/stats');
-      const statsData = await statsRes.json();
-      if (statsRes.ok && statsData.success) {
-        setStats(statsData.stats);
+      const results = await Promise.all(
+        endpoints.map(async (endpoint) => {
+          const res = await fetch(endpoint.url, { cache: 'no-store' });
+          const data = await res.json().catch(() => ({}));
+          return { endpoint, status: res.status, ok: res.ok, data };
+        })
+      );
+
+      // An expired or downgraded session must send the operator back to the
+      // login screen. Previously these responses were ignored and every panel
+      // just rendered empty with no explanation.
+      if (results.some((r) => r.status === 401 || r.status === 403)) {
+        toast({
+          title: 'Session Expired',
+          description: 'Please sign in again to continue.',
+          variant: 'destructive',
+        });
+        router.replace('/admin/login');
+        return;
       }
 
-      // 2. Fetch Orders
-      const ordersRes = await fetch(`/api/admin/orders?limit=100`);
-      const ordersData = await ordersRes.json();
-      if (ordersRes.ok && ordersData.success) {
-        setOrders(ordersData.orders);
+      const failed: string[] = [];
+      for (const result of results) {
+        const payload = (result.data as any)?.[result.endpoint.field];
+        if (result.ok && (result.data as any)?.success && payload !== undefined) {
+          (result.endpoint.apply as (value: any) => void)(payload);
+        } else {
+          failed.push(result.endpoint.key);
+        }
       }
 
-      // 3. Fetch Products
-      const productsRes = await fetch('/api/admin/products');
-      const productsData = await productsRes.json();
-      if (productsRes.ok && productsData.success) {
-        setProducts(productsData.products);
-      }
-
-      // 4. Fetch Customers
-      const customersRes = await fetch('/api/admin/customers');
-      const customersData = await customersRes.json();
-      if (customersRes.ok && customersData.success) {
-        setCustomers(customersData.customers);
-      }
-
-      // 5. Fetch Reviews
-      const reviewsRes = await fetch('/api/admin/reviews');
-      const reviewsData = await reviewsRes.json();
-      if (reviewsRes.ok && reviewsData.success) {
-        setReviews(reviewsData.reviews);
-      }
-
-      // 6. Fetch Messages
-      const messagesRes = await fetch('/api/admin/messages');
-      const messagesData = await messagesRes.json();
-      if (messagesRes.ok && messagesData.success) {
-        setMessages(messagesData.messages);
-      }
-
-      // 7. Fetch Subscribers
-      const subscribersRes = await fetch('/api/admin/subscribers');
-      const subscribersData = await subscribersRes.json();
-      if (subscribersRes.ok && subscribersData.success) {
-        setSubscribers(subscribersData.subscribers);
+      if (failed.length > 0) {
+        toast({
+          title: 'Partial Sync',
+          description: `Could not load: ${failed.join(', ')}.`,
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       console.error('Error fetching admin data:', error);

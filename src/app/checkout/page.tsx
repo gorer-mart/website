@@ -6,6 +6,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../ui/use-toast';
 import { publicEnv } from '../../lib/env';
+import { imageSrcSet, resolveImageUrl, sizedImageUrl } from '../../lib/image';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -28,6 +29,7 @@ const Checkout: React.FC = () => {
   const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [confirmedOrderNumber, setConfirmedOrderNumber] = useState<string>('');
+  const [paymentPending, setPaymentPending] = useState<boolean>(false);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -95,12 +97,18 @@ const Checkout: React.FC = () => {
         return;
       }
 
-      // 2. Map cart items for database sync and backend price verification
+      // 2. Map cart items for backend price verification.
+      // `_id` (the Sanity document id) is what the server resolves against and
+      // what order_items keys on, and `size` is required to fulfil the order —
+      // both were previously dropped here.
       const cartItems = cart.map(item => ({
+        _id: item._id,
         id: item.id,
         name: item.name,
         price: item.price,
         quantity: item.quantity,
+        size: item.selectedSize,
+        color: item.selectedColor || undefined,
       }));
 
       // 3. Request order creation on the server
@@ -157,13 +165,26 @@ const Checkout: React.FC = () => {
               })
             });
 
-            const verifyData = await verifyRes.json();
+            const verifyData = await verifyRes.json().catch(() => ({}));
+
+            if (verifyRes.status === 502) {
+              // Razorpay took the payment but we could not read it back yet.
+              // The webhook settles this order, so show the confirmation with a
+              // pending note rather than pushing the customer to pay again.
+              clearCart();
+              setConfirmedOrderNumber(orderNumber);
+              setPaymentPending(true);
+              setStep(3);
+              return;
+            }
+
             if (!verifyRes.ok || verifyData.error) {
               throw new Error(verifyData.error || 'Payment signature verification failed.');
             }
 
             // Success! Complete flow
             clearCart();
+            setPaymentPending(false);
             setConfirmedOrderNumber(orderNumber);
             setStep(3);
           } catch (err: any) {
@@ -293,7 +314,17 @@ const Checkout: React.FC = () => {
                         {cart.map((item) => (
                           <div key={`${item.id}-${item.selectedSize}`} className="flex space-x-4">
                             <div className="w-12 h-16 bg-neutral-100 flex-shrink-0">
-                              <img src={item.images[0]?.src || item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                              <img
+                                src={sizedImageUrl(resolveImageUrl(item.images[0]), 96)}
+                                srcSet={imageSrcSet(resolveImageUrl(item.images[0]), [48, 96, 144])}
+                                sizes="48px"
+                                alt={item.name}
+                                width={48}
+                                height={64}
+                                loading="lazy"
+                                decoding="async"
+                                className="w-full h-full object-cover"
+                              />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-normal truncate">{item.name}</p>
@@ -369,7 +400,9 @@ const Checkout: React.FC = () => {
                             autoComplete="tel"
                             placeholder="10-Digit Phone Number"
                             pattern="[6-9][0-9]{9}"
+                            inputMode="numeric"
                             maxLength={10}
+                            title="Enter a valid 10-digit Indian mobile number"
                             value={formData.phone}
                             onChange={handleInputChange}
                             className="rounded-none border-neutral-200"
@@ -428,7 +461,11 @@ const Checkout: React.FC = () => {
                         <Input 
                           required
                           name="zipCode"
-                          placeholder="PIN / Postal Code" 
+                          placeholder="6-Digit PIN Code" 
+                          inputMode="numeric"
+                          pattern="[0-9]{6}"
+                          maxLength={6}
+                          title="Enter a valid 6-digit PIN code"
                           value={formData.zipCode}
                           onChange={handleInputChange}
                           className="rounded-none border-neutral-200"
@@ -440,8 +477,6 @@ const Checkout: React.FC = () => {
                           onChange={handleInputChange}
                         >
                           <option value="India">India</option>
-                          <option value="USA">USA</option>
-                          <option value="UK">UK</option>
                         </select>
                       </div>
                     </div>
@@ -535,7 +570,17 @@ const Checkout: React.FC = () => {
                   {cart.map((item) => (
                     <div key={`${item.id}-${item.selectedSize}`} className="flex space-x-4">
                       <div className="w-16 h-20 bg-neutral-100 flex-shrink-0">
-                        <img src={item.images[0]?.src || item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                        <img
+                          src={sizedImageUrl(resolveImageUrl(item.images[0]), 128)}
+                          srcSet={imageSrcSet(resolveImageUrl(item.images[0]), [64, 128, 192])}
+                          sizes="64px"
+                          alt={item.name}
+                          width={64}
+                          height={80}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div className="flex-1">
                         <p className="text-xs font-normal tracking-tight">{item.name}</p>
@@ -575,12 +620,20 @@ const Checkout: React.FC = () => {
             <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8 border border-green-100">
               <FontAwesomeIcon icon={faCheckCircle} className="text-4xl" />
             </div>
-            <h1 className="text-4xl font-display font-bold uppercase tracking-tighter mb-4">Order Confirmed</h1>
+            <h1 className="text-4xl font-display font-bold uppercase tracking-tighter mb-4">
+              {paymentPending ? 'Order Received' : 'Order Confirmed'}
+            </h1>
             <p className="text-neutral-500 mb-8 leading-relaxed">
               Thank you for your purchase, {formData.firstName}! <br />
-              We've sent a confirmation email to <span className="text-black font-bold">{formData.email}</span>. <br />
               Your order number is <span className="text-black font-bold">#{confirmedOrderNumber}</span>.
             </p>
+            {paymentPending && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 px-4 py-3 mb-8 leading-relaxed">
+                We're still confirming your payment with the gateway. This usually takes a
+                moment — your order status will update automatically. If anything looks wrong,
+                contact us with your order number.
+              </p>
+            )}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild variant="outline" className="py-4 rounded-none cursor-pointer">
                 <Link href="/account">Track Order</Link>
