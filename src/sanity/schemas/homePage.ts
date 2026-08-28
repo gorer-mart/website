@@ -1,5 +1,27 @@
 import React from 'react';
 
+const SectionHeaderFieldWrapper = (props: any) => {
+  return React.createElement(
+    'div',
+    { style: { borderTop: '2px solid #EAB308', paddingTop: '28px', marginTop: '16px', marginBottom: '28px' } },
+    props.title && React.createElement(
+      'h2',
+      { style: { fontSize: '24px', fontWeight: 900, color: '#000000', marginBottom: '8px', letterSpacing: '-0.02em', textTransform: 'uppercase' } },
+      props.title
+    ),
+    props.description && React.createElement(
+      'p',
+      { style: { fontSize: '13px', color: '#666666', marginBottom: '20px', lineHeight: '1.4' } },
+      props.description
+    ),
+    props.renderDefault({
+      ...props,
+      title: '',
+      description: ''
+    })
+  );
+};
+
 export default {
   name: 'homePage',
   title: 'Home Page',
@@ -11,27 +33,7 @@ export default {
       type: 'object',
       description: 'Upload hero banner images for Desktop (single image) and Mobile (carousel array).',
       components: {
-        field: (props: any) => {
-          return React.createElement(
-            'div',
-            { style: { borderTop: '2px solid #EAB308', paddingTop: '28px', marginTop: '16px', marginBottom: '28px' } },
-            React.createElement(
-              'h2',
-              { style: { fontSize: '24px', fontWeight: 900, color: '#000000', marginBottom: '8px', letterSpacing: '-0.02em', textTransform: 'uppercase' } },
-              props.title
-            ),
-            React.createElement(
-              'p',
-              { style: { fontSize: '13px', color: '#666666', marginBottom: '20px', lineHeight: '1.4' } },
-              props.description
-            ),
-            props.renderDefault({
-              ...props,
-              title: '',
-              description: ''
-            })
-          );
-        }
+        field: SectionHeaderFieldWrapper,
       },
       fields: [
         {
@@ -65,27 +67,7 @@ export default {
       type: 'array',
       description: 'Add categories and select products from each category to display in the "Most Pochhonder" homepage section.',
       components: {
-        field: (props: any) => {
-          return React.createElement(
-            'div',
-            { style: { borderTop: '2px solid #EAB308', paddingTop: '28px', marginTop: '28px' } },
-            React.createElement(
-              'h2',
-              { style: { fontSize: '24px', fontWeight: 900, color: '#000000', marginBottom: '8px', letterSpacing: '-0.02em', textTransform: 'uppercase' } },
-              props.title
-            ),
-            React.createElement(
-              'p',
-              { style: { fontSize: '13px', color: '#666666', marginBottom: '20px', lineHeight: '1.4' } },
-              props.description
-            ),
-            props.renderDefault({
-              ...props,
-              title: '',
-              description: ''
-            })
-          );
-        }
+        field: SectionHeaderFieldWrapper,
       },
       of: [
         {
@@ -151,27 +133,7 @@ export default {
       type: 'array',
       description: 'Add categories and select products from each category to display in the "Taatka Drop" homepage section.',
       components: {
-        field: (props: any) => {
-          return React.createElement(
-            'div',
-            { style: { borderTop: '2px solid #EAB308', paddingTop: '28px', marginTop: '28px' } },
-            React.createElement(
-              'h2',
-              { style: { fontSize: '24px', fontWeight: 900, color: '#000000', marginBottom: '8px', letterSpacing: '-0.02em', textTransform: 'uppercase' } },
-              props.title
-            ),
-            React.createElement(
-              'p',
-              { style: { fontSize: '13px', color: '#666666', marginBottom: '20px', lineHeight: '1.4' } },
-              props.description
-            ),
-            props.renderDefault({
-              ...props,
-              title: '',
-              description: ''
-            })
-          );
-        }
+        field: SectionHeaderFieldWrapper,
       },
       of: [
         {
@@ -240,3 +202,4 @@ export default {
     },
   },
 };
+

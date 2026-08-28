@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faPhone, faLocationDot } from '@fortawesome/free-solid-svg-icons';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../ui/use-toast';
+import { getContactPageImage } from '../../lib/sanity';
 import contactBg from '../../assets/contact/contact-bg.webp';
 
 const Contact: React.FC = () => {
   const { toast } = useToast();
+  const [sanityBgImage, setSanityBgImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -19,6 +21,21 @@ const Contact: React.FC = () => {
     message: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function fetchBg() {
+      try {
+        const imageUrl = await getContactPageImage();
+        if (imageUrl) setSanityBgImage(imageUrl);
+      } catch (err) {
+        console.error("Failed to load Contact page background image from Sanity:", err);
+      }
+    }
+    fetchBg();
+  }, []);
+
+  const defaultBgUrl = typeof contactBg === 'object' ? contactBg.src : contactBg;
+  const currentBgUrl = sanityBgImage || defaultBgUrl;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({
@@ -73,9 +90,9 @@ const Contact: React.FC = () => {
 
   return (
     <div
-      className="relative min-h-[calc(100vh-4rem)] mt-16 bg-cover bg-center flex items-center justify-center py-16 px-4 sm:px-6 md:px-8 z-10"
+      className="relative min-h-[calc(100vh-4rem)] mt-16 bg-cover bg-center flex items-center justify-center py-16 px-4 sm:px-6 md:px-8 z-10 transition-all duration-500"
       style={{
-        backgroundImage: `url(${typeof contactBg === 'object' ? contactBg.src : contactBg})`
+        backgroundImage: `url(${currentBgUrl})`
       }}
     >
       <title>Contact Us — Gorer Mart</title>
