@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { getAboutPageData } from '../../lib/sanity';
+import { imageProps } from '../../lib/image';
 
 const About: React.FC = () => {
   const [sanityHeritageImage, setSanityHeritageImage] = useState<string | null>(null);
@@ -44,8 +45,15 @@ const About: React.FC = () => {
             >
               {sanityHeritageImage ? (
                 <img
-                  src={sanityHeritageImage}
+                  {...imageProps(sanityHeritageImage, {
+                    widths: [480, 720, 960, 1280],
+                    sizes: '(max-width: 768px) 100vw, 50vw',
+                    quality: 80,
+                    fallbackWidth: 960,
+                  })}
                   alt="Kolkata Street Culture"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -81,8 +89,15 @@ const About: React.FC = () => {
             >
               {sanityCommitmentImage ? (
                 <img
-                  src={sanityCommitmentImage}
+                  {...imageProps(sanityCommitmentImage, {
+                    widths: [480, 720, 960, 1280],
+                    sizes: '(max-width: 768px) 100vw, 50vw',
+                    quality: 80,
+                    fallbackWidth: 960,
+                  })}
                   alt="Ethical Fashion Craftsmanship"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               ) : (

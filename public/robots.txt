@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://gorermart.com/sitemap.xml

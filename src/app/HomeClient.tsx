@@ -8,6 +8,7 @@ import { faLeaf, faCity, faGem, faQuoteLeft, faChevronLeft, faChevronRight } fro
 import { Product, HeroData } from '../types/product';
 import ProductCard from '../components/ProductCard';
 import { Button } from '../ui/button';
+import { HERO_WIDTHS, imageProps, imageSrcSet, sizedImageUrl } from '../lib/image';
 
 import heroMobile from '../assets/home/hero-mobile.webp';
 import atoshi from '../assets/feedback/atoshi.webp';
@@ -22,11 +23,21 @@ interface HomeClientProps {
   newArrivals: Product[];
 }
 
+/**
+ * 1x1 transparent GIF. Used as the `<picture>` fallback for the desktop hero so
+ * that phones download zero bytes for an image they never display — a plain
+ * `hidden lg:block` on an `<img>` does not reliably stop the fetch.
+ */
+const BLANK_PIXEL =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals }) => {
   const desktopHeroSrc = heroData?.desktopImage || (typeof heroMobile === 'object' ? heroMobile.src : heroMobile);
   const mobileHeroImages = (heroData?.mobileImages && heroData.mobileImages.length > 0)
     ? heroData.mobileImages
     : [typeof heroMobile === 'object' ? heroMobile.src : heroMobile];
+
+  const desktopHeroSrcSet = imageSrcSet(desktopHeroSrc, HERO_WIDTHS, 80);
 
   const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState<number>(1);
@@ -53,6 +64,30 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
     }, 4500);
     return () => clearInterval(interval);
   }, [mobileHeroImages.length, mobileSlideIndex]);
+
+  // Warm the remaining hero slides once the page is idle. Only the active slide
+  // is mounted, so without this every swipe (and every 4.5s auto-advance) would
+  // start a fresh download and flash an empty frame. Deferred to idle time so it
+  // never competes with the first slide.
+  useEffect(() => {
+    if (mobileHeroImages.length <= 1) return;
+
+    const warm = () => {
+      mobileHeroImages.forEach((src, index) => {
+        if (index === 0) return; // already loaded as the initial slide
+        const preloader = new Image();
+        preloader.src = sizedImageUrl(src, 828, 80);
+      });
+    };
+
+    const idle = (window as any).requestIdleCallback;
+    if (typeof idle === 'function') {
+      const handle = idle(warm, { timeout: 2500 });
+      return () => (window as any).cancelIdleCallback?.(handle);
+    }
+    const timer = setTimeout(warm, 1200);
+    return () => clearTimeout(timer);
+  }, [mobileHeroImages]);
 
   const slideVariants = {
     enter: (direction: number) => ({
@@ -92,19 +127,37 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
       {/* Hero Section */}
       <section className="relative aspect-[4/5] sm:aspect-auto h-auto sm:h-[65vh] md:h-screen mt-16 lg:mt-0 w-full flex items-center overflow-hidden bg-neutral-900 px-6 md:px-12 lg:px-24">
         <div className="absolute inset-0 z-0">
-          {/* Desktop background (Single image) */}
-          <img
-            src={desktopHeroSrc}
-            alt="Gorer Mart Streetwear Hero Banner"
-            className="hidden lg:block w-full h-full object-cover opacity-80"
-          />
+          {/* Desktop background (Single image).
+              Wrapped in <picture> so the source only matches at lg and above;
+              below that it resolves to a blank pixel and costs nothing. */}
+          <picture>
+            {desktopHeroSrcSet && (
+              <source media="(min-width: 1024px)" srcSet={desktopHeroSrcSet} sizes="100vw" />
+            )}
+            <img
+              src={desktopHeroSrcSet ? BLANK_PIXEL : desktopHeroSrc}
+              alt="Gorer Mart Streetwear Hero Banner"
+              loading="eager"
+              decoding="sync"
+              fetchPriority="high"
+              className="hidden lg:block w-full h-full object-cover opacity-80"
+            />
+          </picture>
 
           {/* Mobile background (Carousel or single fallback image) */}
           <div className="block lg:hidden w-full h-full relative overflow-hidden bg-neutral-950">
             <AnimatePresence custom={slideDirection} initial={false}>
               <motion.img
                 key={mobileSlideIndex}
-                src={mobileHeroImages[mobileSlideIndex] || mobileHeroImages[0]}
+                {...imageProps(mobileHeroImages[mobileSlideIndex] || mobileHeroImages[0], {
+                  widths: [480, 640, 828, 1080, 1280],
+                  sizes: '100vw',
+                  quality: 80,
+                  fallbackWidth: 828,
+                })}
+                loading="eager"
+                decoding="sync"
+                fetchPriority={mobileSlideIndex === 0 ? 'high' : 'auto'}
                 custom={slideDirection}
                 variants={slideVariants}
                 initial="enter"
@@ -246,7 +299,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.05, duration: 0.35 }}
               >
-                <ProductCard product={product} />
+                <ProductCard product={product} priority={idx < 4} />
               </motion.div>
             ))}
           </div>
@@ -306,7 +359,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.05, duration: 0.35 }}
               >
-                <ProductCard product={product} />
+                <ProductCard product={product} priority={idx < 4} />
               </motion.div>
             ))}
           </div>
@@ -448,7 +501,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
                   if (container.scrollLeft <= container.scrollWidth / 3 + 100) {
                     container.style.scrollBehavior = 'auto';
                     container.scrollLeft = container.scrollLeft + container.scrollWidth / 3;
-                    container.offsetHeight; // force reflow
+                    void container.offsetHeight; // force synchronous reflow
                   }
 
                   container.style.scrollBehavior = 'smooth';
@@ -507,10 +560,14 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
 
                   <div className="flex items-center mt-auto relative z-10 pt-4 border-t border-neutral-50">
                     <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-neutral-100 mr-4 group-hover:border-border-accent/30 transition-colors">
-                      <img 
-                        src={typeof feedback.image === 'object' ? feedback.image.src : feedback.image} 
-                        alt={`Avatar photo of customer ${feedback.name}`} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={typeof feedback.image === 'object' ? feedback.image.src : feedback.image}
+                        alt={`Avatar photo of customer ${feedback.name}`}
+                        width={48}
+                        height={48}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                     <div>
@@ -532,7 +589,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
                   if (container.scrollLeft + container.clientWidth >= (container.scrollWidth * 2) / 3 - 100) {
                     container.style.scrollBehavior = 'auto';
                     container.scrollLeft = container.scrollLeft - container.scrollWidth / 3;
-                    container.offsetHeight; // force reflow
+                    void container.offsetHeight; // force synchronous reflow
                   }
 
                   container.style.scrollBehavior = 'smooth';
@@ -556,7 +613,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
                   if (container.scrollLeft <= container.scrollWidth / 3 + 100) {
                      container.style.scrollBehavior = 'auto';
                      container.scrollLeft = container.scrollLeft + container.scrollWidth / 3;
-                     container.offsetHeight; // force reflow
+                     void container.offsetHeight; // force synchronous reflow
                   }
                   
                   container.style.scrollBehavior = 'smooth';
@@ -578,7 +635,7 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, topPicks, newArrivals
                   if (container.scrollLeft + container.clientWidth >= (container.scrollWidth * 2) / 3 - 100) {
                      container.style.scrollBehavior = 'auto';
                      container.scrollLeft = container.scrollLeft - container.scrollWidth / 3;
-                     container.offsetHeight; // force reflow
+                     void container.offsetHeight; // force synchronous reflow
                   }
                   
                   container.style.scrollBehavior = 'smooth';

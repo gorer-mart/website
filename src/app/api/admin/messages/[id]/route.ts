@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/server/auth";
+import { apiError } from "@/lib/server/http";
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return apiError(
+      auth.status === 401 ? "Authentication required." : "Administrator access required.",
+      auth.status
+    );
+  }
+
   try {
     const { id } = await params;
     const { status } = await request.json();
@@ -24,7 +34,7 @@ export async function PUT(
 
     if (error) {
       console.error("Update contact message status error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not update the message." }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -33,6 +43,6 @@ export async function PUT(
     });
   } catch (error: any) {
     console.error("PUT contact message status API error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Could not update the message." }, { status: 500 });
   }
 }

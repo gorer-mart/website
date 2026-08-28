@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "../../../lib/supabase/server";
-import { createAdminSupabaseClient } from "../../../lib/supabase/admin";
+import { z } from "zod";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUser } from "@/lib/server/auth";
+import { ensureProductRow, isUUID, toProductUuid } from "@/lib/server/product-sync";
+import { apiError, readJson } from "@/lib/server/http";
+import { hit, rateLimitResponse } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
-
-const isUUID = (str: string) => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-};
 
 export async function GET(request: Request) {
   try {
@@ -15,128 +14,145 @@ export async function GET(request: Request) {
     const productId = searchParams.get("productId");
 
     if (!productId) {
-      return NextResponse.json({ error: "Product ID is required" }, { status: 400 });
+      return apiError("Product ID is required", 400);
     }
 
+    // A non-UUID id means the product has no database row yet, so it can have
+    // no reviews. Return an empty list rather than an error.
     if (!isUUID(productId)) {
-      // If product ID is not a valid UUID (e.g. static fallback id "1"), return empty array
       return NextResponse.json([]);
     }
 
-    const supabaseAdmin = createAdminSupabaseClient();
-    const { data: reviews, error } = await supabaseAdmin
+    const supabase = createAdminSupabaseClient();
+    const { data: reviews, error } = await supabase
       .from("reviews")
-      .select("id, rating, comment, created_at, user_id, users(full_name, avatar_url)")
+      .select("id, rating, comment, created_at, is_verified_purchase, users(full_name, avatar_url)")
       .eq("product_id", productId)
       .eq("status", "approved")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(200);
 
     if (error) {
-      console.error("Fetch reviews error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Could not load reviews.", 500, { scope: "reviews.get", cause: error });
     }
 
-    return NextResponse.json(reviews || []);
-  } catch (error: any) {
-    console.error("GET reviews error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json(reviews ?? []);
+  } catch (error) {
+    return apiError("Could not load reviews.", 500, { scope: "reviews.get", cause: error });
   }
 }
 
+const reviewSchema = z.object({
+  productId: z.string().trim().min(1).max(200),
+  rating: z.coerce.number().int().min(1).max(5),
+  comment: z.string().trim().max(2000).optional().default(""),
+  name: z.string().trim().max(300).optional(),
+  price: z.coerce.number().nonnegative().optional(),
+  slug: z.string().trim().max(200).optional(),
+});
+
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return apiError("Please sign in to leave a review.", 401);
+  }
+
+  const limit = hit(`review:${user.id}`, 5, 60 * 60 * 1000);
+  const limited = rateLimitResponse(limit, "You've submitted several reviews recently. Please try again later.");
+  if (limited) return limited;
+
+  const parsed = reviewSchema.safeParse(await readJson(request));
+  if (!parsed.success) {
+    return apiError(parsed.error.issues[0]?.message ?? "Please check your review and try again.", 400);
+  }
+
+  const { productId: rawProductId, rating, comment, name, price, slug } = parsed.data;
+
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createAdminSupabaseClient();
+    const productId = toProductUuid(rawProductId);
 
-    // Authenticate the user using Next.js Supabase Server Client
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Keep the products row in place so the foreign key holds.
+    const sync = await ensureProductRow(supabase, {
+      _id: rawProductId,
+      name,
+      slug,
+      price,
+    });
+    if (!sync.ok) {
+      return apiError("We could not attach your review to this product.", 500, {
+        scope: "reviews.sync",
+        cause: sync.reason,
+      });
     }
 
-    const body = await request.json();
-    const { productId, rating, comment, name, price, slug } = body;
-
-    if (!productId || !rating) {
-      return NextResponse.json({ error: "Product ID and rating are required" }, { status: 400 });
-    }
-
-    if (rating < 1 || rating > 5) {
-      return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 });
-    }
-
-    if (!isUUID(productId)) {
-      return NextResponse.json({ error: "Product ID must be a valid UUID" }, { status: 400 });
-    }
-
-    const supabaseAdmin = createAdminSupabaseClient();
-
-    // 1. Sync product to Supabase products table if it's missing (to satisfy foreign key)
-    const { data: existingProduct } = await supabaseAdmin
-      .from("products")
+    // One review per customer per product.
+    const { data: existing } = await supabase
+      .from("reviews")
       .select("id")
-      .eq("id", productId)
+      .eq("product_id", productId)
+      .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!existingProduct) {
-      const { error: syncError } = await supabaseAdmin.from("products").insert({
-        id: productId,
-        title: name || "Gorer Mart Product",
-        slug: slug || `product-${productId}`,
-        price: Number(price) || 0,
-        status: "active",
-      });
-
-      if (syncError) {
-        console.error("Sync product error:", syncError);
-        return NextResponse.json({ error: "Product synchronization failed" }, { status: 500 });
-      }
+    if (existing) {
+      return apiError("You've already reviewed this product.", 409);
     }
 
-    // 2. Insert the new review with status = 'approved'
-    const { data: newReview, error: insertError } = await supabaseAdmin
+    // Mark the review as verified when this customer actually paid for the item.
+    const { data: purchased } = await supabase
+      .from("order_items")
+      .select("id, orders!inner(user_id, payment_status)")
+      .eq("product_id", productId)
+      .eq("orders.user_id", user.id)
+      .eq("orders.payment_status", "paid")
+      .limit(1);
+
+    const isVerifiedPurchase = Array.isArray(purchased) && purchased.length > 0;
+
+    const { data: newReview, error: insertError } = await supabase
       .from("reviews")
       .insert({
         product_id: productId,
         user_id: user.id,
-        rating: Number(rating),
-        comment: comment || "",
+        rating,
+        comment,
+        is_verified_purchase: isVerifiedPurchase,
         status: "approved",
       })
-      .select("id, rating, comment, created_at, user_id, users(full_name, avatar_url)")
+      .select("id, rating, comment, created_at, is_verified_purchase, users(full_name, avatar_url)")
       .single();
 
     if (insertError) {
-      console.error("Insert review error:", insertError);
-      return NextResponse.json({ error: insertError.message || "Failed to submit review" }, { status: 500 });
+      return apiError("Failed to submit your review. Please try again.", 500, {
+        scope: "reviews.insert",
+        cause: insertError,
+      });
     }
 
-    // 3. Recalculate average_rating and review_count for the product
-    const { data: allReviews, error: fetchErr } = await supabaseAdmin
+    // Refresh the denormalised rating aggregate on the product.
+    const { data: allReviews } = await supabase
       .from("reviews")
       .select("rating")
       .eq("product_id", productId)
       .eq("status", "approved");
 
-    if (!fetchErr && allReviews) {
+    if (allReviews) {
       const count = allReviews.length;
       const sum = allReviews.reduce((acc, r) => acc + r.rating, 0);
-      const avg = count > 0 ? Number((sum / count).toFixed(2)) : 0;
-
-      await supabaseAdmin
+      await supabase
         .from("products")
         .update({
-          average_rating: avg,
+          average_rating: count > 0 ? Number((sum / count).toFixed(2)) : 0,
           review_count: count,
         })
         .eq("id", productId);
     }
 
     return NextResponse.json({ success: true, review: newReview });
-  } catch (error: any) {
-    console.error("POST reviews error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+  } catch (error) {
+    return apiError("Failed to submit your review. Please try again.", 500, {
+      scope: "reviews.post",
+      cause: error,
+    });
   }
 }

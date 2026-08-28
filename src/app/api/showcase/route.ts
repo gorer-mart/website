@@ -9,6 +9,6 @@ export async function GET() {
     return NextResponse.json(showcase);
   } catch (error: any) {
     console.error("API showcase error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Could not load homepage content." }, { status: 500 });
   }
 }

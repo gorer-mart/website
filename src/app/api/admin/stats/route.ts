@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/server/auth";
+import { apiError } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return apiError(
+      auth.status === 401 ? "Authentication required." : "Administrator access required.",
+      auth.status
+    );
+  }
+
   try {
     const supabase = createAdminSupabaseClient();
 
@@ -14,7 +24,7 @@ export async function GET() {
 
     if (ordersErr) {
       console.error("Error fetching orders for stats:", ordersErr);
-      return NextResponse.json({ error: ordersErr.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not load dashboard statistics." }, { status: 500 });
     }
 
     const totalOrders = orders.length;
@@ -29,7 +39,7 @@ export async function GET() {
 
     if (customerErr) {
       console.error("Error fetching customer count:", customerErr);
-      return NextResponse.json({ error: customerErr.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not load dashboard statistics." }, { status: 500 });
     }
 
     // 3. Status breakdown
@@ -120,6 +130,6 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error("Stats API error:", error);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    return NextResponse.json({ error: "Could not load dashboard statistics." }, { status: 500 });
   }
 }
