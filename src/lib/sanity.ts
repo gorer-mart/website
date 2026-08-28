@@ -444,3 +444,20 @@ export async function getAboutPageData(): Promise<{ heritageImage: string | null
     return { heritageImage: null, commitmentImage: null };
   }
 }
+
+/**
+ * Fetches the Contact Page background image URL from Sanity CMS.
+ */
+export async function getContactPageImage(): Promise<string | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    const data = await client.fetch(`*[_type == "contactPage" && _id == "contactPage"][0]{
+      "imageUrl": backgroundImage.asset->url
+    }`, {}, catalogCache);
+    return data?.imageUrl || null;
+  } catch (err) {
+    console.error("Failed to fetch contact page image from Sanity:", err);
+    return null;
+  }
+}
+
