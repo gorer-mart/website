@@ -78,6 +78,8 @@ export default async function Page() {
       )}
       <HomeClient
         heroData={showcase.heroData}
+        showNotificationBar={showcase.showNotificationBar}
+        notificationBar={showcase.notificationBar}
         topPicks={showcase.mostPochhonder || []}
         newArrivals={showcase.taatkaDrop || []}
       />
