@@ -19,6 +19,12 @@ export const metadata: Metadata = {
 };
 
 /**
+ * Reading `searchParams` already makes this route render per request; the
+ * catalog fetches underneath it are served from the tagged cache and refreshed
+ * by the Studio publish webhook.
+ */
+
+/**
  * The catalog is fetched here rather than in the client component so the
  * product grid — and every image URL in it — is present in the first HTML
  * response. The browser can then start downloading product images while it is

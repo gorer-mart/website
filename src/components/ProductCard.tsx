@@ -56,7 +56,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) 
     (firstVariant ? firstVariant.lqip?.[0] : product.lqip?.[0]) || ''
   );
 
-  const handleColorChange = (colorName: string) => {
+  const _handleColorChange = (colorName: string) => {
     setSelectedColor(colorName);
     const variant = variants.find((v) => v.color === colorName);
     if (variant && variant.images.length > 0) {

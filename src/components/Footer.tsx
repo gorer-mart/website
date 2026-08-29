@@ -5,8 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useToast } from '../ui/use-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faInstagram, faFacebookF, faTwitter, faReddit } from '@fortawesome/free-brands-svg-icons';
-import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faInstagram, faFacebookF, faReddit } from '@fortawesome/free-brands-svg-icons';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 

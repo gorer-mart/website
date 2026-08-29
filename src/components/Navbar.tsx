@@ -21,7 +21,6 @@ const Navbar: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isMobile, setIsMobile] = useState<boolean>(false);
   const [isMobileUserExpanded, setIsMobileUserExpanded] = useState<boolean>(false);
   const { setIsCartOpen, cartCount } = useCart();
   const { user, profile, signOut, isAuthenticated } = useAuth();
@@ -37,9 +36,10 @@ const Navbar: React.FC = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
+      if (window.innerWidth >= 1024) {
+        setIsMobileMenuOpen(false);
+      }
     };
-    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);

@@ -42,7 +42,12 @@ export const viewport = {
   themeColor: '#a6101b',
 };
 
-export const dynamic = 'force-dynamic';
+/**
+ * No `force-dynamic`: the page is prerendered and then regenerated whenever the
+ * Studio publish webhook purges the `sanity` cache tag. `force-dynamic` also
+ * defaults every fetch to `no-store`, which is what stopped the catalog cache
+ * from ever being used.
+ */
 
 export default async function Page() {
   const showcase = await getHomePageShowcase();

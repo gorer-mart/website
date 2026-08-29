@@ -1,6 +1,6 @@
 export interface ProductImage {
   src?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /** One colour option of a product, with its own gallery. */
@@ -24,7 +24,7 @@ export interface Product {
   tag?: string;
   tags?: string[];
   /** Flattened gallery across every colour variant. */
-  images: any[];
+  images: (string | ProductImage)[];
   /** Base64 previews, index-aligned with `images`. See `ColorVariant.lqip`. */
   lqip?: string[];
   sizes: string[];
@@ -35,18 +35,18 @@ export interface Product {
   sizeGuideDesktopImages?: string[];
   sizeGuideMobileImages?: string[];
   sizeGuideImages?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface Category {
   _id?: string;
   name: string;
-  image: any;
+  image: string | Record<string, unknown>;
   itemCount?: string;
   sizeGuideDesktopImages?: string[];
   sizeGuideMobileImages?: string[];
   sizeGuideImages?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface HeroData {

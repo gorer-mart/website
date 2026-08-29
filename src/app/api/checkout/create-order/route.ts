@@ -198,26 +198,65 @@ export async function POST(request: Request) {
     const total = Math.round((subtotal + shippingCost) * 100) / 100;
 
     // ---- 4. Persist the shipping address --------------------------------
-    const { data: addressData, error: addressError } = await supabase
-      .from("addresses")
-      .insert({
-        user_id: user.id,
-        full_name: `${shippingAddress.firstName} ${shippingAddress.lastName}`.trim(),
-        phone: shippingAddress.phone,
-        address_line_1: shippingAddress.address,
-        city: shippingAddress.city,
-        state: shippingAddress.state,
-        postal_code: shippingAddress.zipCode,
-        country: shippingAddress.country || "India",
-        is_default: false,
-      })
-      .select("id")
-      .single();
+    // Reuse an identical saved address instead of inserting a fresh row on
+    // every order. Previously each checkout appended another duplicate with
+    // `is_default: false`, so a repeat customer accumulated identical
+    // addresses, none of them marked default and none of them reusable.
+    const customerName = `${shippingAddress.firstName} ${shippingAddress.lastName}`.trim();
+    const addressFields = {
+      user_id: user.id,
+      full_name: customerName,
+      phone: shippingAddress.phone,
+      address_line_1: shippingAddress.address,
+      city: shippingAddress.city,
+      state: shippingAddress.state,
+      postal_code: shippingAddress.zipCode,
+      country: shippingAddress.country || "India",
+    };
 
-    if (addressError || !addressData) {
+    const { data: savedAddresses } = await supabase
+      .from("addresses")
+      .select("id, full_name, phone, address_line_1, city, state, postal_code, is_default")
+      .eq("user_id", user.id);
+
+    const duplicate = (savedAddresses || []).find(
+      (a) =>
+        a.full_name === addressFields.full_name &&
+        a.phone === addressFields.phone &&
+        a.address_line_1 === addressFields.address_line_1 &&
+        a.city === addressFields.city &&
+        a.state === addressFields.state &&
+        a.postal_code === addressFields.postal_code
+    );
+
+    let shippingAddressId: string | undefined = duplicate?.id;
+
+    if (!shippingAddressId) {
+      // First address on the account becomes the default, so the next checkout
+      // has something to pre-fill from.
+      const hasDefault = (savedAddresses || []).some((a) => a.is_default);
+
+      const { data: addressData, error: addressError } = await supabase
+        .from("addresses")
+        .insert({ ...addressFields, is_default: !hasDefault })
+        .select("id")
+        .single();
+
+      if (addressError || !addressData) {
+        return apiError("We could not save your shipping address. Please try again.", 500, {
+          scope: "create-order.address",
+          cause: addressError,
+        });
+      }
+      shippingAddressId = addressData.id;
+    }
+
+    // Both branches above assign it, but this is the payment path: an order
+    // written without a delivery address cannot be fulfilled, so fail loudly
+    // rather than record one.
+    if (!shippingAddressId) {
       return apiError("We could not save your shipping address. Please try again.", 500, {
         scope: "create-order.address",
-        cause: addressError,
       });
     }
 
@@ -262,8 +301,8 @@ export async function POST(request: Request) {
         razorpay_order_id: razorpayOrder.id,
         customer_email: shippingAddress.email || user.email || null,
         customer_phone: shippingAddress.phone,
-        shipping_address_id: addressData.id,
-        billing_address_id: addressData.id,
+        shipping_address_id: shippingAddressId,
+        billing_address_id: shippingAddressId,
       })
       .select("id")
       .single();
@@ -294,6 +333,35 @@ export async function POST(request: Request) {
         scope: "create-order.items",
         cause: itemsError,
       });
+    }
+
+    // ---- 7. Keep the customer profile in step ----------------------------
+    // `users.phone` is the canonical contact number the admin console reads,
+    // but nothing ever wrote it — the number only reached `addresses.phone` and
+    // `orders.customer_phone`, so every customer showed as having no phone.
+    //
+    // Deliberately best-effort: the order is already recorded and paid for
+    // next, so a profile write failing here must never surface to the customer.
+    try {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("full_name, phone")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const patch: Record<string, string> = {};
+      if (String(profile?.phone || "").trim() !== shippingAddress.phone) {
+        patch.phone = shippingAddress.phone;
+      }
+      if (!String(profile?.full_name || "").trim() && customerName) {
+        patch.full_name = customerName;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await supabase.from("users").update(patch).eq("id", user.id);
+      }
+    } catch (profileError) {
+      console.warn("[create-order] could not sync customer profile", profileError);
     }
 
     return NextResponse.json({
