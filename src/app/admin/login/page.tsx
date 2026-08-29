@@ -3,18 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
-import { Button } from '@/ui/button';
-import { Input } from '@/ui/input';
 import { useAuth } from '@/context/AuthContext';
-import { Lock, Mail, Eye, EyeOff, ShieldAlert, ArrowLeft, Loader2, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, ArrowLeft, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
+import { Action, BRAND, Field } from '../_components/ui';
 
 const AdminLogin: React.FC = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const supabase = createBrowserSupabaseClient();
-  
+
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -30,7 +29,7 @@ const AdminLogin: React.FC = () => {
           .select('role')
           .eq('id', user.id)
           .single();
-        
+
         if (profile && profile.role === 'admin') {
           router.push('/admin');
         }
@@ -75,7 +74,7 @@ const AdminLogin: React.FC = () => {
       if (profileError || !profile || profile.role !== 'admin') {
         // Access Denied! Clear auth session state immediately
         await supabase.auth.signOut();
-        setError('Access Denied: Administrative privileges required.');
+        setError('Access denied. This account does not have administrator access.');
         setFormLoading(false);
         return;
       }
@@ -91,133 +90,126 @@ const AdminLogin: React.FC = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
-        <p className="text-xs uppercase font-mono tracking-widest text-slate-500">Verifying security session...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50">
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <p className="text-sm text-slate-500">Checking your session…</p>
       </div>
     );
   }
 
+  const inputClass =
+    'h-11 w-full rounded-md border border-slate-300 bg-white pl-10 text-sm text-slate-900 ' +
+    'placeholder:text-slate-400 transition-colors focus:border-slate-900 focus:outline-none ' +
+    'focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50';
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Decorative top background gradient */}
-      <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-slate-100 to-transparent pointer-events-none" />
-
-      {/* Subtle radial glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#D4AF37]/5 rounded-full blur-[140px] pointer-events-none" />
-
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="w-full max-w-[440px] bg-white border border-slate-200/80 p-8 sm:p-10 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.03)] relative z-10"
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="w-full max-w-[400px]"
       >
-        {/* Top bar back option */}
-        <div className="flex justify-start mb-6">
-          <Link
-            href="/"
-            className="inline-flex items-center space-x-1.5 text-slate-400 hover:text-slate-800 text-xs font-semibold uppercase tracking-wider group transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Storefront</span>
-          </Link>
-        </div>
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to store
+        </Link>
 
-        {/* Console Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 text-[#D4AF37] mb-4">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <h1 className="text-xl font-display font-black uppercase tracking-wider text-slate-900">
-            Gorer Mart <span className="text-[#D4AF37]">Console</span>
-          </h1>
-          <p className="text-[10px] font-mono tracking-widest text-slate-400 uppercase mt-1">
-            System Administration Portal
-          </p>
-        </div>
-
-        {/* Error Alert Box */}
-        <AnimatePresence mode="wait">
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mb-6"
+        <div className="rounded-lg border border-slate-200 bg-white p-8">
+          <div className="mb-7">
+            <span
+              className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-md text-white"
+              style={{ backgroundColor: BRAND }}
             >
-              <div className="bg-rose-50 text-rose-600 text-xs px-4 py-3.5 border border-rose-100 rounded-xl flex items-start space-x-2.5">
-                <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span className="leading-relaxed font-medium">{error}</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-mono tracking-widest uppercase text-slate-500 block ml-1">
-              Admin E-mail
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
-              <Input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@gorermart.in"
-                className="w-full pl-10 pr-4 py-3.5 bg-slate-50/50 border-slate-200 focus-visible:ring-0 focus-visible:border-[#D4AF37] focus-visible:bg-white text-xs rounded-xl text-slate-900 transition-all placeholder:text-slate-450 border border-slate-200"
-                disabled={formLoading}
-              />
-            </div>
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Admin console</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Sign in with your administrator account to continue.
+            </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-mono tracking-widest uppercase text-slate-500 block ml-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-10 py-3.5 bg-slate-50/50 border-slate-200 focus-visible:ring-0 focus-visible:border-[#D4AF37] focus-visible:bg-white text-xs rounded-xl text-slate-900 transition-all placeholder:text-slate-450 border border-slate-200"
-                disabled={formLoading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition-colors cursor-pointer"
-                disabled={formLoading}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            disabled={formLoading}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs uppercase tracking-widest py-3.5 mt-2 rounded-xl transition-all shadow-[0_4px_15px_rgba(0,0,0,0.08)] flex items-center justify-center space-x-2 cursor-pointer border-0"
-          >
-            {formLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>Authorizing...</span>
-              </>
-            ) : (
-              <span>Access Console</span>
+                <div
+                  role="alert"
+                  className="mb-5 flex items-start gap-2.5 rounded-md border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-700"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span className="leading-relaxed">{error}</span>
+                </div>
+              </motion.div>
             )}
-          </Button>
-        </form>
+          </AnimatePresence>
 
-        <div className="text-center mt-8 pt-6 border-t border-slate-100 text-[10px] font-mono text-slate-400 tracking-wider">
-          SECURE ENCRYPTED GATEWAY
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Field label="Email address" htmlFor="admin-email">
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="admin-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@gorermart.in"
+                  className={`${inputClass} pr-3`}
+                  disabled={formLoading}
+                />
+              </div>
+            </Field>
+
+            <Field label="Password" htmlFor="admin-password">
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="admin-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className={`${inputClass} pr-10`}
+                  disabled={formLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 transition-colors hover:text-slate-700"
+                  disabled={formLoading}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </Field>
+
+            <Action
+              type="submit"
+              variant="primary"
+              disabled={formLoading}
+              className="mt-2 h-11 w-full"
+            >
+              {formLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {formLoading ? 'Signing in…' : 'Sign in'}
+            </Action>
+          </form>
         </div>
+
+        <p className="mt-5 text-center text-xs text-slate-400">
+          Gorer Mart — staff access only
+        </p>
       </motion.div>
     </div>
   );

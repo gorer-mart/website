@@ -5,7 +5,30 @@ import { apiError } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/**
+ * Ranges the revenue chart can be viewed over.
+ *
+ * `bucket` controls how points are grouped: daily up to 30 days stays readable,
+ * but 90 daily points on a ~600px chart is unreadable, so the 3-month view is
+ * grouped into weeks.
+ */
+const SALES_RANGES: Record<string, { days: number; bucket: "day" | "week" }> = {
+  "7d": { days: 7, bucket: "day" },
+  "15d": { days: 15, bucket: "day" },
+  "30d": { days: 30, bucket: "day" },
+  "3m": { days: 90, bucket: "week" },
+};
+
+const DEFAULT_RANGE = "15d";
+
+/** Midnight local time, so day buckets line up with calendar days. */
+function startOfDay(d: Date): Date {
+  const copy = new Date(d);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) {
     return apiError(
@@ -52,33 +75,59 @@ export async function GET() {
       cancelled: orders.filter((o) => o.order_status === "cancelled").length,
     };
 
-    // 4. Group sales over the last 14 days for the chart
-    const dailySalesMap: { [date: string]: { revenue: number; orders: number } } = {};
-    
-    // Initialize past 14 days with 0s
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-      dailySalesMap[dateStr] = { revenue: 0, orders: 0 };
+    // 4. Group sales over the requested window for the chart.
+    //
+    // Buckets are keyed by an ISO date string rather than a display label:
+    // a formatted label like "02 Mar" repeats across years and would collapse
+    // two different days into one bucket on a 3-month view.
+    const { searchParams } = new URL(request.url);
+    const rangeKey = searchParams.get("range") || DEFAULT_RANGE;
+    const range = SALES_RANGES[rangeKey] ?? SALES_RANGES[DEFAULT_RANGE];
+
+    const bucketDays = range.bucket === "week" ? 7 : 1;
+    const bucketCount = Math.ceil(range.days / bucketDays);
+
+    const today = startOfDay(new Date());
+    const buckets: { key: string; start: Date; end: Date; revenue: number; orders: number }[] = [];
+
+    // Buckets are anchored so the last one *ends* today rather than starting
+    // today. Anchoring on the start would leave the final weekly bucket holding
+    // a single day, so the 3-month chart always finished on a false dip.
+    for (let i = bucketCount - 1; i >= 0; i--) {
+      const start = new Date(today);
+      start.setDate(start.getDate() - (i * bucketDays + bucketDays - 1));
+      const end = new Date(start);
+      end.setDate(end.getDate() + bucketDays);
+      buckets.push({ key: start.toISOString().slice(0, 10), start, end, revenue: 0, orders: 0 });
     }
 
+    const windowStart = buckets.length > 0 ? buckets[0].start : today;
+
     orders.forEach((o) => {
-      const oDate = new Date(o.created_at);
-      const dateStr = oDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-      
-      if (dailySalesMap[dateStr] !== undefined) {
-        dailySalesMap[dateStr].orders += 1;
-        if (o.payment_status === "paid") {
-          dailySalesMap[dateStr].revenue += Number(o.total);
-        }
+      const placed = new Date(o.created_at);
+      if (placed < windowStart) return;
+
+      // Integer division locates the bucket directly — no scan per order.
+      // Rounded, not floored: both sides are local midnights, so the quotient is
+      // a whole number of days except across a DST boundary, where flooring
+      // 83.96 would push an order back into the previous bucket.
+      const dayOffset = Math.round(
+        (startOfDay(placed).getTime() - windowStart.getTime()) / 86_400_000
+      );
+      const index = Math.floor(dayOffset / bucketDays);
+      const bucket = buckets[index];
+      if (!bucket) return;
+
+      bucket.orders += 1;
+      if (o.payment_status === "paid") {
+        bucket.revenue += Number(o.total);
       }
     });
 
-    const salesHistory = Object.entries(dailySalesMap).map(([date, data]) => ({
-      date,
-      revenue: Math.round(data.revenue),
-      orders: data.orders,
+    const salesHistory = buckets.map((b) => ({
+      date: b.start.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
+      revenue: Math.round(b.revenue),
+      orders: b.orders,
     }));
 
     // 5. Get top selling products (aggregate order items)
@@ -125,6 +174,8 @@ export async function GET() {
         totalCustomers: customerCount || 0,
         statusBreakdown,
         salesHistory,
+        salesRange: rangeKey in SALES_RANGES ? rangeKey : DEFAULT_RANGE,
+        salesBucket: range.bucket,
         topProducts,
       },
     });

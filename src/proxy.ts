@@ -9,6 +9,7 @@ const STUDIO_HOSTNAME = 'studio.gorermart.in';
  * Razorpay, not by a browser — touching auth there only adds latency and risk.
  */
 const BYPASS_PREFIXES = [
+  '/auth',             // Supabase OAuth code exchange callback
   '/api/webhook',      // Razorpay — signature-authenticated, not cookie-authenticated
   '/api/revalidate',   // Sanity publish hook — signature-authenticated
   '/studio',           // Sanity Studio authenticates against Sanity, not Supabase

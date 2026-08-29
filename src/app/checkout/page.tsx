@@ -58,6 +58,51 @@ const Checkout: React.FC = () => {
     }
   }, [user]);
 
+  // Pre-fill the delivery details from the address this customer used last, so
+  // a repeat order does not mean retyping the same address and phone number.
+  //
+  // Every field is filled only when it is still empty, so this can never
+  // overwrite something the customer has already typed — including when the
+  // response lands after they have started filling the form.
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    const loadSavedDetails = async () => {
+      try {
+        const res = await fetch('/api/account/profile', { cache: 'no-store' });
+        if (!res.ok) return;
+
+        const data = await res.json().catch(() => null);
+        if (cancelled || !data?.success) return;
+
+        const address = data.defaultAddress;
+        const savedPhone = data.profile?.phone || '';
+        if (!address && !savedPhone) return;
+
+        const [savedFirst, ...savedRest] = String(address?.full_name || '').trim().split(' ');
+
+        setFormData(prev => ({
+          ...prev,
+          firstName: prev.firstName || savedFirst || '',
+          lastName: prev.lastName || savedRest.join(' ') || '',
+          phone: prev.phone || savedPhone || address?.phone || '',
+          address: prev.address || address?.address_line_1 || '',
+          city: prev.city || address?.city || '',
+          state: prev.state || address?.state || '',
+          zipCode: prev.zipCode || address?.postal_code || '',
+          country: prev.country || address?.country || 'India',
+        }));
+      } catch {
+        // Pre-filling is a convenience — a failure here must not block checkout.
+      }
+    };
+
+    loadSavedDetails();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };

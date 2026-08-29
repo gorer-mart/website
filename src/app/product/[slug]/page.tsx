@@ -21,6 +21,13 @@ function findProduct(products: Product[], segment: string): Product | undefined 
   );
 }
 
+/**
+ * Rendered on demand for whichever slug is requested, but the catalog read
+ * underneath is served from the tagged cache. `generateMetadata` and the page
+ * body both call `getProducts()`; with the cache in play the second call is a
+ * cache read rather than a second round trip to Sanity.
+ */
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
 

@@ -32,14 +32,34 @@ export function isSanityConfigured(): boolean {
 export const SANITY_CACHE_TAG = 'sanity';
 
 /**
- * Time-based backstop, in case a webhook delivery is ever missed. Normal
- * freshness comes from the webhook above, not from this.
+ * Backstop refresh interval for catalog reads.
+ *
+ * Freshness normally comes from the Studio publish webhook, which purges
+ * `SANITY_CACHE_TAG` the moment a document changes. This timer only matters
+ * when that webhook is not delivering — an unset `SANITY_REVALIDATE_SECRET`, a
+ * webhook that was never created in Sanity, or a delivery failure. Without it,
+ * a broken webhook would mean edits never appearing at all.
  */
-export const CATALOG_REVALIDATE_SECONDS = 300;
+export const CATALOG_REVALIDATE_SECONDS = 60;
 
-/** Cache options shared by every catalog query. */
+/**
+ * Cache options shared by every catalog query.
+ *
+ * This replaces the previous `cache: 'no-store'` + `revalidate: 0`. That
+ * combination was added to make edits appear immediately, but it disabled the
+ * cache completely, so *every* visitor on *every* page view waited on an
+ * uncached round trip to Sanity's API. The webhook and tag plumbing already
+ * existed but could never do anything, because nothing was ever cached.
+ *
+ * Tag + short timer gives freshness two independent routes, so a publish is
+ * visible quickly whether or not the webhook is wired up, while everyone
+ * arriving in between is served from cache.
+ */
 const catalogCache = {
-  next: { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [SANITY_CACHE_TAG] },
+  next: {
+    revalidate: CATALOG_REVALIDATE_SECONDS,
+    tags: [SANITY_CACHE_TAG],
+  },
 };
 
 // Initialize the client only if projectId is present and valid
@@ -47,10 +67,6 @@ export const client = createClient({
   projectId: isSanityConfigured() ? projectId! : 'your-sanity-project-id',
   dataset,
   apiVersion: '2024-01-01',
-  // Next's data cache sits in front of every query (see `catalogCache`), so
-  // Sanity is only contacted on a cache miss. The edge CDN would add nothing at
-  // that point and can briefly serve a pre-publish document, which would then be
-  // re-cached for the full backstop window. Read from the live API instead.
   useCdn: false,
   token: token || undefined,
 });
@@ -64,7 +80,7 @@ export function urlFor(source: any) {
 export async function getProducts(): Promise<Product[]> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/products', { cache: 'no-store' });
       if (res.ok) {
         return await res.json();
       }
@@ -172,7 +188,7 @@ export async function getProducts(): Promise<Product[]> {
 export async function getCategories(): Promise<Category[]> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/categories');
+      const res = await fetch('/api/categories', { cache: 'no-store' });
       if (res.ok) {
         return await res.json();
       }
@@ -229,7 +245,7 @@ export interface HomePageShowcase {
 export async function getHomePageShowcase(): Promise<HomePageShowcase> {
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/showcase');
+      const res = await fetch('/api/showcase', { cache: 'no-store' });
       if (res.ok) {
         return await res.json();
       }

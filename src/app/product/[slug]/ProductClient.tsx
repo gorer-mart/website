@@ -15,6 +15,8 @@ import { DETAIL_WIDTHS, imageProps } from '../../../lib/image';
 import ProductCard from '../../../components/ProductCard';
 import { Button } from '../../../ui/button';
 import { useAuth } from '../../../context/AuthContext';
+import { Maximize2 } from 'lucide-react';
+import { HoverZoomImage, ImageLightbox } from './ImageZoom';
 
 interface ProductClientProps {
   /** Resolved on the server from the route segment. */
@@ -61,6 +63,13 @@ const ProductDetail: React.FC<ProductClientProps> = ({ initialProduct, initialPr
   const [submittingReview, setSubmittingReview] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string>('');
   const [submitSuccess, setSubmitSuccess] = useState<string>('');
+
+  // Fullscreen zoom viewer. Pan/pinch/wheel behaviour lives in `ImageZoom`.
+  const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
+
+  // A horizontal swipe on the mobile carousel must not be read as a tap that
+  // opens the viewer, so the gesture is measured before acting on it.
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   // Share state
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
@@ -310,32 +319,30 @@ const ProductDetail: React.FC<ProductClientProps> = ({ initialProduct, initialPr
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Responsive Image Gallery */}
           <div className="space-y-4">
-            {/* Desktop-only Main Image & Thumbnails */}
+            {/* Desktop-only Main Image & Thumbnails with Zoom */}
             <div className="hidden lg:block space-y-4">
-              <div
-                className="aspect-[3/4] overflow-hidden bg-neutral-100"
-                style={displayLqip[activeImage] ? {
-                  backgroundImage: `url(${displayLqip[activeImage]})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                } : undefined}
-              >
-                <motion.img
-                  key={activeImage}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  {...galleryImage(displayImages[activeImage], activeImage, true)}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              {(() => {
+                const main = galleryImage(displayImages[activeImage], activeImage, true);
+                return (
+                  <HoverZoomImage
+                    key={activeImage}
+                    image={displayImages[activeImage]}
+                    displaySrc={main.src}
+                    displaySrcSet={main.srcSet}
+                    displaySizes={main.sizes}
+                    lqip={displayLqip[activeImage]}
+                    alt={product.name}
+                    onExpand={() => setIsLightboxOpen(true)}
+                  />
+                );
+              })()}
               {displayImages.length > 1 && (
                 <div className="grid grid-cols-4 gap-4">
                   {displayImages.map((img: any, idx: number) => (
                     <button 
                       key={idx}
                       onClick={() => setActiveImage(idx)}
-                      className={`aspect-square overflow-hidden border-2 transition-all ${activeImage === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                      className={`aspect-square overflow-hidden border-2 transition-all cursor-pointer ${activeImage === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'}`}
                     >
                       <img {...galleryImage(img, idx, false)} alt={`${product.name} ${idx}`} className="w-full h-full object-cover" />
                     </button>
@@ -346,10 +353,23 @@ const ProductDetail: React.FC<ProductClientProps> = ({ initialProduct, initialPr
 
             {/* Mobile-only Swipeable Touch Gallery Carousel */}
             <div className="lg:hidden relative">
-              <div 
+              <div
                 id="mobile-gallery-scroll"
                 onScroll={handleMobileScroll}
-                className="flex overflow-x-auto snap-x snap-mandatory gap-0 aspect-[3/4] no-scrollbar"
+                onPointerDown={(e) => {
+                  touchStartRef.current = { x: e.clientX, y: e.clientY };
+                }}
+                onPointerUp={(e) => {
+                  const start = touchStartRef.current;
+                  touchStartRef.current = null;
+                  if (!start) return;
+                  // Only a near-stationary press counts as a tap; anything with
+                  // travel is the customer swiping between images.
+                  const moved =
+                    Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10;
+                  if (!moved) setIsLightboxOpen(true);
+                }}
+                className="flex overflow-x-auto snap-x snap-mandatory gap-0 aspect-[3/4] no-scrollbar cursor-zoom-in"
                 style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {displayImages.map((img: any, idx: number) => (
@@ -362,10 +382,20 @@ const ProductDetail: React.FC<ProductClientProps> = ({ initialProduct, initialPr
                       backgroundPosition: 'center',
                     } : undefined}
                   >
-                    <img {...galleryImage(img, idx, true)} alt={`${product.name} ${idx}`} className="w-full h-full object-cover" />
+                    <img {...galleryImage(img, idx, true)} alt={`${product.name} ${idx}`} className="w-full h-full object-cover select-none" />
                   </div>
                 ))}
               </div>
+              {/* Explicit control, so zoom is discoverable without relying on
+                  the customer guessing that the image is tappable. */}
+              <button
+                type="button"
+                onClick={() => setIsLightboxOpen(true)}
+                aria-label="Open fullscreen view"
+                className="absolute top-3 right-3 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 text-black shadow-sm transition-colors active:bg-white"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
               {/* Dots Indicators */}
               {displayImages.length > 1 && (
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10">
@@ -1031,6 +1061,19 @@ const ProductDetail: React.FC<ProductClientProps> = ({ initialProduct, initialPr
           </div>
         )}
       </AnimatePresence>
+
+      {/* Fullscreen zoom viewer — pinch, drag, wheel and keyboard controls
+          all live in ImageZoom so this page just says when to show it. */}
+      {isLightboxOpen && (
+        <ImageLightbox
+          images={displayImages}
+          lqip={displayLqip}
+          index={activeImage}
+          onIndexChange={setActiveImage}
+          onClose={() => setIsLightboxOpen(false)}
+          productName={product.name}
+        />
+      )}
     </div>
   );
 };

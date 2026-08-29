@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getHomePageShowcase } from '../../../lib/sanity';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
