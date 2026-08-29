@@ -91,3 +91,43 @@ export async function PUT(
     return NextResponse.json({ error: "Could not update the order." }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return apiError(
+      auth.status === 401 ? "Authentication required." : "Administrator access required.",
+      auth.status
+    );
+  }
+
+  try {
+    const { id } = await params;
+    if (!isUUID(id)) {
+      return apiError("Invalid order id.", 400);
+    }
+
+    const supabase = createAdminSupabaseClient();
+
+    // Clean up order items first
+    await supabase.from("order_items").delete().eq("order_id", id);
+
+    const { error } = await supabase.from("orders").delete().eq("id", id);
+    if (error) {
+      console.error(`Error deleting order ${id}:`, error);
+      return NextResponse.json({ error: "Could not delete the order." }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Order deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("DELETE order API error:", error);
+    return NextResponse.json({ error: "Could not delete the order." }, { status: 500 });
+  }
+}
+

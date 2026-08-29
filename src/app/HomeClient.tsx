@@ -259,13 +259,12 @@ const HomeClient: React.FC<HomeClientProps> = ({ heroData, showNotificationBar, 
       {showNotificationBar !== false && <NotificationBar items={notificationBar} />}
 
       {/* Mobile-Only Hero Text Banner */}
-
       <section className="block md:hidden bg-[#fff8e9] border-y border-[#a6101b] py-6 px-4 text-center shadow-xs">
         <div className="container mx-auto max-w-xl">
-          <h2 className="text-xl font-display tracking-tight leading-tight">
-            <span className="text-neutral-950">Get Ready For Endless</span>
-            <span className="text-[#a6101b] italic normal-case">
-              "Eta Kotha Theke Kinechish?" <span className="not-italic text-neutral-950">replies</span>
+          <h2 className="text-lg sm:text-xl font-display tracking-tight leading-tight">
+            <span className="block font-bold uppercase text-neutral-950">Get Ready For Endless</span>
+            <span className="block text-[#a6101b] italic font-semibold mt-1">
+              &ldquo;Eta Kotha Theke Kinechish?&rdquo; <span className="not-italic uppercase font-bold text-neutral-950">replies</span>
             </span>
           </h2>
         </div>

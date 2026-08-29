@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { createBrowserSupabaseClient } from '../lib/supabase/browser';
-import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
+import type { AuthChangeEvent, Session, User, AuthError, AuthResponse } from '@supabase/supabase-js';
 
 export interface Profile {
   id: string;
@@ -10,15 +10,15 @@ export interface Profile {
   avatar_url?: string;
   email?: string;
   role?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ data: any; error: any }>;
-  signIn: (email: string, password: string) => Promise<{ data: any; error: any }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<AuthResponse>;
+  signIn: (email: string, password: string) => Promise<AuthResponse>;
   signInWithGoogle: (redirectTo?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -120,10 +120,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const safePath = redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')
       ? redirectTo
       : '/';
+    const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safePath)}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}${safePath}`,
+        redirectTo: callbackUrl,
       },
     });
     if (error) console.error('Google Sign-In error:', error.message);

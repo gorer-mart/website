@@ -10,9 +10,7 @@ import {
   MessageSquare,
   Mail,
   Settings,
-  TrendingUp,
-  DollarSign,
-  Activity,
+  IndianRupee,
   Search,
   Check,
   X,
@@ -23,21 +21,71 @@ import {
   ChevronRight,
   Loader2,
   MapPin,
-  ShieldCheck,
   Star,
-  Copy
+  Copy,
+  Plus,
+  Trash2,
+  Pencil,
+  PackagePlus,
+  User as UserIcon,
+  Layers,
+  LogOut,
+  Boxes,
+  Inbox,
 } from 'lucide-react';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../ui/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../ui/dialog';
+import {
+  Action,
+  Badge,
+  BRAND,
+  DetailRow,
+  Drawer,
+  DrawerSection,
+  EmptyRow,
+  EmptyState,
+  Field,
+  IconAction,
+  Mono,
+  Pagination,
+  Panel,
+  SearchField,
+  SelectField,
+  StatCard,
+  StatusBadge,
+  TableCard,
+  TBody,
+  Td,
+  Th,
+  THead,
+  Tr,
+  dateTime,
+  money,
+  shortDate,
+  stockLevel,
+  usePagination,
+} from './_components/ui';
+
+interface Category {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string;
+}
 
 interface ProductVariant {
   id: string;
   size: string;
-  color: string;
+  color?: string;
   sku: string;
   stock: number;
   price_override?: number;
@@ -49,17 +97,27 @@ interface Product {
   slug: string;
   price: number;
   compare_at_price?: number;
+  category_id?: string;
+  categories?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
   status: string;
   average_rating: number;
   review_count: number;
+  description?: string;
   product_variants: ProductVariant[];
 }
 
 interface OrderItem {
   id: string;
   product_id: string;
+  product_name?: string;
   quantity: number;
   price: number;
+  size?: string;
+  color?: string;
   products?: {
     title: string;
   };
@@ -88,6 +146,9 @@ interface Order {
   tracking_number?: string;
   estimated_delivery?: string;
   created_at: string;
+  /** Contact details captured at checkout; authoritative for this order. */
+  customer_email?: string | null;
+  customer_phone?: string | null;
   users?: {
     full_name: string;
     email: string;
@@ -107,7 +168,6 @@ interface Address {
   state: string;
   postal_code: string;
   country: string;
-  landmark?: string;
   is_default: boolean;
 }
 
@@ -158,6 +218,58 @@ interface Subscriber {
   created_at: string;
 }
 
+interface SizeStockItem {
+  id?: string;
+  size: string;
+  stock: number;
+}
+
+const DEFAULT_SIZES: SizeStockItem[] = [
+  { size: 'S', stock: 10 },
+  { size: 'M', stock: 15 },
+  { size: 'L', stock: 20 },
+  { size: 'XL', stock: 15 },
+  { size: 'XXL', stock: 5 },
+];
+
+/** Stock level at or below which a variant is flagged in the console. */
+const LOW_STOCK_THRESHOLD = 5;
+
+/**
+ * Page heading and one-line explanation per tab. Kept here so the top bar reads
+ * as plain English instead of repeating the nav label back at the user.
+ */
+const TAB_META: Record<string, { title: string; description: string }> = {
+  overview: { title: 'Overview', description: 'Sales, orders and stock at a glance' },
+  orders: { title: 'Orders', description: 'Payment and delivery status for every order' },
+  inventory: { title: 'Inventory', description: 'Products and size-wise stock levels' },
+  customers: { title: 'Customers', description: 'Registered accounts and their order history' },
+  reviews: { title: 'Reviews', description: 'Customer reviews across the catalogue' },
+  messages: { title: 'Messages', description: 'Enquiries sent through the contact form' },
+  subscribers: { title: 'Subscribers', description: 'Newsletter mailing list' },
+  settings: { title: 'Settings', description: 'Connection status for content and data services' },
+};
+
+const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
+const MESSAGE_STATUSES = ['not replied', 'replied'];
+
+/** Windows the revenue chart can be viewed over. Keys match the stats API. */
+const SALES_RANGES = [
+  { value: '7d', label: 'Last 7 days' },
+  { value: '15d', label: 'Last 15 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: '3m', label: 'Last 3 months' },
+];
+
+/**
+ * Overrides for the shared `DialogDescription`, which is styled for the
+ * storefront (uppercase, wide tracking). Every dialog gets a description so
+ * Radix can wire up `aria-describedby` — without one it logs an accessibility
+ * warning and screen readers announce only the title.
+ */
+const DIALOG_DESC = 'font-sans text-sm font-normal normal-case leading-relaxed tracking-normal text-slate-500';
+
 const AdminDashboard: React.FC = () => {
   const router = useRouter();
   const { profile, signOut } = useAuth();
@@ -169,17 +281,29 @@ const AdminDashboard: React.FC = () => {
 
   // Admin Data states
   const [stats, setStats] = useState<any>(null);
+  const [salesRange, setSalesRange] = useState<string>('15d');
+  const [isLoadingChart, setIsLoadingChart] = useState<boolean>(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
 
+  // Sanity Catalog States
+  const [sanityProducts, setSanityProducts] = useState<any[]>([]);
+  const [sanityCategories, setSanityCategories] = useState<any[]>([]);
+  const [isSyncingSanity, setIsSyncingSanity] = useState<boolean>(false);
+  const [selectedSanityCategory, setSelectedSanityCategory] = useState<string>('');
+  const [selectedSanityProductSlug, setSelectedSanityProductSlug] = useState<string>('');
+  const [isCustomEntry, setIsCustomEntry] = useState<boolean>(false);
+
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [orderFilter, setOrderFilter] = useState<string>('');
   const [paymentFilter, setPaymentFilter] = useState<string>('');
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState<string>('');
 
   // Messages Sorting state
   const [messageSortOrder, setMessageSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -187,21 +311,16 @@ const AdminDashboard: React.FC = () => {
   // Customers Sorting state
   const [customerSortOrder, setCustomerSortOrder] = useState<string>('newest');
 
-  // Modals & Inlines
+  // Mobile navigation
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+
+  // Order Details Drawer & Moderation
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState<boolean>(false);
+  const [isOrderDrawerOpen, setIsOrderDrawerOpen] = useState<boolean>(false);
   const [isSavingOrder, setIsSavingOrder] = useState<boolean>(false);
-  const [editingStockVariantId, setEditingStockVariantId] = useState<string | null>(null);
-  const [editingStockValue, setEditingStockValue] = useState<number>(0);
-  const [isSavingStock, setIsSavingStock] = useState<string | null>(null);
-
-  // Messages Detail Drawer
-  const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
-  const [isMessageModalOpen, setIsMessageModalOpen] = useState<boolean>(false);
-
-  // Customers Detail Drawer
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isCustomerDrawerOpen, setIsCustomerDrawerOpen] = useState<boolean>(false);
+  const [isDeleteOrderDialogOpen, setIsDeleteOrderDialogOpen] = useState<boolean>(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState<boolean>(false);
 
   // Modifiable order fields
   const [modOrderStatus, setModOrderStatus] = useState<string>('');
@@ -209,16 +328,70 @@ const AdminDashboard: React.FC = () => {
   const [modTrackingNumber, setModTrackingNumber] = useState<string>('');
   const [modEstimatedDelivery, setModEstimatedDelivery] = useState<string>('');
 
+  // Inventory & Product Create/Edit States
+  const [isProductModalOpen, setIsProductModalOpen] = useState<boolean>(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSavingProduct, setIsSavingProduct] = useState<boolean>(false);
+  const [isDeleteProductDialogOpen, setIsDeleteProductDialogOpen] = useState<boolean>(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeletingProduct, setIsDeletingProduct] = useState<boolean>(false);
+
+  // Inline Variant Quick-Stock edit
+  const [editingStockVariantId, setEditingStockVariantId] = useState<string | null>(null);
+  const [editingStockValue, setEditingStockValue] = useState<number>(0);
+  const [isSavingStock, setIsSavingStock] = useState<string | null>(null);
+
+  // Inventory row expansion — keeps the size matrix out of the way until asked for.
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+
+  // Custom size input state
+  const [customSizeInput, setCustomSizeInput] = useState<string>('');
+
+  // Product Form
+  const [productForm, setProductForm] = useState<{
+    title: string;
+    slug: string;
+    price: string;
+    compare_at_price: string;
+    category_id: string;
+    status: 'active' | 'draft';
+    description: string;
+    sizes: SizeStockItem[];
+  }>({
+    title: '',
+    slug: '',
+    price: '',
+    compare_at_price: '',
+    category_id: '',
+    status: 'active',
+    description: '',
+    sizes: DEFAULT_SIZES,
+  });
+
+  // Messages Detail Drawer
+  const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState<boolean>(false);
+  const [updatingMessageId, setUpdatingMessageId] = useState<string | null>(null);
+
+  // Customers Detail Drawer
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isCustomerDrawerOpen, setIsCustomerDrawerOpen] = useState<boolean>(false);
+
   const fetchAllData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
 
-    // All seven panels are independent, so fetch them concurrently rather than
-    // waiting for seven sequential round trips before the console renders.
     const endpoints = [
-      { key: 'stats', url: '/api/admin/stats', field: 'stats', apply: setStats },
+      { key: 'stats', url: `/api/admin/stats?range=${salesRange}`, field: 'stats', apply: setStats },
       { key: 'orders', url: '/api/admin/orders?limit=100', field: 'orders', apply: setOrders },
       { key: 'products', url: '/api/admin/products', field: 'products', apply: setProducts },
+      {
+        key: 'sanityCatalog',
+        url: '/api/admin/sanity-catalog',
+        field: 'products',
+        apply: (prods: any[]) => setSanityProducts(prods || []),
+      },
+      { key: 'categories', url: '/api/admin/categories', field: 'categories', apply: setCategories },
       { key: 'customers', url: '/api/admin/customers', field: 'customers', apply: setCustomers },
       { key: 'reviews', url: '/api/admin/reviews', field: 'reviews', apply: setReviews },
       { key: 'messages', url: '/api/admin/messages', field: 'messages', apply: setMessages },
@@ -234,9 +407,6 @@ const AdminDashboard: React.FC = () => {
         })
       );
 
-      // An expired or downgraded session must send the operator back to the
-      // login screen. Previously these responses were ignored and every panel
-      // just rendered empty with no explanation.
       if (results.some((r) => r.status === 401 || r.status === 403)) {
         toast({
           title: 'Session Expired',
@@ -247,22 +417,22 @@ const AdminDashboard: React.FC = () => {
         return;
       }
 
-      const failed: string[] = [];
       for (const result of results) {
-        const payload = (result.data as any)?.[result.endpoint.field];
-        if (result.ok && (result.data as any)?.success && payload !== undefined) {
-          (result.endpoint.apply as (value: any) => void)(payload);
-        } else {
-          failed.push(result.endpoint.key);
+        if (result.ok && (result.data as any)?.success) {
+          const payload = (result.data as any)[result.endpoint.field];
+          if (payload !== undefined) {
+            (result.endpoint.apply as (value: any) => void)(payload);
+          }
+          if (result.endpoint.key === 'sanityCatalog' && (result.data as any)?.categories) {
+            setSanityCategories((result.data as any).categories || []);
+          }
+          if (result.endpoint.key === 'products' && (result.data as any)?.sanityProducts) {
+            setSanityProducts((result.data as any).sanityProducts || []);
+            if ((result.data as any)?.sanityCategories) {
+              setSanityCategories((result.data as any).sanityCategories || []);
+            }
+          }
         }
-      }
-
-      if (failed.length > 0) {
-        toast({
-          title: 'Partial Sync',
-          description: `Could not load: ${failed.join(', ')}.`,
-          variant: 'destructive',
-        });
       }
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
@@ -281,6 +451,35 @@ const AdminDashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
+  /**
+   * Reload only the stats payload for a new chart window.
+   *
+   * Changing the range must not re-pull orders, products, customers and the
+   * Sanity catalogue — that is nine requests for a chart the admin is simply
+   * scrubbing through.
+   */
+  const handleSalesRangeChange = async (range: string) => {
+    setSalesRange(range);
+    setIsLoadingChart(true);
+    try {
+      const res = await fetch(`/api/admin/stats?range=${range}`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.success && data.stats) {
+        setStats(data.stats);
+      } else {
+        throw new Error(data?.error || 'Could not load the chart for that period.');
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Chart Not Updated',
+        description: err.message || 'Could not load the chart for that period.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingChart(false);
+    }
+  };
+
   const handleCopyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -289,7 +488,8 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  const handleOpenOrderModal = (order: Order) => {
+  // ---- ORDER HANDLERS ----
+  const handleOpenOrderDrawer = (order: Order) => {
     setSelectedOrder(order);
     setModOrderStatus(order.order_status);
     setModPaymentStatus(order.payment_status);
@@ -297,7 +497,7 @@ const AdminDashboard: React.FC = () => {
     setModEstimatedDelivery(
       order.estimated_delivery ? new Date(order.estimated_delivery).toISOString().split('T')[0] : ''
     );
-    setIsOrderModalOpen(true);
+    setIsOrderDrawerOpen(true);
   };
 
   const handleUpdateOrder = async () => {
@@ -319,12 +519,12 @@ const AdminDashboard: React.FC = () => {
       const data = await res.json();
       if (res.ok && data.success) {
         toast({
-          title: 'Success',
-          description: `Order #${selectedOrder.order_number} details updated.`,
+          title: 'Order Updated',
+          description: `Order #${selectedOrder.order_number} details saved successfully.`,
         });
-        
-        setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, ...data.order } : o));
-        setIsOrderModalOpen(false);
+
+        setOrders((prev) => prev.map((o) => o.id === selectedOrder.id ? { ...o, ...data.order } : o));
+        setSelectedOrder((prev) => prev ? { ...prev, ...data.order } : null);
         fetchAllData(true);
       } else {
         throw new Error(data.error || 'Failed to update order');
@@ -340,6 +540,85 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    setIsDeletingOrder(true);
+
+    try {
+      const res = await fetch(`/api/admin/orders/${orderToDelete.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Failed to delete order');
+
+      toast({
+        title: 'Order Deleted',
+        description: `Order #${orderToDelete.order_number} has been permanently deleted.`,
+      });
+
+      setOrders((prev) => prev.filter((o) => o.id !== orderToDelete.id));
+      if (selectedOrder?.id === orderToDelete.id) {
+        setIsOrderDrawerOpen(false);
+        setSelectedOrder(null);
+      }
+      setIsDeleteOrderDialogOpen(false);
+      setOrderToDelete(null);
+      fetchAllData(true);
+    } catch (err: any) {
+      toast({
+        title: 'Delete Failed',
+        description: err.message || 'Could not delete order.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingOrder(false);
+    }
+  };
+
+  // ---- MESSAGE HANDLERS ----
+  const handleUpdateMessageStatus = async (messageId: string, status: string) => {
+    const previous = messages.find((m) => m.id === messageId)?.status;
+    setUpdatingMessageId(messageId);
+
+    // Apply optimistically — the dropdown feels instant, and the catch below
+    // puts the old value back if the write fails.
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, status } : m)));
+    setSelectedMessage((prev) => (prev && prev.id === messageId ? { ...prev, status } : prev));
+
+    try {
+      const res = await fetch(`/api/admin/messages/${messageId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Could not update the message status.');
+      }
+
+      toast({
+        title: 'Status Updated',
+        description: `Message marked as ${status}.`,
+      });
+    } catch (err: any) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, status: previous ?? 'not replied' } : m))
+      );
+      setSelectedMessage((prev) =>
+        prev && prev.id === messageId ? { ...prev, status: previous ?? 'not replied' } : prev
+      );
+      toast({
+        title: 'Update Failed',
+        description: err.message || 'Could not update the message status.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingMessageId(null);
+    }
+  };
+
+  // ---- INVENTORY & SANITY HANDLERS ----
   const handleUpdateStock = async (variantId: string, newStock: number) => {
     setIsSavingStock(variantId);
     try {
@@ -348,16 +627,17 @@ const AdminDashboard: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ variantId, stock: newStock }),
       });
+
       const data = await res.json();
       if (res.ok && data.success) {
         toast({
-          title: 'Stock Sync Successful',
-          description: `Inventory level updated to ${newStock}.`,
+          title: 'Stock Updated',
+          description: 'Inventory levels adjusted.',
         });
-        setProducts(prev =>
-          prev.map(p => ({
+        setProducts((prev) =>
+          prev.map((p) => ({
             ...p,
-            product_variants: p.product_variants.map(v =>
+            product_variants: p.product_variants.map((v) =>
               v.id === variantId ? { ...v, stock: newStock } : v
             ),
           }))
@@ -377,104 +657,287 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdateReviewStatus = async (reviewId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
-    try {
-      const res = await fetch('/api/admin/reviews', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reviewId, status: newStatus }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast({
-          title: 'Review Moderated',
-          description: `Review has been successfully marked as ${newStatus}.`,
+  /**
+   * Resolve a category *name* to the Supabase category row id.
+   *
+   * `products.category_id` is a UUID foreign key. The form used to submit the
+   * Sanity category name straight into it, which Postgres rejects as an invalid
+   * UUID — so choosing a category silently never saved.
+   */
+  const categoryIdForName = (name?: string | null): string => {
+    if (!name) return '';
+    const target = String(name).trim().toLowerCase();
+    return categories.find((c) => c.name?.trim().toLowerCase() === target)?.id || '';
+  };
+
+  const handleSelectSanityProduct = (slug: string) => {
+    setSelectedSanityProductSlug(slug);
+    const sp = sanityProducts.find(
+      (p) => (p.slug || p.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-')) === slug
+    );
+    if (!sp) return;
+
+    // Check if this product already has variants in Supabase
+    const existingDbProd = products.find(
+      (p) => p.slug === slug || p.title?.toLowerCase() === sp.name?.toLowerCase()
+    );
+
+    const sizes = sp.sizes && sp.sizes.length > 0
+      ? sp.sizes.map((s: string) => {
+          const matchingVar = existingDbProd?.product_variants?.find((v) => v.size === s);
+          return {
+            id: matchingVar?.id,
+            size: s,
+            stock: matchingVar ? matchingVar.stock : 10,
+          };
+        })
+      : DEFAULT_SIZES.map((s) => {
+          const matchingVar = existingDbProd?.product_variants?.find((v) => v.size === s.size);
+          return {
+            id: matchingVar?.id,
+            size: s.size,
+            stock: matchingVar ? matchingVar.stock : s.stock,
+          };
         });
-        setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, status: newStatus } : r));
-      } else {
-        throw new Error(data.error || 'Failed to moderate review');
-      }
+
+    setProductForm({
+      title: sp.name || '',
+      slug: sp.slug || slug,
+      price: String(sp.price || ''),
+      compare_at_price: sp.compare_at_price ? String(sp.compare_at_price) : '',
+      category_id: categoryIdForName(sp.category),
+      status: 'active',
+      description: sp.tag || sp.details?.[0] || '',
+      sizes,
+    });
+  };
+
+  const handleOpenCreateProduct = () => {
+    setEditingProduct(null);
+    setIsCustomEntry(false);
+    setSelectedSanityCategory('');
+
+    if (sanityProducts.length > 0) {
+      const first = sanityProducts[0];
+      const slug = first.slug || first.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      handleSelectSanityProduct(slug);
+    } else {
+      setProductForm({
+        title: '',
+        slug: '',
+        price: '',
+        compare_at_price: '',
+        category_id: '',
+        status: 'active',
+        description: '',
+        sizes: DEFAULT_SIZES.map((s) => ({ ...s })),
+      });
+    }
+    setCustomSizeInput('');
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setIsCustomEntry(true);
+
+    const existingSizes = product.product_variants && product.product_variants.length > 0
+      ? product.product_variants.map((v) => ({
+          id: v.id,
+          size: v.size,
+          stock: v.stock,
+        }))
+      : DEFAULT_SIZES.map((s) => ({ ...s }));
+
+    setProductForm({
+      title: product.title,
+      slug: product.slug,
+      price: String(product.price),
+      compare_at_price: product.compare_at_price ? String(product.compare_at_price) : '',
+      category_id: product.category_id || product.categories?.id || categories[0]?.id || '',
+      status: (product.status === 'active' || product.status === 'draft') ? product.status : 'active',
+      description: product.description || '',
+      sizes: existingSizes,
+    });
+    setCustomSizeInput('');
+    setIsProductModalOpen(true);
+  };
+
+  const handleProductFormSizeChange = (index: number, newStock: number) => {
+    setProductForm((prev) => {
+      const updatedSizes = [...prev.sizes];
+      updatedSizes[index] = {
+        ...updatedSizes[index],
+        stock: Math.max(0, newStock),
+      };
+      return { ...prev, sizes: updatedSizes };
+    });
+  };
+
+  const handleAddCustomSize = () => {
+    if (!customSizeInput.trim()) return;
+    const sizeName = customSizeInput.trim().toUpperCase();
+    if (productForm.sizes.some((s) => s.size === sizeName)) {
+      toast({ title: 'Notice', description: `Size ${sizeName} already exists in the matrix.` });
+      setCustomSizeInput('');
+      return;
+    }
+    setProductForm((prev) => ({
+      ...prev,
+      sizes: [...prev.sizes, { size: sizeName, stock: 10 }],
+    }));
+    setCustomSizeInput('');
+  };
+
+  const handleRemoveSize = (index: number) => {
+    setProductForm((prev) => ({
+      ...prev,
+      sizes: prev.sizes.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSyncSanityCatalog = async () => {
+    setIsSyncingSanity(true);
+    try {
+      await fetchAllData(true);
+      toast({
+        title: 'Sanity Synchronized',
+        description: `Loaded ${sanityProducts.length} products directly from Sanity Studio.`,
+      });
     } catch (err: any) {
       toast({
-        title: 'Error',
-        description: err.message,
+        title: 'Sync Error',
+        description: err.message || 'Could not sync Sanity catalog.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSyncingSanity(false);
     }
   };
 
-  const handleUpdateMessageStatus = async (messageId: string, newStatus: string) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productForm.title.trim()) {
+      toast({ title: 'Validation Error', description: 'Product title is required.', variant: 'destructive' });
+      return;
+    }
+    if (!productForm.price || isNaN(Number(productForm.price)) || Number(productForm.price) < 0) {
+      toast({ title: 'Validation Error', description: 'Please enter a valid price.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSavingProduct(true);
     try {
-      const res = await fetch(`/api/admin/messages/${messageId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast({
-          title: 'Status Synchronized',
-          description: `Message status updated to ${newStatus}.`,
-        });
-        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, status: newStatus } : m));
-        if (selectedMessage && selectedMessage.id === messageId) {
-          setSelectedMessage(prev => prev ? { ...prev, status: newStatus } : null);
-        }
-      } else {
-        throw new Error(data.error || 'Failed to update message status');
+      const isEdit = !!editingProduct;
+      const url = '/api/admin/products';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const payload: any = {
+        title: productForm.title.trim(),
+        slug: productForm.slug.trim(),
+        price: Number(productForm.price),
+        compare_at_price: productForm.compare_at_price ? Number(productForm.compare_at_price) : null,
+        category_id: productForm.category_id || null,
+        status: productForm.status,
+        description: productForm.description.trim() || null,
+        variants: productForm.sizes.map((s) => ({
+          id: s.id,
+          size: s.size,
+          stock: Math.max(0, parseInt(String(s.stock), 10) || 0),
+        })),
+      };
+
+      if (isEdit) {
+        payload.productId = editingProduct.id;
       }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save product');
+
+      toast({
+        title: isEdit ? 'Inventory Updated' : 'Product Added to Inventory',
+        description: `"${productForm.title}" size-wise inventory saved successfully.`,
+      });
+
+      setIsProductModalOpen(false);
+      fetchAllData(true);
     } catch (err: any) {
       toast({
-        title: 'Error',
-        description: err.message,
+        title: 'Save Failed',
+        description: err.message || 'Could not save product.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
-  const getRelativeTimeString = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSecs = Math.max(0, Math.floor(diffMs / 1000));
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setIsDeletingProduct(true);
 
-    if (diffSecs < 60) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) {
-      if (date.getDate() === now.getDate()) return 'Today';
-      return 'Yesterday';
+    try {
+      const res = await fetch(`/api/admin/products/${productToDelete.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete product');
+
+      toast({
+        title: 'Product Removed',
+        description: `"${productToDelete.title}" removed from inventory tracking.`,
+      });
+
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+      setIsDeleteProductDialogOpen(false);
+      setProductToDelete(null);
+      fetchAllData(true);
+    } catch (err: any) {
+      toast({
+        title: 'Delete Failed',
+        description: err.message || 'Could not delete product.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingProduct(false);
     }
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays <= 7) return `${diffDays} days ago`;
-
-    const diffWeeks = Math.floor(diffDays / 7);
-    if (diffDays <= 30) {
-      return `${diffWeeks} ${diffWeeks === 1 ? 'week' : 'weeks'} ago`;
-    }
-
-    const diffMonths = Math.floor(diffDays / 30);
-    return `${diffMonths} ${diffMonths === 1 ? 'month' : 'months'} ago`;
   };
 
+  /**
+   * Revenue sparkline for the overview.
+   *
+   * Drawn as a plain responsive SVG rather than pulling in a chart library.
+   * Labels inherit the page font so the chart does not read as a separate
+   * artefact pasted into the console.
+   */
   const renderSalesChart = () => {
-    if (!stats || !stats.salesHistory || stats.salesHistory.length === 0) return null;
+    if (!stats || !stats.salesHistory || stats.salesHistory.length === 0) {
+      return (
+        <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+          No sales recorded yet.
+        </div>
+      );
+    }
 
-    const width = 600;
-    const height = 180;
-    const paddingLeft = 50;
-    const paddingRight = 20;
-    const paddingTop = 20;
-    const paddingBottom = 30;
+    const width = 640;
+    const height = 200;
+    const paddingLeft = 52;
+    const paddingRight = 16;
+    const paddingTop = 16;
+    const paddingBottom = 28;
 
     const chartWidth = width - paddingLeft - paddingRight;
     const chartHeight = height - paddingTop - paddingBottom;
 
     const maxRevenue = Math.max(...stats.salesHistory.map((s: any) => s.revenue), 1000);
     const points = stats.salesHistory.map((s: any, i: number) => {
-      const x = paddingLeft + (i / (stats.salesHistory.length - 1)) * chartWidth;
+      const x = paddingLeft + (i / Math.max(1, stats.salesHistory.length - 1)) * chartWidth;
       const y = paddingTop + chartHeight - (s.revenue / maxRevenue) * chartHeight;
       return { x, y, label: s.date, revenue: s.revenue };
     });
@@ -488,11 +951,11 @@ const AdminDashboard: React.FC = () => {
       : '';
 
     return (
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full text-slate-800">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img" aria-label="Revenue over the last 14 days">
         <defs>
           <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#475569" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#475569" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="#0f172a" stopOpacity="0.10" />
+            <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -506,16 +969,16 @@ const AdminDashboard: React.FC = () => {
                 y1={y}
                 x2={width - paddingRight}
                 y2={y}
-                stroke="#F1F5F9"
+                stroke="#e2e8f0"
                 strokeWidth="1"
               />
               <text
                 x={paddingLeft - 10}
                 y={y + 4}
-                fill="#94A3B8"
-                fontSize="9"
+                fill="#94a3b8"
+                fontSize="11"
+                fontFamily="inherit"
                 textAnchor="end"
-                className="font-mono font-medium"
               >
                 ₹{val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}
               </text>
@@ -524,31 +987,12 @@ const AdminDashboard: React.FC = () => {
         })}
 
         {areaD && <path d={areaD} fill="url(#chartGradient)" />}
-
-        {pathD && <path d={pathD} fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" />}
+        {pathD && <path d={pathD} fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
 
         {points.map((p: any, idx: number) => (
-          <g key={idx} className="group/point">
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r="4"
-              fill="#475569"
-              stroke="#FFFFFF"
-              strokeWidth="1.5"
-              className="transition-all duration-200 hover:r-6 cursor-pointer"
-            />
-            <text
-              x={p.x}
-              y={p.y - 8}
-              fill="#0F172A"
-              fontSize="8"
-              fontWeight="bold"
-              textAnchor="middle"
-              className="opacity-0 group-hover/point:opacity-100 transition-opacity fill-slate-900 pointer-events-none font-mono"
-            >
-              ₹{p.revenue}
-            </text>
+          <g key={idx}>
+            <circle cx={p.x} cy={p.y} r="3.5" fill="#ffffff" stroke="#0f172a" strokeWidth="2" />
+            <title>{`${p.label}: ₹${p.revenue.toLocaleString('en-IN')}`}</title>
           </g>
         ))}
 
@@ -556,11 +1000,11 @@ const AdminDashboard: React.FC = () => {
           <text
             key={idx}
             x={p.x}
-            y={height - 5}
-            fill="#94A3B8"
-            fontSize="9"
+            y={height - 6}
+            fill="#94a3b8"
+            fontSize="11"
+            fontFamily="inherit"
             textAnchor="middle"
-            className="font-mono font-medium"
           >
             {p.label}
           </text>
@@ -569,1434 +1013,2065 @@ const AdminDashboard: React.FC = () => {
     );
   };
 
-  const filteredOrders = orders.filter(o => {
+  // ---- FILTERED DATA SETS ----
+  const filteredOrders = orders.filter((o) => {
     const matchesSearch =
       o.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (o.users?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (o.users?.email || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = orderFilter ? o.order_status === orderFilter : true;
+      o.users?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.users?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesOrder = orderFilter ? o.order_status === orderFilter : true;
     const matchesPayment = paymentFilter ? o.payment_status === paymentFilter : true;
-    return matchesSearch && matchesStatus && matchesPayment;
+    return matchesSearch && matchesOrder && matchesPayment;
   });
 
-  const filteredProducts = products.filter(p =>
-    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.slug.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  /**
+   * Display category for a product.
+   *
+   * Prefers the Supabase join, and falls back to the matching Sanity product so
+   * a row still shows its category on the very first load after this fix —
+   * before the products endpoint has written the foreign key back.
+   */
+  const productCategoryName = (p: Product): string => {
+    const linked = p.categories?.name;
+    if (linked) return linked;
 
-  const filteredCustomers = customers.filter(c =>
-    c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    const sanityMatch = sanityProducts.find(
+      (s: any) => s.slug === p.slug || s.name?.toLowerCase() === p.title?.toLowerCase()
+    );
+    return (sanityMatch?.category as string) || 'Uncategorised';
+  };
 
-  const sortedCustomers = [...filteredCustomers].sort((a, b) => {
-    if (customerSortOrder === 'newest') {
+  const filteredProducts = products.filter((p) => {
+    const query = searchQuery.toLowerCase();
+    const category = productCategoryName(p);
+    const matchesSearch =
+      p.title.toLowerCase().includes(query) ||
+      p.slug.toLowerCase().includes(query) ||
+      category.toLowerCase().includes(query);
+    const matchesCategory = inventoryCategoryFilter
+      ? category.toLowerCase() === inventoryCategoryFilter.toLowerCase()
+      : true;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Categories actually present on products, with counts, so the dropdown can
+  // never offer a category that would return an empty table.
+  const categoryOptions = Array.from(
+    products.reduce((acc, p) => {
+      const name = productCategoryName(p);
+      acc.set(name, (acc.get(name) || 0) + 1);
+      return acc;
+    }, new Map<string, number>())
+  )
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Filtered Sanity Products in Modal based on Category selection
+  const modalSanityProducts = selectedSanityCategory
+    ? sanityProducts.filter(
+        (p) => p.category?.toLowerCase() === selectedSanityCategory.toLowerCase()
+      )
+    : sanityProducts;
+
+  const filteredCustomers = customers
+    .filter(
+      (c) =>
+        c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.phone.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (customerSortOrder === 'orders') return b.ordersCount - a.ordersCount;
+      if (customerSortOrder === 'spent') return b.totalSpent - a.totalSpent;
+      if (customerSortOrder === 'oldest')
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-    if (customerSortOrder === 'oldest') {
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    }
-    if (customerSortOrder === 'spent_high') {
-      return b.totalSpent - a.totalSpent;
-    }
-    if (customerSortOrder === 'spent_low') {
-      return a.totalSpent - b.totalSpent;
-    }
-    if (customerSortOrder === 'orders_high') {
-      return b.ordersCount - a.ordersCount;
-    }
-    if (customerSortOrder === 'orders_low') {
-      return a.ordersCount - b.ordersCount;
-    }
-    return 0;
-  });
+    });
 
-  const filteredReviews = reviews.filter(r =>
-    (r.users?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (r.products?.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.comment.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredReviews = reviews.filter(
+    (r) =>
+      r.comment.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.products?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.users?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredMessages = messages.filter(m =>
-    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.message.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMessages = messages
+    .filter(
+      (m) =>
+        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.message.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (messageSortOrder === 'oldest')
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
-  // Sorting Contact Messages Chronologically
-  const sortedMessages = [...filteredMessages].sort((a, b) => {
-    const timeA = new Date(a.created_at).getTime();
-    const timeB = new Date(b.created_at).getTime();
-    return messageSortOrder === 'newest' ? timeB - timeA : timeA - timeB;
-  });
-
-  const filteredSubscribers = subscribers.filter(s =>
+  const filteredSubscribers = subscribers.filter((s) =>
     s.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // ---- PAGINATION ----
+  // Ten rows per table. `usePagination` resets to page 1 whenever a filter
+  // shrinks the list past the current page, so narrowing a search never leaves
+  // the admin staring at an empty table.
+  const orderPage = usePagination(filteredOrders);
+  const productPage = usePagination(filteredProducts);
+  const customerPage = usePagination(filteredCustomers);
+  const reviewPage = usePagination(filteredReviews);
+  const messagePage = usePagination(filteredMessages);
+  const subscriberPage = usePagination(filteredSubscribers);
+
+  // ---- DERIVED SUMMARY VALUES ----
+  // Each falls back to a client-side calculation so the overview still reads
+  // correctly if the stats endpoint fails while the others succeed.
+  const paidRevenue = orders
+    .filter((o) => o.payment_status === 'paid')
+    .reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalRevenue = stats?.totalRevenue ?? paidRevenue;
+  const totalOrders = stats?.totalOrders ?? orders.length;
+  const totalCustomers = stats?.totalCustomers ?? customers.length;
+  const totalStockUnits = products.reduce(
+    (acc, p) => acc + (p.product_variants?.reduce((s, v) => s + v.stock, 0) || 0),
+    0
+  );
+  const pendingOrders =
+    stats?.statusBreakdown?.pending ?? orders.filter((o) => o.order_status === 'pending').length;
+  const payingCustomers = customers.filter((c) => c.ordersCount > 0).length;
+  const averageItemsPerOrder =
+    totalOrders > 0
+      ? (
+          orders.reduce(
+            (sum, o) => sum + (o.order_items?.reduce((s, i) => s + (i.quantity || 1), 0) || 0),
+            0
+          ) / Math.max(1, totalOrders)
+        ).toFixed(1)
+      : '0';
+
+  const lowStockVariants = products
+    .flatMap((p) =>
+      p.product_variants ? p.product_variants.map((v) => ({ ...v, productTitle: p.title })) : []
+    )
+    .filter((v) => v.stock < LOW_STOCK_THRESHOLD);
+
+  const statusCounts: Record<string, number> = ORDER_STATUSES.reduce((acc, status) => {
+    acc[status] =
+      stats?.statusBreakdown?.[status] ?? orders.filter((o) => o.order_status === status).length;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const navTabs = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'orders', label: 'Orders', icon: ShoppingBag, count: orders.length },
+    { id: 'inventory', label: 'Inventory', icon: Package, count: products.length },
+    { id: 'customers', label: 'Customers', icon: Users, count: customers.length },
+    { id: 'reviews', label: 'Reviews', icon: Star, count: reviews.length },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, count: messages.length },
+    { id: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setSearchQuery('');
+    setIsMobileNavOpen(false);
+  };
+
+  const meta = TAB_META[activeTab] ?? TAB_META.overview;
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-8 h-8 text-slate-700 animate-spin" />
-        <p className="text-xs uppercase font-mono tracking-widest text-slate-400">Verifying security state...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50">
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <p className="text-sm text-slate-500">Loading console…</p>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col lg:flex-row font-sans">
-      <title>System Console | Gorer Mart</title>
+  /** Nav list, shared by the desktop sidebar and the mobile drawer. */
+  const navList = (
+    <nav className="space-y-0.5">
+      {navTabs.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => handleTabChange(tab.id)}
+            aria-current={isActive ? 'page' : undefined}
+            className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
+              isActive
+                ? 'bg-slate-900 font-medium text-white'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+              {tab.label}
+            </span>
+            {tab.count !== undefined && (
+              <span
+                className={`rounded px-1.5 py-0.5 text-xs tabular-nums ${
+                  isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {tab.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
 
-      {/* Sidebar Navigation */}
-      <aside className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-slate-200/80 p-6 flex flex-col justify-between flex-shrink-0">
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-900" />
-              <h1 className="text-base font-semibold tracking-wider text-slate-900 uppercase">Gorer Mart</h1>
-            </div>
-            <p className="text-[10px] font-mono tracking-widest text-slate-400 uppercase mt-1">Console Panel</p>
+  const brandBlock = (
+    <div className="flex items-center gap-2.5">
+      <span
+        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-sm font-semibold text-white"
+        style={{ backgroundColor: BRAND }}
+        aria-hidden="true"
+      >
+        G
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-slate-900">Gorer Mart</p>
+        <p className="text-xs text-slate-500">Admin Console</p>
+      </div>
+    </div>
+  );
+
+  const userBlock = (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {profile?.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt=""
+            className="h-8 w-8 flex-shrink-0 rounded-full border border-slate-200 object-cover"
+          />
+        ) : (
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-sm font-medium text-slate-600">
+            {profile?.full_name?.[0]?.toUpperCase() || 'A'}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-slate-900">{profile?.full_name || 'Admin'}</p>
+          <p className="truncate text-xs text-slate-500">{profile?.email || 'Administrator'}</p>
+        </div>
+      </div>
+      <IconAction
+        label="Sign out"
+        variant="ghost"
+        onClick={() => signOut().then(() => { window.location.href = '/'; })}
+        className="text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+      >
+        <LogOut className="h-4 w-4" />
+      </IconAction>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="flex min-h-screen">
+        {/* ---------------- Desktop sidebar ---------------- */}
+        <aside className="sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+          <div className="border-b border-slate-100 px-5 py-4">{brandBlock}</div>
+          <div className="flex-1 overflow-y-auto px-3 py-4">{navList}</div>
+          <div className="border-t border-slate-100 px-4 py-3">{userBlock}</div>
+        </aside>
+
+        {/* ---------------- Main column ---------------- */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Mobile bar */}
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+            {brandBlock}
+            <Action
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsMobileNavOpen(true)}
+              aria-expanded={isMobileNavOpen}
+            >
+              <Layers className="h-4 w-4" />
+              Menu
+            </Action>
           </div>
 
-          <nav className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible gap-0.5 pb-2 lg:pb-0 no-scrollbar">
-            {[
-              { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-              { id: 'orders', label: 'Orders', icon: ShoppingBag },
-              { id: 'inventory', label: 'Inventory', icon: Package },
-              { id: 'customers', label: 'Customers', icon: Users },
-              { id: 'reviews', label: 'Reviews', icon: Star },
-              { id: 'messages', label: 'Messages', icon: MessageSquare },
-              { id: 'subscribers', label: 'Subscribers', icon: Mail },
-              { id: 'settings', label: 'Diagnostics', icon: Settings },
-            ].map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setSearchQuery('');
-                  }}
-                  className={`flex items-center space-x-3 whitespace-nowrap px-3.5 py-3 text-xs font-semibold tracking-wider transition-all w-full border-l-2 ${
-                    isActive
-                      ? 'border-slate-950 bg-slate-50 text-slate-900 font-bold'
-                      : 'border-transparent text-slate-500 hover:bg-slate-50/50 hover:text-slate-900'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-slate-800' : 'text-slate-455'}`} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+          {/* Page header */}
+          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold tracking-tight text-slate-900">{meta.title}</h1>
+                <p className="mt-0.5 text-sm text-slate-500">{meta.description}</p>
+              </div>
+              <Action variant="secondary" onClick={() => fetchAllData(true)} disabled={refreshing}>
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing…' : 'Refresh'}
+              </Action>
+            </div>
+          </header>
 
-        {/* User Info & Actions */}
-        <div className="mt-6 lg:mt-0 pt-4 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="Profile" className="w-7 h-7 rounded-full border border-slate-200" />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-600">
-                {profile?.full_name?.[0] || 'A'}
+          <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8">
+            {/* ============================ OVERVIEW ============================ */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <StatCard
+                    label="Total revenue"
+                    value={money(totalRevenue)}
+                    hint="From paid orders only"
+                    icon={IndianRupee}
+                  />
+                  <StatCard
+                    label="Orders"
+                    value={totalOrders.toLocaleString('en-IN')}
+                    hint={`${pendingOrders} awaiting fulfilment`}
+                    icon={ShoppingBag}
+                  />
+                  <StatCard
+                    label="Customers"
+                    value={totalCustomers.toLocaleString('en-IN')}
+                    hint={`${payingCustomers} have placed an order`}
+                    icon={Users}
+                  />
+                  <StatCard
+                    label="Stock units"
+                    value={totalStockUnits.toLocaleString('en-IN')}
+                    hint={`Across ${products.length} products`}
+                    icon={Boxes}
+                  />
+                </div>
+
+                {/* Order pipeline — one row, every status visible at once. */}
+                <Panel title="Order status" bodyClassName="px-5 py-4">
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
+                    {ORDER_STATUSES.map((status) => (
+                      <div key={status}>
+                        <dt className="text-xs capitalize text-slate-500">{status}</dt>
+                        <dd className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900">
+                          {statusCounts[status]}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </Panel>
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  <Panel
+                    title="Revenue"
+                    description={
+                      SALES_RANGES.find((r) => r.value === salesRange)?.label || 'Last 15 days'
+                    }
+                    className="lg:col-span-2"
+                    bodyClassName="px-3 pb-4 pt-5"
+                    action={
+                      <SelectField
+                        value={salesRange}
+                        onChange={(e) => handleSalesRangeChange(e.target.value)}
+                        disabled={isLoadingChart}
+                        aria-label="Revenue period"
+                        className="h-9 w-auto text-xs"
+                      >
+                        {SALES_RANGES.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </SelectField>
+                    }
+                  >
+                    <div className="relative h-56 w-full">
+                      {isLoadingChart && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
+                          <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                        </div>
+                      )}
+                      {renderSalesChart()}
+                    </div>
+                  </Panel>
+
+                  <Panel
+                    title="Top products"
+                    description="By revenue"
+                    bodyClassName="p-0"
+                  >
+                    {stats?.topProducts && stats.topProducts.length > 0 ? (
+                      <ol className="divide-y divide-slate-100">
+                        {stats.topProducts.map((p: any, idx: number) => (
+                          <li key={p.id || idx} className="flex items-center justify-between gap-3 px-5 py-3">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-slate-100 text-xs font-medium tabular-nums text-slate-600">
+                                {idx + 1}
+                              </span>
+                              <span className="truncate text-sm text-slate-900">{p.name}</span>
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              <p className="text-sm font-medium tabular-nums text-slate-900">
+                                {money(p.revenue)}
+                              </p>
+                              <p className="text-xs text-slate-500">{p.quantity} sold</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="px-5 py-10 text-center text-sm text-slate-500">
+                        No products sold yet.
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
+                      <span>Average items per order</span>
+                      <span className="font-medium tabular-nums text-slate-900">{averageItemsPerOrder}</span>
+                    </div>
+                  </Panel>
+                </div>
+
+                {/* Both tables run the full width of the console so the extra
+                    columns stay readable without horizontal scrolling. */}
+                <div className="space-y-4">
+                  <TableCard
+                    title="Recent orders"
+                    action={
+                      <Action variant="ghost" size="sm" onClick={() => handleTabChange('orders')}>
+                        View all
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Action>
+                    }
+                  >
+                    <THead>
+                      <Th>Order ID</Th>
+                      <Th>Placed</Th>
+                      <Th>Customer</Th>
+                      <Th align="center">Items</Th>
+                      <Th>Payment</Th>
+                      <Th>Process</Th>
+                      <Th align="right">Total</Th>
+                    </THead>
+                    <TBody>
+                      {orders.slice(0, 5).map((o) => (
+                        <Tr key={o.id} onClick={() => handleOpenOrderDrawer(o)}>
+                          <Td>
+                            <Mono className="font-medium text-slate-900">#{o.order_number}</Mono>
+                          </Td>
+                          <Td className="whitespace-nowrap text-slate-600">{shortDate(o.created_at)}</Td>
+                          <Td>
+                            <p className="font-medium text-slate-900">{o.users?.full_name || 'Guest'}</p>
+                            <p className="text-xs text-slate-500">{o.users?.email || '—'}</p>
+                          </Td>
+                          <Td align="center" className="tabular-nums">
+                            {o.order_items?.reduce((s, i) => s + (i.quantity || 1), 0) || 0}
+                          </Td>
+                          <Td>
+                            <StatusBadge status={o.payment_status} />
+                          </Td>
+                          <Td>
+                            <StatusBadge status={o.order_status} />
+                          </Td>
+                          <Td align="right" className="font-medium tabular-nums text-slate-900">
+                            {money(o.total)}
+                          </Td>
+                        </Tr>
+                      ))}
+                      {orders.length === 0 && <EmptyRow colSpan={7}>No orders yet.</EmptyRow>}
+                    </TBody>
+                  </TableCard>
+
+                  <TableCard
+                    title="Low stock"
+                    action={
+                      <Action variant="ghost" size="sm" onClick={() => handleTabChange('inventory')}>
+                        Manage
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Action>
+                    }
+                  >
+                    <THead>
+                      <Th>Product</Th>
+                      <Th>Size</Th>
+                      <Th align="right">Units left</Th>
+                      <Th align="right">Availability</Th>
+                    </THead>
+                    <TBody>
+                      {lowStockVariants.slice(0, 5).map((item) => {
+                        const level = stockLevel(item.stock, LOW_STOCK_THRESHOLD);
+                        return (
+                          <Tr key={item.id}>
+                            <Td className="font-medium text-slate-900">{item.productTitle}</Td>
+                            <Td className="uppercase">{item.size}</Td>
+                            <Td align="right" className="tabular-nums">{item.stock}</Td>
+                            <Td align="right">
+                              <Badge tone={level.tone}>{level.label}</Badge>
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                      {lowStockVariants.length === 0 && (
+                        <EmptyRow colSpan={4}>All sizes are well stocked.</EmptyRow>
+                      )}
+                    </TBody>
+                  </TableCard>
+                </div>
               </div>
             )}
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-855 truncate max-w-[100px]">{profile?.full_name || 'Admin Admin'}</p>
-              <p className="text-[9px] text-slate-400 uppercase font-mono tracking-wider">Level: System</p>
-            </div>
-          </div>
-          <button
-            onClick={() => signOut().then(() => window.location.href = '/')}
-            className="text-[10px] font-bold uppercase tracking-wider text-rose-600 hover:text-rose-700 transition-colors p-1.5 hover:bg-rose-50 rounded cursor-pointer border-0 bg-transparent"
-          >
-            Exit
-          </button>
-        </div>
-      </aside>
 
-      {/* Main Console Content */}
-      <main className="flex-grow p-6 lg:p-10 overflow-y-auto max-w-7xl">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
-              <span>Console</span>
-              <ChevronRight className="w-4 h-4 text-slate-300" />
-              <span className="text-slate-655 capitalize">{activeTab}</span>
-            </h2>
-            <p className="text-[10px] text-slate-455 uppercase font-mono tracking-widest mt-0.5">
-              Synchronized DB connection
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => fetchAllData(true)}
-              className="border border-slate-200 bg-white text-slate-600 hover:text-slate-900 text-xs font-semibold py-2 px-3.5 rounded-lg flex items-center gap-2 cursor-pointer shadow-sm transition-colors"
-              disabled={refreshing}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Syncing...' : 'Sync'}</span>
-            </button>
-          </div>
-        </header>
-
-        {/* OVERVIEW TAB */}
-        {activeTab === 'overview' && stats && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, icon: DollarSign, color: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
-                { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'text-slate-700 bg-slate-50 border-slate-100' },
-                { label: 'Avg Order Value', value: `₹${stats.averageOrderValue.toLocaleString('en-IN')}`, icon: Activity, color: 'text-blue-700 bg-blue-50 border-blue-100' },
-                { label: 'Active Customers', value: stats.totalCustomers.toString(), icon: Users, color: 'text-indigo-700 bg-indigo-50 border-indigo-100' },
-              ].map((card, idx) => {
-                const Icon = card.icon;
-                return (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.04 }}
-                    className="bg-white p-5 rounded-xl border border-slate-200/80 flex items-center justify-between shadow-sm"
-                  >
-                    <div>
-                      <p className="text-[9px] font-mono tracking-widest text-slate-400 uppercase mb-0.5">{card.label}</p>
-                      <h3 className="text-xl font-bold text-slate-900">{card.value}</h3>
-                    </div>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${card.color}`}>
-                      <Icon className="w-4.5 h-4.5" />
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* Sales Chart & Top Products */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-8 bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-950">Sales Performance</h3>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Chronological revenue (Last 14 Days)</p>
+            {/* ============================ ORDERS ============================ */}
+            {activeTab === 'orders' && (
+              <div className="space-y-4">
+                <Panel bodyClassName="p-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label="Search" className="sm:col-span-2">
+                      <SearchField
+                        icon={Search}
+                        type="text"
+                        placeholder="Order number, name or email"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Process status">
+                      <SelectField value={orderFilter} onChange={(e) => setOrderFilter(e.target.value)}>
+                        <option value="">All</option>
+                        {ORDER_STATUSES.map((s) => (
+                          <option key={s} value={s} className="capitalize">
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </option>
+                        ))}
+                      </SelectField>
+                    </Field>
+                    <Field label="Payment status">
+                      <SelectField value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}>
+                        <option value="">All</option>
+                        {PAYMENT_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </option>
+                        ))}
+                      </SelectField>
+                    </Field>
                   </div>
-                  <TrendingUp className="w-4.5 h-4.5 text-slate-550" />
-                </div>
-                <div className="h-44 w-full mt-2 flex items-end">
-                  {renderSalesChart()}
-                </div>
-              </div>
+                </Panel>
 
-              {/* Top Selling Products */}
-              <div className="lg:col-span-4 bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-950 mb-4">Top Performing Products</h3>
-                  <div className="space-y-3.5">
-                    {stats.topProducts && stats.topProducts.length > 0 ? (
-                      stats.topProducts.map((p: any, idx: number) => (
-                        <div key={p.id} className="flex justify-between items-center text-xs">
-                          <div className="flex items-center space-x-2.5 min-w-0">
-                            <span className="w-4.5 h-4.5 rounded bg-slate-50 border border-slate-200 text-slate-500 text-[10px] font-bold font-mono flex items-center justify-center flex-shrink-0">
-                              {idx + 1}
-                            </span>
-                            <span className="font-semibold text-slate-700 truncate">{p.name}</span>
-                          </div>
-                          <div className="text-right flex-shrink-0 pl-2">
-                            <p className="font-bold text-slate-900">₹{p.revenue.toLocaleString('en-IN')}</p>
-                            <p className="text-[9px] text-slate-400 font-mono uppercase">{p.quantity} sold</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[10px] text-slate-400 py-6 text-center font-mono">No product sales compiled.</p>
-                    )}
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-slate-100 mt-4 flex justify-between items-center text-[10px] font-mono text-slate-550">
-                  <span>Avg Items per order</span>
-                  <span className="font-bold text-slate-805 text-slate-800">
-                    {stats.totalOrders > 0
-                      ? (
-                          orders.reduce((sum, o) => sum + o.order_items.reduce((s, i) => s + i.quantity, 0), 0) /
-                          stats.totalOrders
-                        ).toFixed(1)
-                      : 0}{' '}
-                    units
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Orders Overview */}
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                <h3 className="text-[9px] font-mono uppercase tracking-widest text-slate-400">Incoming Customer Transmissions</h3>
-                <button
-                  onClick={() => setActiveTab('orders')}
-                  className="text-[10px] uppercase font-bold tracking-wider text-slate-700 hover:text-slate-955 hover:underline cursor-pointer bg-transparent border-0"
-                >
-                  Show all
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/75 text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-slate-100">
-                      <th className="px-6 py-3 font-semibold">ID</th>
-                      <th className="px-6 py-3 font-semibold">Customer</th>
-                      <th className="px-6 py-3 font-semibold">Fulfillment</th>
-                      <th className="px-6 py-3 font-semibold">Charged</th>
-                      <th className="px-6 py-3 text-right font-semibold"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {orders.slice(0, 5).map((o) => (
-                      <tr key={o.id} className="text-xs hover:bg-slate-50/30 transition-colors">
-                        <td className="px-6 py-3.5 font-mono font-bold text-slate-950">#{o.order_number}</td>
-                        <td className="px-6 py-3.5">
-                          <p className="font-bold text-slate-800">{o.users?.full_name || 'Guest Account'}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">{o.users?.email || '—'}</p>
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold tracking-wider border ${
-                              o.order_status === 'delivered'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : o.order_status === 'cancelled'
-                                ? 'bg-rose-50 text-rose-700 border-rose-100'
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                            }`}
-                          >
-                            {o.order_status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3.5 font-mono font-bold text-slate-900">₹{o.total.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-3.5 text-right">
-                          <button
-                            onClick={() => handleOpenOrderModal(o)}
-                            className="border border-slate-200 bg-white text-slate-600 hover:text-slate-950 font-bold text-[10px] uppercase tracking-wider py-1 px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {orders.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="text-center py-6 text-xs text-slate-400 font-mono">
-                          No customer transactions recorded.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ORDERS TAB */}
-        {activeTab === 'orders' && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Filters Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-              <div className="sm:col-span-6 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search by ID, name, email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:ring-0 focus:outline-none rounded-lg text-xs placeholder:text-slate-400 text-slate-800 transition-all"
-                />
-              </div>
-              <div className="sm:col-span-3">
-                <select
-                  value={orderFilter}
-                  onChange={(e) => setOrderFilter(e.target.value)}
-                  className="w-full px-2 py-2 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:ring-0 focus:outline-none rounded-lg text-xs text-slate-700"
-                >
-                  <option value="">Fulfillment</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              <div className="sm:col-span-3">
-                <select
-                  value={paymentFilter}
-                  onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="w-full px-2 py-2 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:ring-0 focus:outline-none rounded-lg text-xs text-slate-700"
-                >
-                  <option value="">Payment</option>
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                  <option value="failed">Failed</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Orders Table */}
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/75 text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-slate-100">
-                      <th className="px-6 py-3 font-semibold">Order</th>
-                      <th className="px-6 py-3 font-semibold">Date</th>
-                      <th className="px-6 py-3 font-semibold">Customer</th>
-                      <th className="px-6 py-3 font-semibold">Payment</th>
-                      <th className="px-6 py-3 font-semibold">Fulfillment</th>
-                      <th className="px-6 py-3 font-semibold">Total</th>
-                      <th className="px-6 py-3 text-right font-semibold"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredOrders.map((o) => (
-                      <tr key={o.id} className="text-xs hover:bg-slate-50/30 transition-colors">
-                        <td className="px-6 py-3.5 font-mono font-bold text-slate-950">#{o.order_number}</td>
-                        <td className="px-6 py-3.5 font-mono text-slate-400 font-medium">
-                          {new Date(o.created_at).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <p className="font-bold text-slate-800">{o.users?.full_name || 'Guest User'}</p>
-                          <p className="text-[10px] text-slate-455 font-mono">{o.users?.email || '—'}</p>
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold tracking-wider border ${
-                              o.payment_status === 'paid'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : o.payment_status === 'failed'
-                                ? 'bg-rose-50 text-rose-700 border-rose-100'
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                            }`}
-                          >
-                            {o.payment_status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold tracking-wider border ${
-                              o.order_status === 'delivered'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : o.order_status === 'cancelled'
-                                ? 'bg-rose-50 text-rose-700 border-rose-100'
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                            }`}
-                          >
-                            {o.order_status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3.5 font-mono font-bold text-slate-900">₹{o.total.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-3.5 text-right">
-                          <button
-                            onClick={() => handleOpenOrderModal(o)}
-                            className="border border-slate-200 bg-white text-slate-600 hover:text-slate-955 font-bold text-[10px] uppercase tracking-wider py-1 px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
+                {/* Rows open the detail panel on click; per-item names, sizes
+                    and colours live there rather than crowding the table. */}
+                <TableCard footer={<Pagination state={orderPage} noun="orders" />}>
+                  <THead>
+                    <Th>Order ID</Th>
+                    <Th>Placed</Th>
+                    <Th>Customer</Th>
+                    <Th align="center">Items</Th>
+                    <Th>Payment</Th>
+                    <Th>Process</Th>
+                    <Th align="right">Total</Th>
+                  </THead>
+                  <TBody>
+                    {orderPage.pageItems.map((o) => (
+                      <Tr key={o.id} onClick={() => handleOpenOrderDrawer(o)}>
+                        <Td>
+                          <Mono className="font-medium text-slate-900">#{o.order_number}</Mono>
+                        </Td>
+                        <Td className="whitespace-nowrap text-slate-600">{shortDate(o.created_at)}</Td>
+                        <Td>
+                          <p className="font-medium text-slate-900">{o.users?.full_name || 'Guest'}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{o.users?.email || '—'}</p>
+                        </Td>
+                        <Td align="center" className="tabular-nums text-slate-700">
+                          {o.order_items?.reduce((s, i) => s + (i.quantity || 1), 0) || 0}
+                        </Td>
+                        <Td>
+                          <StatusBadge status={o.payment_status} />
+                        </Td>
+                        <Td>
+                          <StatusBadge status={o.order_status} />
+                        </Td>
+                        <Td align="right" className="font-medium tabular-nums text-slate-900">
+                          {money(o.total)}
+                        </Td>
+                      </Tr>
                     ))}
                     {filteredOrders.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="text-center py-10 text-xs text-slate-400 font-mono">
-                          No matching transactions located.
-                        </td>
-                      </tr>
+                      <EmptyRow colSpan={7}>
+                        {orders.length === 0 ? 'No orders yet.' : 'No orders match these filters.'}
+                      </EmptyRow>
                     )}
-                  </tbody>
-                </table>
+                  </TBody>
+                </TableCard>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* INVENTORY TAB */}
-        {activeTab === 'inventory' && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Search Box */}
-            <div className="relative bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-              <Search className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Filter catalog products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:ring-0 focus:outline-none rounded-lg text-xs placeholder:text-slate-400 text-slate-805 transition-all"
-              />
-            </div>
-
-            {/* Inventory Listing */}
-            <div className="space-y-4">
-              {filteredProducts.map((product) => (
-                <div key={product.id} className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-xs text-slate-950 uppercase tracking-wider">{product.title}</h3>
-                    <p className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">SLUG: {product.slug}</p>
-                    <div className="flex gap-4 mt-1 text-[9px] text-slate-400 font-mono uppercase font-semibold">
-                      <span>Rate: ₹{product.price}</span>
-                      <span>Rating: {product.average_rating} ({product.review_count} votes)</span>
+            {/* ============================ INVENTORY ============================ */}
+            {activeTab === 'inventory' && (
+              <div className="space-y-4">
+                <Panel bodyClassName="p-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label="Search" className="sm:col-span-2">
+                      <SearchField
+                        icon={Search}
+                        type="text"
+                        placeholder="Product name"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </Field>
+                    {/* Options come from the Supabase category list, which the
+                        products endpoint keeps mirrored from Sanity. Filtering
+                        by name previously matched nothing, because auto-synced
+                        products were saved with no category at all. */}
+                    <Field label="Category">
+                      <SelectField
+                        value={inventoryCategoryFilter}
+                        onChange={(e) => setInventoryCategoryFilter(e.target.value)}
+                      >
+                        <option value="">All categories ({products.length})</option>
+                        {categoryOptions.map((c) => (
+                          <option key={c.name} value={c.name}>
+                            {c.name} ({c.count})
+                          </option>
+                        ))}
+                      </SelectField>
+                    </Field>
+                    <div className="flex items-end gap-2">
+                      <Action
+                        variant="secondary"
+                        onClick={handleSyncSanityCatalog}
+                        disabled={isSyncingSanity}
+                        className="flex-1"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${isSyncingSanity ? 'animate-spin' : ''}`} />
+                        Sync
+                      </Action>
+                      <Action variant="primary" onClick={handleOpenCreateProduct} className="flex-1">
+                        <Plus className="h-4 w-4" />
+                        Add product
+                      </Action>
                     </div>
                   </div>
+                </Panel>
 
-                  <div className="w-full md:w-auto flex flex-wrap gap-3">
-                    {product.product_variants && product.product_variants.length > 0 ? (
-                      product.product_variants.map((v) => {
-                        const isEditing = editingStockVariantId === v.id;
-                        const lowStock = v.stock < 5;
-                        const outOfStock = v.stock === 0;
+                {filteredProducts.length === 0 ? (
+                  <Panel bodyClassName="p-0">
+                    <EmptyState
+                      icon={Package}
+                      title={products.length === 0 ? 'No products tracked yet' : 'No products match this filter'}
+                      description={
+                        products.length === 0
+                          ? 'Add a product from your Sanity catalogue to start tracking size-wise stock.'
+                          : 'Try a different search term or category.'
+                      }
+                      action={
+                        products.length === 0 ? (
+                          <Action variant="primary" onClick={handleOpenCreateProduct}>
+                            <Plus className="h-4 w-4" />
+                            Add product
+                          </Action>
+                        ) : undefined
+                      }
+                    />
+                  </Panel>
+                ) : (
+                  <TableCard footer={<Pagination state={productPage} noun="products" />}>
+                    <THead>
+                      <Th>Product</Th>
+                      <Th>Category</Th>
+                      <Th align="right">Price</Th>
+                      <Th align="right">Total stock</Th>
+                      <Th>Availability</Th>
+                      <Th>Status</Th>
+                      <Th align="right">Actions</Th>
+                    </THead>
+                    <TBody>
+                      {productPage.pageItems.map((product) => {
+                        const variants = product.product_variants || [];
+                        const totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+                        const isExpanded = expandedProductId === product.id;
+                        // Availability reflects the worst size: a product with
+                        // 40 units but nothing in M is not simply "in stock".
+                        const hasVariants = variants.length > 0;
+                        const worstVariantStock = hasVariants
+                          ? Math.min(...variants.map((v) => v.stock || 0))
+                          : 0;
+                        const availability = hasVariants
+                          ? totalStock === 0
+                            ? stockLevel(0)
+                            : stockLevel(worstVariantStock, LOW_STOCK_THRESHOLD)
+                          : stockLevel(0);
+                        const categoryName = productCategoryName(product);
 
                         return (
-                          <div
-                            key={v.id}
-                            className="bg-slate-50 border border-slate-200/60 p-2.5 rounded-lg flex items-center space-x-3 text-xs text-slate-700 font-medium"
-                          >
-                            <div>
-                              <p className="font-bold font-mono text-slate-850 text-[10px] uppercase">
-                                {v.size} {v.color ? `/ ${v.color}` : ''}
-                              </p>
-                              <p className="text-[9px] font-mono text-slate-400 tracking-wider mt-0.5">{v.sku}</p>
-                              <div className="flex items-center space-x-1.5 mt-1">
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    outOfStock ? 'bg-red-500' : lowStock ? 'bg-amber-500' : 'bg-emerald-500'
-                                  }`}
-                                />
-                                <span className="text-[9px] font-mono text-slate-550 font-bold">{v.stock} units</span>
-                              </div>
-                            </div>
-
-                            {/* In-Line Stock Level Editor */}
-                            <div className="border-l border-slate-200 pl-2.5 flex items-center space-x-1.5">
-                              {isEditing ? (
-                                <>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={editingStockValue}
-                                    onChange={(e) => setEditingStockValue(parseInt(e.target.value) || 0)}
-                                    className="w-11 px-1 py-0.5 bg-white border border-slate-300 text-slate-900 rounded font-mono text-xs focus:outline-none focus:border-slate-900 text-center"
+                          <React.Fragment key={product.id}>
+                            <Tr
+                              onClick={() => setExpandedProductId(isExpanded ? null : product.id)}
+                              className={isExpanded ? 'bg-slate-50' : undefined}
+                            >
+                              <Td>
+                                <div className="flex items-start gap-2">
+                                  <ChevronRight
+                                    className={`mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${
+                                      isExpanded ? 'rotate-90' : ''
+                                    }`}
+                                    aria-hidden="true"
                                   />
-                                  <button
-                                    onClick={() => handleUpdateStock(v.id, editingStockValue)}
-                                    className="p-1 bg-slate-900 text-white rounded cursor-pointer border-0 flex items-center justify-center hover:bg-slate-800"
-                                    disabled={isSavingStock === v.id}
+                                  <p className="min-w-0 font-medium text-slate-900">{product.title}</p>
+                                </div>
+                              </Td>
+                              <Td className="text-slate-600">{categoryName}</Td>
+                              <Td align="right" className="tabular-nums">
+                                <span className="font-medium text-slate-900">{money(product.price)}</span>
+                                {product.compare_at_price ? (
+                                  <span className="ml-1.5 text-xs text-slate-400 line-through">
+                                    {money(product.compare_at_price)}
+                                  </span>
+                                ) : null}
+                              </Td>
+                              <Td align="right" className="tabular-nums text-slate-700">
+                                {totalStock}
+                              </Td>
+                              <Td>
+                                <Badge tone={availability.tone}>{availability.label}</Badge>
+                              </Td>
+                              <Td>
+                                <StatusBadge status={product.status} />
+                              </Td>
+                              <Td align="right" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Action
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleOpenEditProduct(product)}
                                   >
-                                    {isSavingStock === v.id ? (
-                                      <Loader2 className="w-3.5 h-3 animate-spin" />
-                                    ) : (
-                                      <Check className="w-3.5 h-3" />
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingStockVariantId(null)}
-                                    className="p-1 bg-slate-205 text-slate-650 rounded cursor-pointer border-0 flex items-center justify-center hover:bg-slate-350"
-                                    disabled={isSavingStock === v.id}
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Edit
+                                  </Action>
+                                  <IconAction
+                                    label={`Delete ${product.title}`}
+                                    variant="danger"
+                                    onClick={() => {
+                                      setProductToDelete(product);
+                                      setIsDeleteProductDialogOpen(true);
+                                    }}
                                   >
-                                    <X className="w-3.5 h-3" />
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setEditingStockVariantId(v.id);
-                                    setEditingStockValue(v.stock);
-                                  }}
-                                  className="text-[9px] uppercase font-bold text-slate-800 hover:text-slate-950 hover:underline cursor-pointer bg-transparent border-0"
-                                >
-                                  Stock
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </IconAction>
+                                </div>
+                              </Td>
+                            </Tr>
+
+                            {isExpanded && (
+                              <tr className="bg-slate-50">
+                                <td colSpan={7} className="border-t border-slate-100 px-5 py-4">
+                                  <p className="mb-3 text-xs font-medium text-slate-600">
+                                    Adjust stock — changes save immediately
+                                  </p>
+                                  {variants.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {variants.map((v) => {
+                                        const isEditing = editingStockVariantId === v.id;
+                                        const dotTone =
+                                          v.stock === 0
+                                            ? 'bg-rose-500'
+                                            : v.stock < LOW_STOCK_THRESHOLD
+                                            ? 'bg-amber-500'
+                                            : 'bg-emerald-500';
+
+                                        return (
+                                          <div
+                                            key={v.id}
+                                            className="min-w-[168px] rounded-md border border-slate-200 bg-white px-3 py-2.5"
+                                          >
+                                            <div className="flex items-center justify-between gap-2">
+                                              <span className="flex items-center gap-2">
+                                                <span
+                                                  className={`h-2 w-2 rounded-full ${dotTone}`}
+                                                  aria-hidden="true"
+                                                />
+                                                <span className="text-sm font-medium uppercase text-slate-900">
+                                                  {v.size}
+                                                </span>
+                                              </span>
+                                              {!isEditing && (
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingStockVariantId(v.id);
+                                                    setEditingStockValue(v.stock);
+                                                  }}
+                                                  className="cursor-pointer text-xs font-medium text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline"
+                                                >
+                                                  Edit
+                                                </button>
+                                              )}
+                                            </div>
+
+                                            {isEditing ? (
+                                              <div className="mt-2 flex items-center gap-1.5">
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  autoFocus
+                                                  value={editingStockValue}
+                                                  onChange={(e) =>
+                                                    setEditingStockValue(parseInt(e.target.value, 10) || 0)
+                                                  }
+                                                  className="h-8 w-full rounded-md border border-slate-300 px-2 text-sm tabular-nums text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                                                />
+                                                <IconAction
+                                                  label="Save stock"
+                                                  variant="primary"
+                                                  onClick={() => handleUpdateStock(v.id, editingStockValue)}
+                                                  disabled={isSavingStock === v.id}
+                                                >
+                                                  {isSavingStock === v.id ? (
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                  ) : (
+                                                    <Check className="h-3.5 w-3.5" />
+                                                  )}
+                                                </IconAction>
+                                                <IconAction
+                                                  label="Cancel"
+                                                  variant="secondary"
+                                                  onClick={() => setEditingStockVariantId(null)}
+                                                >
+                                                  <X className="h-3.5 w-3.5" />
+                                                </IconAction>
+                                              </div>
+                                            ) : (
+                                              <p className="mt-1 text-sm tabular-nums text-slate-700">
+                                                {v.stock} {v.stock === 1 ? 'unit' : 'units'}
+                                              </p>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-slate-500">
+                                      No sizes configured yet. Use Edit to add them.
+                                    </p>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         );
-                      })
-                    ) : (
-                      <span className="text-[10px] text-slate-400 font-mono">No variants configured.</span>
-                    )}
+                      })}
+                    </TBody>
+                  </TableCard>
+                )}
+              </div>
+            )}
+
+            {/* ============================ CUSTOMERS ============================ */}
+            {activeTab === 'customers' && (
+              <div className="space-y-4">
+                <Panel bodyClassName="p-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Field label="Search" className="sm:col-span-2">
+                      <SearchField
+                        icon={Search}
+                        type="text"
+                        placeholder="Name, email or phone"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Sort by">
+                      <SelectField
+                        value={customerSortOrder}
+                        onChange={(e) => setCustomerSortOrder(e.target.value)}
+                      >
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="orders">Most orders</option>
+                        <option value="spent">Highest spend</option>
+                      </SelectField>
+                    </Field>
                   </div>
-                </div>
-              ))}
-              {filteredProducts.length === 0 && (
-                <div className="text-center py-10 text-xs text-slate-400 font-mono">
-                  No matching catalog items located.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+                </Panel>
 
-        {/* CUSTOMERS TAB */}
-        {activeTab === 'customers' && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Search & Sort Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-              <div className="sm:col-span-9 relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search registered user accounts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:ring-0 focus:outline-none rounded-lg text-xs placeholder:text-slate-400 text-slate-800 transition-all"
-                />
-              </div>
-              <div className="sm:col-span-3">
-                <select
-                  value={customerSortOrder}
-                  onChange={(e) => setCustomerSortOrder(e.target.value)}
-                  className="w-full px-2.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:ring-0 focus:outline-none rounded-lg text-xs text-slate-700 font-medium"
-                >
-                  <option value="newest">Registration: Newest</option>
-                  <option value="oldest">Registration: Oldest</option>
-                  <option value="spent_high">Expenditure: High to Low</option>
-                  <option value="spent_low">Expenditure: Low to High</option>
-                  <option value="orders_high">Orders: High to Low</option>
-                  <option value="orders_low">Orders: Low to High</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Customer list */}
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/75 text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-slate-100">
-                      <th className="px-6 py-3 font-semibold">User</th>
-                      <th className="px-6 py-3 font-semibold">Date Registered</th>
-                      <th className="px-6 py-3 font-semibold">Contact Info</th>
-                      <th className="px-6 py-3 font-semibold">Privileges</th>
-                      <th className="px-6 py-3 font-semibold">Total orders</th>
-                      <th className="px-6 py-3 font-semibold">Gross Expenditure</th>
-                      <th className="px-6 py-3 text-right font-semibold"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {sortedCustomers.map((c) => (
-                      <tr
+                <TableCard footer={<Pagination state={customerPage} noun="customers" />}>
+                  <THead>
+                    <Th>Customer</Th>
+                    <Th>Email</Th>
+                    <Th>Phone</Th>
+                    <Th>Joined</Th>
+                    <Th align="right">Orders</Th>
+                    <Th align="right">Total spent</Th>
+                    <Th align="right">Actions</Th>
+                  </THead>
+                  <TBody>
+                    {customerPage.pageItems.map((c) => (
+                      <Tr
                         key={c.id}
                         onClick={() => {
                           setSelectedCustomer(c);
                           setIsCustomerDrawerOpen(true);
                         }}
-                        className="text-xs hover:bg-slate-50/30 transition-colors cursor-pointer"
                       >
-                        <td className="px-6 py-3.5 flex items-center space-x-2.5">
-                          {c.avatarUrl ? (
-                            <img src={c.avatarUrl} alt="Avatar" className="w-7 h-7 rounded-full border border-slate-200" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-250 flex items-center justify-center font-bold text-[9px] text-slate-655">
-                              {c.fullName[0] || 'U'}
+                        <Td>
+                          <div className="flex items-center gap-3">
+                            {c.avatarUrl ? (
+                              <img
+                                src={c.avatarUrl}
+                                alt=""
+                                className="h-8 w-8 flex-shrink-0 rounded-full border border-slate-200 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-sm font-medium text-slate-600">
+                                {c.fullName?.[0]?.toUpperCase() || 'U'}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900">{c.fullName}</p>
+                              {c.role === 'admin' && (
+                                <Badge tone="danger" className="mt-0.5">
+                                  Admin
+                                </Badge>
+                              )}
                             </div>
-                          )}
-                          <div>
-                            <p className="font-bold text-slate-900">{c.fullName}</p>
-                            <p className="text-[9px] text-slate-400 font-mono">{c.email}</p>
                           </div>
-                        </td>
-                        <td className="px-6 py-3.5 font-mono text-slate-400 font-medium">
-                          {new Date(c.createdAt).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </td>
-                        <td className="px-6 py-3.5 font-mono text-slate-550 font-semibold">{c.phone || '—'}</td>
-                        <td className="px-6 py-3.5">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold tracking-wider border ${
-                              c.role === 'admin'
-                                ? 'bg-rose-50 text-rose-700 border-rose-100'
-                                : 'bg-slate-100 text-slate-600 border-slate-200/60'
-                            }`}
-                          >
-                            {c.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3.5 font-mono font-bold text-slate-800">{c.ordersCount}</td>
-                        <td className="px-6 py-3.5 font-mono font-bold text-slate-900">₹{c.totalSpent.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-3.5 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
+                        </Td>
+                        <Td className="text-slate-600">{c.email}</Td>
+                        <Td className="tabular-nums text-slate-600">{c.phone || '—'}</Td>
+                        <Td className="whitespace-nowrap text-slate-600">{shortDate(c.createdAt)}</Td>
+                        <Td align="right" className="tabular-nums text-slate-900">{c.ordersCount}</Td>
+                        <Td align="right" className="font-medium tabular-nums text-slate-900">
+                          {money(c.totalSpent)}
+                        </Td>
+                        <Td align="right" onClick={(e) => e.stopPropagation()}>
+                          <Action
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
                               setSelectedCustomer(c);
                               setIsCustomerDrawerOpen(true);
                             }}
-                            className="border border-slate-200 bg-white text-slate-655 hover:text-slate-955 font-bold text-[10px] uppercase tracking-wider py-1 px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
                           >
                             View
-                          </button>
-                        </td>
-                      </tr>
+                          </Action>
+                        </Td>
+                      </Tr>
                     ))}
-                    {sortedCustomers.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="text-center py-10 text-xs text-slate-400 font-mono">
-                          No matching profiles registered.
-                        </td>
-                      </tr>
+                    {filteredCustomers.length === 0 && (
+                      <EmptyRow colSpan={7}>
+                        {customers.length === 0 ? 'No customers yet.' : 'No customers match this search.'}
+                      </EmptyRow>
                     )}
-                  </tbody>
-                </table>
+                  </TBody>
+                </TableCard>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* REVIEWS TAB */}
-        {activeTab === 'reviews' && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Search Box */}
-            <div className="relative bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-              <Search className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search reviews..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:ring-0 focus:outline-none rounded-lg text-xs placeholder:text-slate-400 text-slate-805 transition-all"
-              />
-            </div>
+            {/* ============================ REVIEWS ============================ */}
+            {activeTab === 'reviews' && (
+              <div className="space-y-4">
+                <Panel bodyClassName="p-4">
+                  <Field label="Search">
+                    <SearchField
+                      icon={Search}
+                      type="text"
+                      placeholder="Product, customer or review text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </Field>
+                </Panel>
 
-            {/* Reviews Listing */}
-            <div className="space-y-4">
-              {filteredReviews.map((r) => (
-                <div key={r.id} className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row justify-between items-start gap-4">
-                  <div className="space-y-1.5 max-w-xl">
-                    <div className="flex items-center space-x-2.5">
-                      <span className="text-[9px] font-mono text-slate-655 font-bold uppercase bg-slate-100 px-2 py-0.5 border border-slate-200 rounded">
-                        {r.products?.title || 'Unknown Product'}
-                      </span>
-                      <div className="flex text-amber-500 font-bold text-xs">
-                        {Array.from({ length: r.rating }).map((_, i) => (
-                          <span key={i}>★</span>
-                        ))}
-                        {Array.from({ length: 5 - r.rating }).map((_, i) => (
-                          <span key={i} className="text-slate-200">★</span>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-800 leading-relaxed font-semibold">"{r.comment || 'No comments left.'}"</p>
-                    <p className="text-[9px] text-slate-400 font-mono">
-                      By: <span className="text-slate-600 font-bold">{r.users?.full_name || 'Guest'}</span> ({r.users?.email || '—'}) •{' '}
-                      {new Date(r.created_at).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center space-x-2 md:self-center flex-shrink-0">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold tracking-wider mr-2 border ${
-                        r.status === 'approved'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                          : r.status === 'rejected'
-                          ? 'bg-rose-50 text-rose-700 border-rose-100'
-                          : 'bg-amber-50 text-amber-700 border-amber-100'
-                      }`}
-                    >
-                      {r.status}
-                    </span>
-                    {r.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleUpdateReviewStatus(r.id, 'approved')}
-                          className="p-1.5 bg-slate-900 text-white hover:bg-slate-800 rounded cursor-pointer border-0 flex items-center justify-center"
-                          title="Approve Review"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleUpdateReviewStatus(r.id, 'rejected')}
-                          className="p-1.5 bg-slate-205 text-slate-650 hover:bg-slate-300 rounded cursor-pointer border-0 flex items-center justify-center"
-                          title="Reject Review"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    )}
-                    {r.status !== 'pending' && (
-                      <button
-                        onClick={() => handleUpdateReviewStatus(r.id, 'pending')}
-                        className="text-[9px] uppercase font-mono text-slate-400 hover:text-slate-800 hover:underline cursor-pointer bg-transparent border-0"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {filteredReviews.length === 0 && (
-                <div className="text-center py-10 text-xs text-slate-400 font-mono">
-                  No matching reviews located.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* MESSAGES TAB */}
-        {activeTab === 'messages' && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Search & Sort Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-              <div className="sm:col-span-9 relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search messages by name, email, subject, or content..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:ring-0 focus:outline-none rounded-lg text-xs placeholder:text-slate-400 text-slate-800 transition-all"
-                />
-              </div>
-              <div className="sm:col-span-3">
-                <select
-                  value={messageSortOrder}
-                  onChange={(e) => setMessageSortOrder(e.target.value as 'newest' | 'oldest')}
-                  className="w-full px-2.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:ring-0 focus:outline-none rounded-lg text-xs text-slate-700 font-medium"
-                >
-                  <option value="newest">Sort: Newest</option>
-                  <option value="oldest">Sort: Oldest</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Messages list */}
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/75 text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-slate-100">
-                      <th className="px-6 py-3 font-semibold">Sender</th>
-                      <th className="px-6 py-3 font-semibold">Subject</th>
-                      <th className="px-6 py-3 font-semibold">Sending Time</th>
-                      <th className="px-6 py-3 font-semibold">Reply</th>
-                      <th className="px-6 py-3 text-right font-semibold"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {sortedMessages.map((m) => (
-                      <tr key={m.id} className="text-xs hover:bg-slate-50/30 transition-colors">
-                        <td className="px-6 py-3.5 font-bold text-slate-900">{m.name}</td>
-                        <td className="px-6 py-3.5 font-medium text-slate-700 min-w-[200px] break-words leading-normal">
-                          {m.subject}
-                        </td>
-                        <td className="px-6 py-3.5 font-mono text-slate-600 font-medium whitespace-nowrap">
-                          {new Date(m.created_at).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                          <span className="text-[10px] text-slate-400 ml-1.5 font-sans font-medium">
-                            ({getRelativeTimeString(m.created_at)})
+                <TableCard footer={<Pagination state={reviewPage} noun="reviews" />}>
+                  <THead>
+                    <Th>Product</Th>
+                    <Th>Customer</Th>
+                    <Th>Rating</Th>
+                    <Th>Review</Th>
+                    <Th>Date</Th>
+                    <Th align="right">Status</Th>
+                  </THead>
+                  <TBody>
+                    {reviewPage.pageItems.map((r) => (
+                      <Tr key={r.id}>
+                        <Td className="font-medium text-slate-900">
+                          {r.products?.title || 'General review'}
+                        </Td>
+                        <Td className="text-slate-600">{r.users?.full_name || 'Customer'}</Td>
+                        <Td>
+                          <span className="flex items-center gap-0.5" aria-label={`${r.rating} out of 5`}>
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-3.5 w-3.5 ${
+                                  i < r.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                                }`}
+                                aria-hidden="true"
+                              />
+                            ))}
                           </span>
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <select
-                            value={m.status || 'not replied'}
+                        </Td>
+                        <Td className="max-w-md whitespace-normal text-slate-700">{r.comment}</Td>
+                        <Td className="whitespace-nowrap text-slate-600">{shortDate(r.created_at)}</Td>
+                        <Td align="right">
+                          <StatusBadge status={r.status || 'approved'} />
+                        </Td>
+                      </Tr>
+                    ))}
+                    {filteredReviews.length === 0 && (
+                      <EmptyRow colSpan={6}>
+                        {reviews.length === 0 ? 'No reviews yet.' : 'No reviews match this search.'}
+                      </EmptyRow>
+                    )}
+                  </TBody>
+                </TableCard>
+              </div>
+            )}
+
+            {/* ============================ MESSAGES ============================ */}
+            {activeTab === 'messages' && (
+              <div className="space-y-4">
+                <Panel bodyClassName="p-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Field label="Search" className="sm:col-span-2">
+                      <SearchField
+                        icon={Search}
+                        type="text"
+                        placeholder="Name, email or subject"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Sort by">
+                      <SelectField
+                        value={messageSortOrder}
+                        onChange={(e) => setMessageSortOrder(e.target.value as 'newest' | 'oldest')}
+                      >
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                      </SelectField>
+                    </Field>
+                  </div>
+                </Panel>
+
+                <TableCard footer={<Pagination state={messagePage} noun="messages" />}>
+                  <THead>
+                    <Th>From</Th>
+                    <Th>Subject</Th>
+                    <Th>Received</Th>
+                    <Th>Status</Th>
+                    <Th align="right">Actions</Th>
+                  </THead>
+                  <TBody>
+                    {messagePage.pageItems.map((m) => (
+                      <Tr
+                        key={m.id}
+                        onClick={() => {
+                          setSelectedMessage(m);
+                          setIsMessageModalOpen(true);
+                        }}
+                      >
+                        <Td>
+                          <p className="font-medium text-slate-900">{m.name}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{m.email}</p>
+                        </Td>
+                        <Td className="font-medium text-slate-900">{m.subject}</Td>
+                        <Td className="whitespace-nowrap text-slate-600">{shortDate(m.created_at)}</Td>
+                        {/* Editable in place: marking an enquiry replied is the
+                            single most common action here, so it should not
+                            require opening the message first. */}
+                        <Td onClick={(e) => e.stopPropagation()}>
+                          <SelectField
+                            value={m.status === 'replied' ? 'replied' : 'not replied'}
+                            disabled={updatingMessageId === m.id}
+                            aria-label={`Reply status for ${m.name}`}
                             onChange={(e) => handleUpdateMessageStatus(m.id, e.target.value)}
-                            className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider focus:outline-none border-0 text-white cursor-pointer transition-colors ${
-                              m.status === 'replied' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'
-                            }`}
+                            className="h-8 w-36 text-xs"
                           >
-                            <option value="not replied" className="bg-white text-slate-800">Not Replied</option>
-                            <option value="replied" className="bg-white text-slate-800">Replied</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-3.5 text-right">
-                          <button
+                            {MESSAGE_STATUSES.map((s) => (
+                              <option key={s} value={s}>
+                                {s === 'replied' ? 'Replied' : 'Not replied'}
+                              </option>
+                            ))}
+                          </SelectField>
+                        </Td>
+                        <Td align="right" onClick={(e) => e.stopPropagation()}>
+                          <Action
+                            size="sm"
+                            variant="secondary"
                             onClick={() => {
                               setSelectedMessage(m);
                               setIsMessageModalOpen(true);
                             }}
-                            className="border border-slate-200 bg-white text-slate-655 hover:text-slate-955 font-bold text-[10px] uppercase tracking-wider py-1 px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
                           >
-                            View
-                          </button>
-                        </td>
-                      </tr>
+                            Read
+                          </Action>
+                        </Td>
+                      </Tr>
                     ))}
-                    {sortedMessages.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="text-center py-10 text-xs text-slate-400 font-mono">
-                          No messages located.
-                        </td>
-                      </tr>
+                    {filteredMessages.length === 0 && (
+                      <EmptyRow colSpan={5}>
+                        {messages.length === 0 ? 'No messages yet.' : 'No messages match this search.'}
+                      </EmptyRow>
                     )}
-                  </tbody>
-                </table>
+                  </TBody>
+                </TableCard>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* SUBSCRIBERS TAB */}
-        {activeTab === 'subscribers' && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Search Box */}
-            <div className="relative bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-              <Search className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search newsletter contacts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white focus:ring-0 focus:outline-none rounded-lg text-xs placeholder:text-slate-400 text-slate-800 transition-all"
-              />
-            </div>
+            {/* ============================ SUBSCRIBERS ============================ */}
+            {activeTab === 'subscribers' && (
+              <div className="space-y-4">
+                <Panel bodyClassName="p-4">
+                  <Field label="Search">
+                    <SearchField
+                      icon={Search}
+                      type="text"
+                      placeholder="Email address"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </Field>
+                </Panel>
 
-            {/* Subscribers list */}
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/75 text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-slate-100">
-                      <th className="px-6 py-3 font-semibold">Email</th>
-                      <th className="px-6 py-3 font-semibold">Registration Date</th>
-                      <th className="px-6 py-3 text-right font-semibold">Tag</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredSubscribers.map((s) => (
-                      <tr key={s.id} className="text-xs hover:bg-slate-50/30 transition-colors">
-                        <td className="px-6 py-3.5 font-bold text-slate-800 font-mono">{s.email}</td>
-                        <td className="px-6 py-3.5 font-mono text-slate-400 font-medium">
-                          {new Date(s.created_at).toLocaleString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </td>
-                        <td className="px-6 py-3.5 text-right font-mono text-slate-400 uppercase text-[9px] tracking-wider font-bold">
-                          active_list
-                        </td>
-                      </tr>
+                <TableCard
+                  footer={<Pagination state={subscriberPage} noun="subscribers" />}
+                >
+                  <THead>
+                    <Th className="w-16" align="right">#</Th>
+                    <Th>Email address</Th>
+                    <Th align="right">Subscribed</Th>
+                  </THead>
+                  <TBody>
+                    {subscriberPage.pageItems.map((s, idx) => (
+                      <Tr key={s.id}>
+                        {/* Continues across pages rather than restarting at 1. */}
+                        <Td align="right" className="tabular-nums text-slate-400">
+                          {subscriberPage.firstRow + idx}
+                        </Td>
+                        <Td className="font-medium text-slate-900">{s.email}</Td>
+                        <Td align="right" className="whitespace-nowrap text-slate-600">
+                          {shortDate(s.created_at)}
+                        </Td>
+                      </Tr>
                     ))}
                     {filteredSubscribers.length === 0 && (
-                      <tr>
-                        <td colSpan={3} className="text-center py-10 text-xs text-slate-400 font-mono">
-                          No mailing list subscribers located.
-                        </td>
-                      </tr>
+                      <EmptyRow colSpan={3}>
+                        {subscribers.length === 0
+                          ? 'No newsletter subscribers yet.'
+                          : 'No subscribers match this search.'}
+                      </EmptyRow>
                     )}
-                  </tbody>
-                </table>
+                  </TBody>
+                </TableCard>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* SETTINGS / DIAGNOSTICS TAB */}
-        {activeTab === 'settings' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-            {/* Database & Cloud Pipelines */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                <Database className="w-4 h-4 text-slate-700" />
-                <span>Diagnostics Pipelines</span>
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                Testing logs for connected headless content providers and database servers.
-              </p>
+            {/* ============================ SETTINGS ============================ */}
+            {activeTab === 'settings' && (
+              <div className="max-w-2xl space-y-4">
+                <Panel
+                  title="Connected services"
+                  description="Content and data sources powering the storefront"
+                  bodyClassName="p-0"
+                >
+                  <dl className="divide-y divide-slate-100">
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="min-w-0">
+                        <dt className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                          <Database className="h-4 w-4 text-slate-400" />
+                          Supabase
+                        </dt>
+                        <dd className="mt-1 truncate text-xs text-slate-500">
+                          {process.env.NEXT_PUBLIC_SUPABASE_URL || 'Not configured'}
+                        </dd>
+                      </div>
+                      <Badge tone="success">Connected</Badge>
+                    </div>
 
-              <div className="space-y-3">
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-between text-xs">
-                  <div>
-                    <h4 className="font-bold text-slate-700 uppercase font-mono text-[10px]">Supabase Cloud DB</h4>
-                    <p className="text-[9px] text-slate-400 font-mono truncate max-w-[180px] mt-0.5">
-                      {process.env.NEXT_PUBLIC_SUPABASE_URL || 'production'}
-                    </p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-mono font-bold uppercase border border-emerald-100">
-                    Online
-                  </span>
-                </div>
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="min-w-0">
+                        <dt className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                          <Layers className="h-4 w-4 text-slate-400" />
+                          Sanity CMS
+                        </dt>
+                        <dd className="mt-1 truncate text-xs text-slate-500">
+                          Project {process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'heqswlxk'} ·{' '}
+                          {sanityProducts.length} products, {sanityCategories.length} categories
+                        </dd>
+                      </div>
+                      <Badge tone={sanityProducts.length > 0 ? 'success' : 'warning'}>
+                        {sanityProducts.length > 0 ? 'Synced' : 'Empty'}
+                      </Badge>
+                    </div>
+                  </dl>
+                </Panel>
 
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-between text-xs">
-                  <div>
-                    <h4 className="font-bold text-slate-700 uppercase font-mono text-[10px]">Sanity Headless CMS</h4>
-                    <p className="text-[9px] text-slate-400 font-mono truncate max-w-[180px] mt-0.5">
-                      Project ID: {process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'heqswlxk'}
-                    </p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-mono font-bold uppercase border border-emerald-100">
-                    Synced
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Operational Instructions */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-slate-700" />
-                <span>Privilege Security Protocols</span>
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                Admin elevations must be performed directly within Supabase console schemas.
-              </p>
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg space-y-1.5">
-                <h4 className="text-[10px] font-mono font-bold text-slate-655 uppercase">SQL Role Update:</h4>
-                <pre className="bg-slate-950 p-2.5 rounded font-mono text-[9px] text-slate-350 overflow-x-auto border border-slate-900">
-{`UPDATE public.users 
-SET role = 'admin' 
-WHERE email = 'target_email@gorermart.com';`}
-                </pre>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Order Moderation Modal Dialog */}
-      <Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
-        <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-xl rounded-xl shadow-2xl p-6">
-          {selectedOrder && (
-            <div className="space-y-6">
-              <DialogHeader>
-                <DialogTitle className="text-sm font-bold uppercase text-slate-955 font-mono flex items-center justify-between border-b border-slate-100 pb-3">
-                  <span>Modify Order: #{selectedOrder.order_number}</span>
-                  <span className="text-[9px] font-mono font-normal text-slate-400 uppercase tracking-widest">
-                    Reference ID: {selectedOrder.id.slice(0, 8)}...
-                  </span>
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs py-1">
-                {/* Left Side: Order Items */}
-                <div className="space-y-3.5">
-                  <h4 className="font-bold text-[9px] uppercase font-mono tracking-widest text-slate-400 flex items-center gap-1">
-                    <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>Purchase Summary</span>
-                  </h4>
-                  <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 no-scrollbar">
-                    {selectedOrder.order_items.map((item) => (
-                      <div key={item.id} className="bg-slate-50 p-2 border border-slate-100 rounded-lg flex justify-between items-center text-[11px] font-medium text-slate-700">
-                        <div className="min-w-0 pr-2">
-                          <p className="font-bold text-slate-855 truncate">{item.products?.title || 'Unknown Product'}</p>
-                          <p className="text-[9px] text-slate-400 font-mono mt-0.5">₹{item.price} x {item.quantity}</p>
-                        </div>
-                        <span className="font-mono font-bold text-slate-900 flex-shrink-0">
-                          ₹{item.price * item.quantity}
-                        </span>
+                <Panel title="Data summary" bodyClassName="p-0">
+                  <dl className="divide-y divide-slate-100">
+                    {[
+                      { label: 'Orders', value: orders.length },
+                      { label: 'Products tracked', value: products.length },
+                      { label: 'Customers', value: customers.length },
+                      { label: 'Reviews', value: reviews.length },
+                      { label: 'Messages', value: messages.length },
+                      { label: 'Newsletter subscribers', value: subscribers.length },
+                    ].map((row) => (
+                      <div key={row.label} className="flex items-center justify-between px-5 py-3">
+                        <dt className="text-sm text-slate-600">{row.label}</dt>
+                        <dd className="text-sm font-medium tabular-nums text-slate-900">{row.value}</dd>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="pt-2.5 border-t border-slate-100 text-slate-500 space-y-1 font-mono text-[9px]">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span className="text-slate-800 font-semibold">₹{selectedOrder.subtotal.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Shipping charges:</span>
-                      <span className="text-emerald-700 font-bold">Free</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-bold pt-2 border-t border-slate-100">
-                      <span className="text-slate-855 font-semibold">Grand Total:</span>
-                      <span className="text-slate-955 font-black">₹{selectedOrder.total.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side: Shipping & Fulfillment */}
-                <div className="space-y-3.5">
-                  <h4 className="font-bold text-[9px] uppercase font-mono tracking-widest text-slate-400 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>Shipping Address</span>
-                  </h4>
-                  {selectedOrder.shipping_address ? (
-                    <div className="bg-slate-50 p-2.5 border border-slate-100 rounded-lg space-y-0.5 text-slate-600 text-[11px] font-medium leading-relaxed">
-                      <p className="font-bold text-slate-955">{selectedOrder.shipping_address.full_name}</p>
-                      <p className="text-[9px] font-mono text-slate-400">Tel: {selectedOrder.shipping_address.phone}</p>
-                      <p className="mt-1">
-                        {selectedOrder.shipping_address.address_line_1}
-                        {selectedOrder.shipping_address.address_line_2 && `, ${selectedOrder.shipping_address.address_line_2}`}
-                        <br />
-                        {selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state} —{' '}
-                        <span className="font-mono font-bold text-slate-850">{selectedOrder.shipping_address.postal_code}</span>
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-slate-400 font-mono">No shipping info parsed.</p>
-                  )}
-
-                  {/* Shipment Tracking Inputs */}
-                  <div className="space-y-2 pt-1">
-                    <h4 className="font-bold text-[9px] uppercase font-mono tracking-widest text-slate-400 flex items-center gap-1">
-                      <Truck className="w-3.5 h-3.5" />
-                      <span>Tracking details</span>
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[9px] text-slate-400 uppercase font-mono block mb-1">Tracking ID</label>
-                        <input
-                          value={modTrackingNumber}
-                          onChange={(e) => setModTrackingNumber(e.target.value)}
-                          placeholder="e.g. SF902143"
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white text-xs rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] text-slate-400 uppercase font-mono block mb-1">Delivery Target</label>
-                        <input
-                          type="date"
-                          value={modEstimatedDelivery}
-                          onChange={(e) => setModEstimatedDelivery(e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white text-xs rounded-lg text-slate-800 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  </dl>
+                </Panel>
               </div>
+            )}
+          </main>
+        </div>
+      </div>
 
-              {/* Status Selectors */}
-              <div className="grid grid-cols-2 gap-4 text-xs pt-2 border-t border-slate-100">
-                <div>
-                  <label className="text-[9px] text-slate-400 uppercase font-mono block mb-1">Fulfillment state</label>
-                  <select
-                    value={modOrderStatus}
-                    onChange={(e) => setModOrderStatus(e.target.value)}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:ring-0 focus:outline-none rounded-lg text-xs text-slate-700 font-medium"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[9px] text-slate-400 uppercase font-mono block mb-1">Payment state</label>
-                  <select
-                    value={modPaymentStatus}
-                    onChange={(e) => setModPaymentStatus(e.target.value)}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 focus:border-slate-900 focus:ring-0 focus:outline-none rounded-lg text-xs text-slate-700 font-medium"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                </div>
+      {/* ---------------- Mobile navigation drawer ---------------- */}
+      <AnimatePresence>
+        {isMobileNavOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setIsMobileNavOpen(false)}
+              className="fixed inset-0 z-[40] bg-slate-900/40 lg:hidden"
+              aria-hidden="true"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 280 }}
+              className="fixed inset-y-0 left-0 z-[45] flex w-72 flex-col border-r border-slate-200 bg-white lg:hidden"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                {brandBlock}
+                <IconAction label="Close menu" variant="ghost" onClick={() => setIsMobileNavOpen(false)}>
+                  <X className="h-4 w-4" />
+                </IconAction>
               </div>
+              <div className="flex-1 overflow-y-auto px-3 py-4">{navList}</div>
+              <div className="border-t border-slate-100 px-4 py-3">{userBlock}</div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
-              <DialogFooter className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsOrderModalOpen(false)}
-                  className="border-slate-200 bg-transparent text-slate-500 hover:text-slate-800 text-xs font-bold py-2 h-auto rounded-lg cursor-pointer shadow-sm transition-colors"
-                  disabled={isSavingOrder}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleUpdateOrder}
-                  className="bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs uppercase tracking-wider py-2 px-5 h-auto rounded-lg cursor-pointer flex items-center gap-2 border-0 shadow-sm transition-colors"
-                  disabled={isSavingOrder}
-                >
+      {/* ---------------- Order detail drawer ---------------- */}
+      <Drawer
+        open={isOrderDrawerOpen && !!selectedOrder}
+        onClose={() => setIsOrderDrawerOpen(false)}
+        title={selectedOrder ? `Order #${selectedOrder.order_number}` : ''}
+        badge={selectedOrder ? <StatusBadge status={selectedOrder.payment_status} /> : undefined}
+        subtitle={selectedOrder ? `Placed ${dateTime(selectedOrder.created_at)}` : undefined}
+        width="max-w-2xl"
+        footer={
+          selectedOrder ? (
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0 truncate text-xs text-slate-500">
+                ID <Mono>{selectedOrder.id}</Mono>
+              </span>
+              <Action
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  setOrderToDelete(selectedOrder);
+                  setIsDeleteOrderDialogOpen(true);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </Action>
+            </div>
+          ) : undefined
+        }
+      >
+        {selectedOrder && (
+          <>
+            <DrawerSection title="Status and dispatch" icon={Truck}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Process status">
+                  <SelectField value={modOrderStatus} onChange={(e) => setModOrderStatus(e.target.value)}>
+                    {ORDER_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                      </option>
+                    ))}
+                  </SelectField>
+                </Field>
+                <Field label="Payment status">
+                  <SelectField value={modPaymentStatus} onChange={(e) => setModPaymentStatus(e.target.value)}>
+                    {PAYMENT_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                      </option>
+                    ))}
+                  </SelectField>
+                </Field>
+                <Field label="Tracking number">
+                  <input
+                    type="text"
+                    placeholder="e.g. DELHIVERY-12345"
+                    value={modTrackingNumber}
+                    onChange={(e) => setModTrackingNumber(e.target.value)}
+                    className="h-10 w-full rounded-md border border-slate-300 px-3 font-mono text-sm text-slate-900 placeholder:font-sans placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                </Field>
+                <Field label="Estimated delivery">
+                  <input
+                    type="date"
+                    value={modEstimatedDelivery}
+                    onChange={(e) => setModEstimatedDelivery(e.target.value)}
+                    className="h-10 w-full cursor-pointer rounded-md border border-slate-300 px-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                </Field>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Action variant="primary" size="sm" onClick={handleUpdateOrder} disabled={isSavingOrder}>
                   {isSavingOrder ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
-                    </>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <span>Save</span>
+                    <Check className="h-3.5 w-3.5" />
                   )}
-                </Button>
-              </DialogFooter>
+                  Save changes
+                </Action>
+              </div>
+            </DrawerSection>
+
+            {/* Contact details are read from the order first: they are what the
+                customer actually typed at checkout, and stay correct even if
+                they later edit their profile. */}
+            <DrawerSection title="Customer" icon={UserIcon}>
+              {(() => {
+                const name =
+                  selectedOrder.shipping_address?.full_name ||
+                  selectedOrder.users?.full_name ||
+                  'Guest';
+                const email = selectedOrder.customer_email || selectedOrder.users?.email || '';
+                const phone =
+                  selectedOrder.customer_phone ||
+                  selectedOrder.shipping_address?.phone ||
+                  selectedOrder.users?.phone ||
+                  '';
+
+                return (
+                  <dl className="divide-y divide-slate-100">
+                    <DetailRow label="Name">{name}</DetailRow>
+                    <DetailRow label="Email">
+                      {email ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <a href={`mailto:${email}`} className="break-all hover:underline">
+                            {email}
+                          </a>
+                          <IconAction
+                            label="Copy email"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => handleCopyToClipboard(email, 'Email')}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </IconAction>
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">Not provided</span>
+                      )}
+                    </DetailRow>
+                    <DetailRow label="Phone">
+                      {phone ? (
+                        <span className="inline-flex items-center gap-1.5 tabular-nums">
+                          <a href={`tel:${phone}`} className="hover:underline">
+                            {phone}
+                          </a>
+                          <IconAction
+                            label="Copy phone"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => handleCopyToClipboard(phone, 'Phone')}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </IconAction>
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">Not provided</span>
+                      )}
+                    </DetailRow>
+                  </dl>
+                );
+              })()}
+            </DrawerSection>
+
+            <DrawerSection
+              title="Delivery address"
+              icon={MapPin}
+              action={
+                selectedOrder.shipping_address ? (
+                  <IconAction
+                    label="Copy full address"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={() => {
+                      const a = selectedOrder.shipping_address!;
+                      handleCopyToClipboard(
+                        [
+                          a.full_name,
+                          a.address_line_1,
+                          a.address_line_2,
+                          `${a.city}, ${a.state} ${a.postal_code}`,
+                          a.country,
+                          a.phone,
+                        ]
+                          .filter(Boolean)
+                          .join('\n'),
+                        'Address'
+                      );
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </IconAction>
+                ) : undefined
+              }
+            >
+              {selectedOrder.shipping_address ? (
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3.5 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-slate-500">Recipient</dt>
+                    <dd className="mt-1 text-sm font-medium text-slate-900">
+                      {selectedOrder.shipping_address.full_name}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-slate-500">Street address</dt>
+                    <dd className="mt-1 text-sm leading-relaxed text-slate-900">
+                      {selectedOrder.shipping_address.address_line_1}
+                      {selectedOrder.shipping_address.address_line_2 && (
+                        <>
+                          <br />
+                          {selectedOrder.shipping_address.address_line_2}
+                        </>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">City</dt>
+                    <dd className="mt-1 text-sm text-slate-900">
+                      {selectedOrder.shipping_address.city}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">State</dt>
+                    <dd className="mt-1 text-sm text-slate-900">
+                      {selectedOrder.shipping_address.state}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">PIN code</dt>
+                    <dd className="mt-1 text-sm tabular-nums text-slate-900">
+                      {selectedOrder.shipping_address.postal_code}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">Country</dt>
+                    <dd className="mt-1 text-sm text-slate-900">
+                      {selectedOrder.shipping_address.country}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-slate-500">Delivery phone</dt>
+                    <dd className="mt-1 text-sm tabular-nums text-slate-900">
+                      {selectedOrder.shipping_address.phone || selectedOrder.customer_phone || '—'}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-sm text-slate-500">No shipping address on this order.</p>
+              )}
+            </DrawerSection>
+
+            {/* One card per item, each field on its own labelled line. A packing
+                slip has to be readable at a glance, so nothing is abbreviated
+                into badges or run together on one row. */}
+            <DrawerSection
+              title={`Items (${selectedOrder.order_items.length})`}
+              icon={ShoppingBag}
+            >
+              <ul className="space-y-3">
+                {selectedOrder.order_items.map((item, idx) => (
+                  <li key={item.id} className="rounded-md border border-slate-200 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-xs text-slate-500">Item {idx + 1}</p>
+                        <p className="mt-1 text-sm font-medium leading-snug text-slate-900">
+                          {item.product_name || item.products?.title || 'Product'}
+                        </p>
+                      </div>
+                      <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-slate-900">
+                        {money(item.price * item.quantity)}
+                      </span>
+                    </div>
+
+                    <dl className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-3.5 sm:grid-cols-4">
+                      <div>
+                        <dt className="text-xs text-slate-500">Size</dt>
+                        <dd className="mt-1 text-sm font-medium uppercase text-slate-900">
+                          {item.size || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Colour</dt>
+                        <dd className="mt-1 text-sm font-medium text-slate-900">
+                          {item.color || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Quantity</dt>
+                        <dd className="mt-1 text-sm font-medium tabular-nums text-slate-900">
+                          {item.quantity}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-500">Unit price</dt>
+                        <dd className="mt-1 text-sm font-medium tabular-nums text-slate-900">
+                          {money(item.price)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+                {selectedOrder.order_items.length === 0 && (
+                  <li className="text-sm text-slate-500">No items recorded on this order.</li>
+                )}
+              </ul>
+            </DrawerSection>
+
+            <DrawerSection title="Payment summary" icon={IndianRupee}>
+              <dl className="space-y-1">
+                <DetailRow label="Subtotal">{money(selectedOrder.subtotal ?? selectedOrder.total)}</DetailRow>
+                <DetailRow label="Shipping">{money(selectedOrder.shipping_cost)}</DetailRow>
+                <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2.5">
+                  <dt className="text-sm font-medium text-slate-900">Total</dt>
+                  <dd className="text-base font-semibold tabular-nums text-slate-900">
+                    {money(selectedOrder.total)}
+                  </dd>
+                </div>
+              </dl>
+            </DrawerSection>
+          </>
+        )}
+      </Drawer>
+
+      {/* ---------------- Message detail drawer ---------------- */}
+      <Drawer
+        open={isMessageModalOpen && !!selectedMessage}
+        onClose={() => setIsMessageModalOpen(false)}
+        title={selectedMessage?.subject || 'Message'}
+        badge={
+          selectedMessage ? (
+            <Badge tone={selectedMessage.status === 'replied' ? 'success' : 'warning'}>
+              {selectedMessage.status === 'replied' ? 'Replied' : 'Not replied'}
+            </Badge>
+          ) : undefined
+        }
+        subtitle={selectedMessage ? `Received ${dateTime(selectedMessage.created_at)}` : undefined}
+        width="max-w-lg"
+      >
+        {selectedMessage && (
+          <>
+            <DrawerSection title="Sender" icon={UserIcon}>
+              <dl className="divide-y divide-slate-100">
+                <DetailRow label="Name">{selectedMessage.name}</DetailRow>
+                <DetailRow label="Email">
+                  <span className="inline-flex items-center gap-1.5">
+                    <a href={`mailto:${selectedMessage.email}`} className="hover:underline">
+                      {selectedMessage.email}
+                    </a>
+                    <IconAction
+                      label="Copy email"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={() => handleCopyToClipboard(selectedMessage.email, 'Email address')}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </IconAction>
+                  </span>
+                </DetailRow>
+                <DetailRow label="Phone">
+                  {selectedMessage.phone ? (
+                    <span className="inline-flex items-center gap-1.5 tabular-nums">
+                      {selectedMessage.phone}
+                      <IconAction
+                        label="Copy phone"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => handleCopyToClipboard(selectedMessage.phone, 'Phone number')}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </IconAction>
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">Not provided</span>
+                  )}
+                </DetailRow>
+              </dl>
+            </DrawerSection>
+
+            <DrawerSection title="Message" icon={Inbox}>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                {selectedMessage.message}
+              </p>
+            </DrawerSection>
+
+            <DrawerSection title="Reply status" icon={Check}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <Field label="Status" className="flex-1">
+                  <SelectField
+                    value={selectedMessage.status === 'replied' ? 'replied' : 'not replied'}
+                    disabled={updatingMessageId === selectedMessage.id}
+                    onChange={(e) => handleUpdateMessageStatus(selectedMessage.id, e.target.value)}
+                  >
+                    {MESSAGE_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s === 'replied' ? 'Replied' : 'Not replied'}
+                      </option>
+                    ))}
+                  </SelectField>
+                </Field>
+                <Action
+                  variant="secondary"
+                  onClick={() => {
+                    window.location.href = `mailto:${selectedMessage.email}?subject=${encodeURIComponent(
+                      `Re: ${selectedMessage.subject}`
+                    )}`;
+                  }}
+                >
+                  <Mail className="h-4 w-4" />
+                  Reply by email
+                </Action>
+              </div>
+            </DrawerSection>
+          </>
+        )}
+      </Drawer>
+
+      {/* ---------------- Customer detail drawer ---------------- */}
+      <Drawer
+        open={isCustomerDrawerOpen && !!selectedCustomer}
+        onClose={() => setIsCustomerDrawerOpen(false)}
+        title={selectedCustomer?.fullName || 'Customer'}
+        badge={
+          selectedCustomer?.role === 'admin' ? <Badge tone="danger">Admin</Badge> : undefined
+        }
+        subtitle={selectedCustomer ? `Joined ${shortDate(selectedCustomer.createdAt)}` : undefined}
+        width="max-w-lg"
+      >
+        {selectedCustomer && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-slate-200 px-4 py-3">
+                <p className="text-xs text-slate-500">Orders placed</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">
+                  {selectedCustomer.ordersCount}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 px-4 py-3">
+                <p className="text-xs text-slate-500">Total spent</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">
+                  {money(selectedCustomer.totalSpent)}
+                </p>
+              </div>
+            </div>
+
+            <DrawerSection title="Contact" icon={UserIcon}>
+              <dl className="divide-y divide-slate-100">
+                <DetailRow label="Email">
+                  <span className="inline-flex items-center gap-1.5">
+                    <a href={`mailto:${selectedCustomer.email}`} className="break-all hover:underline">
+                      {selectedCustomer.email}
+                    </a>
+                    <IconAction
+                      label="Copy email"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={() => handleCopyToClipboard(selectedCustomer.email, 'Email address')}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </IconAction>
+                  </span>
+                </DetailRow>
+                <DetailRow label="Phone">
+                  {selectedCustomer.phone && selectedCustomer.phone !== '—' ? (
+                    <span className="inline-flex items-center gap-1.5 tabular-nums">
+                      {selectedCustomer.phone}
+                      <IconAction
+                        label="Copy phone"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => handleCopyToClipboard(selectedCustomer.phone, 'Phone number')}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </IconAction>
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">Not provided</span>
+                  )}
+                </DetailRow>
+                <DetailRow label="Role">
+                  <span className="capitalize">{selectedCustomer.role}</span>
+                </DetailRow>
+              </dl>
+            </DrawerSection>
+
+            <DrawerSection title="Saved addresses" icon={MapPin}>
+              {selectedCustomer.addresses && selectedCustomer.addresses.length > 0 ? (
+                <ul className="space-y-3">
+                  {selectedCustomer.addresses.map((address) => (
+                    <li key={address.id} className="rounded-md border border-slate-200 px-3.5 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-slate-900">{address.full_name}</p>
+                        {address.is_default && <Badge tone="neutral">Default</Badge>}
+                      </div>
+                      <p className="mt-1 text-xs tabular-nums text-slate-500">{address.phone}</p>
+                      <address className="mt-1.5 text-sm not-italic leading-relaxed text-slate-700">
+                        {address.address_line_1}
+                        {address.address_line_2 && `, ${address.address_line_2}`}
+                        <span className="block">
+                          {address.city}, {address.state} —{' '}
+                          <span className="tabular-nums">{address.postal_code}</span>
+                        </span>
+                      </address>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500">No saved addresses.</p>
+              )}
+            </DrawerSection>
+          </>
+        )}
+      </Drawer>
+
+      {/* ---------------- Product create / edit dialog ---------------- */}
+      <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
+        <DialogContent className="max-h-[90vh] max-w-2xl gap-4 overflow-y-auto rounded-lg border-slate-200 p-6">
+          <DialogHeader className="border-slate-100 pb-3">
+            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
+              <PackagePlus className="h-4 w-4 text-slate-400" />
+              {editingProduct ? `Edit ${editingProduct.title}` : 'Add product'}
+            </DialogTitle>
+            <DialogDescription className={DIALOG_DESC}>
+              {editingProduct
+                ? 'Update the price, visibility and stock for each size.'
+                : 'Pick a product from your Sanity catalogue or enter one manually, then set stock for each size.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!editingProduct && (
+            <div className="flex gap-2">
+              <Action
+                type="button"
+                size="sm"
+                variant={!isCustomEntry ? 'primary' : 'secondary'}
+                onClick={() => setIsCustomEntry(false)}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                From Sanity catalogue
+              </Action>
+              <Action
+                type="button"
+                size="sm"
+                variant={isCustomEntry ? 'primary' : 'secondary'}
+                onClick={() => setIsCustomEntry(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Enter manually
+              </Action>
             </div>
           )}
+
+          <form onSubmit={handleSaveProduct} className="space-y-4">
+            {!isCustomEntry && !editingProduct ? (
+              <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Category">
+                    <SelectField
+                      value={selectedSanityCategory}
+                      onChange={(e) => {
+                        setSelectedSanityCategory(e.target.value);
+                        const categoryProducts = e.target.value
+                          ? sanityProducts.filter(
+                              (p) => p.category?.toLowerCase() === e.target.value.toLowerCase()
+                            )
+                          : sanityProducts;
+                        if (categoryProducts.length > 0) {
+                          const first = categoryProducts[0];
+                          const slug = first.slug || first.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                          handleSelectSanityProduct(slug);
+                        }
+                      }}
+                    >
+                      <option value="">All categories</option>
+                      {sanityCategories.map((c: any) => (
+                        <option key={c._id || c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </Field>
+
+                  <Field label="Product">
+                    <SelectField
+                      value={selectedSanityProductSlug}
+                      onChange={(e) => handleSelectSanityProduct(e.target.value)}
+                    >
+                      {modalSanityProducts.map((sp: any) => {
+                        const slug = sp.slug || sp.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                        return (
+                          <option key={sp._id || slug} value={slug}>
+                            {sp.name} — ₹{sp.price}
+                          </option>
+                        );
+                      })}
+                    </SelectField>
+                  </Field>
+                </div>
+
+                <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+                  <p className="text-sm font-medium text-slate-900">
+                    {productForm.title || 'No product selected'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {categories.find((c) => c.id === productForm.category_id)?.name ||
+                      'Uncategorised'}{' '}
+                    · ₹{productForm.price || '0'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Product title">
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Kolkata Oversized Tee"
+                      value={productForm.title}
+                      onChange={(e) => {
+                        const titleVal = e.target.value;
+                        setProductForm((prev) => ({
+                          ...prev,
+                          title: titleVal,
+                          slug: !editingProduct
+                            ? titleVal
+                                .toLowerCase()
+                                .replace(/[^a-z0-9]+/g, '-')
+                                .replace(/(^-|-$)/g, '')
+                            : prev.slug,
+                        }));
+                      }}
+                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                  </Field>
+
+                  {/* Values are Supabase category ids, matching the foreign key
+                      on `products.category_id`. The list is kept in step with
+                      Sanity by the products endpoint. */}
+                  <Field
+                    label="Category"
+                    hint={categories.length === 0 ? 'Run Sync to load categories from Sanity.' : undefined}
+                  >
+                    <SelectField
+                      value={productForm.category_id}
+                      onChange={(e) => setProductForm((prev) => ({ ...prev, category_id: e.target.value }))}
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Selling price (₹)">
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      placeholder="899"
+                      value={productForm.price}
+                      onChange={(e) => setProductForm((prev) => ({ ...prev, price: e.target.value }))}
+                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm tabular-nums text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                  </Field>
+
+                  <Field label="Visibility">
+                    <SelectField
+                      value={productForm.status}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          status: e.target.value as 'active' | 'draft',
+                        }))
+                      }
+                    >
+                      <option value="active">Active — visible in store</option>
+                      <option value="draft">Draft — hidden</option>
+                    </SelectField>
+                  </Field>
+                </div>
+              </>
+            )}
+
+            {/* Size-wise stock */}
+            <div className="rounded-lg border border-slate-200 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-slate-900">Stock by size</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {productForm.sizes.reduce((sum, s) => sum + (parseInt(String(s.stock), 10) || 0), 0)}{' '}
+                    units in total
+                  </p>
+                </div>
+
+                <div className="flex items-end gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. 3XL"
+                    value={customSizeInput}
+                    onChange={(e) => setCustomSizeInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomSize();
+                      }
+                    }}
+                    aria-label="New size name"
+                    className="h-9 w-28 rounded-md border border-slate-300 px-2.5 text-sm uppercase text-slate-900 placeholder:normal-case placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <Action type="button" size="sm" variant="secondary" onClick={handleAddCustomSize}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Add size
+                  </Action>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-5">
+                {productForm.sizes.map((s, idx) => (
+                  <div key={idx} className="group rounded-md border border-slate-200 px-2.5 py-2">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-sm font-medium uppercase text-slate-900">{s.size}</span>
+                      {productForm.sizes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSize(idx)}
+                          title={`Remove size ${s.size}`}
+                          aria-label={`Remove size ${s.size}`}
+                          className="cursor-pointer text-slate-300 transition-colors hover:text-rose-600"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={s.stock}
+                      aria-label={`Stock for size ${s.size}`}
+                      onChange={(e) => handleProductFormSizeChange(idx, parseInt(e.target.value, 10) || 0)}
+                      className="h-9 w-full rounded-md border border-slate-300 px-2 text-center text-sm tabular-nums text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <DialogFooter className="border-slate-100 pt-4">
+              <Action type="button" variant="secondary" onClick={() => setIsProductModalOpen(false)}>
+                Cancel
+              </Action>
+              <Action type="submit" variant="primary" disabled={isSavingProduct}>
+                {isSavingProduct ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {editingProduct ? 'Save changes' : 'Add product'}
+              </Action>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
-      {/* Message Details slide-out Drawer from the right */}
-      <AnimatePresence>
-        {isMessageModalOpen && selectedMessage && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.3 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMessageModalOpen(false)}
-              className="fixed inset-0 bg-slate-900 z-50 cursor-pointer"
-            />
-            {/* Drawer container */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed top-0 right-0 h-full w-full max-w-md bg-white border-l border-slate-200/80 shadow-2xl z-50 flex flex-col justify-between"
+      {/* ---------------- Delete order confirmation ---------------- */}
+      <Dialog open={isDeleteOrderDialogOpen} onOpenChange={setIsDeleteOrderDialogOpen}>
+        <DialogContent className="max-w-md gap-4 rounded-lg border-slate-200 p-6">
+          <DialogHeader className="border-slate-100 pb-3">
+            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+              Delete this order?
+            </DialogTitle>
+            <DialogDescription className={DIALOG_DESC}>
+              Order{' '}
+              <Mono className="font-medium text-slate-900">#{orderToDelete?.order_number}</Mono> and all
+              of its line items will be permanently removed. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="border-slate-100 pt-4">
+            <Action variant="secondary" onClick={() => setIsDeleteOrderDialogOpen(false)}>
+              Cancel
+            </Action>
+            <Action
+              variant="primary"
+              onClick={handleDeleteOrder}
+              disabled={isDeletingOrder}
+              className="border-rose-600 bg-rose-600 hover:bg-rose-700"
             >
-              {/* Header */}
-              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold uppercase text-slate-955 font-mono tracking-wide">
-                    Message Viewer
-                  </h3>
-                  <p className="text-[9px] text-slate-400 font-mono uppercase tracking-wider mt-0.5">
-                    {new Date(selectedMessage.created_at).toLocaleString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsMessageModalOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-center rounded-lg hover:bg-slate-50"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              {isDeletingOrder ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Delete order
+            </Action>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-              {/* Body Content */}
-              <div className="flex-grow p-6 overflow-y-auto space-y-5 text-xs font-medium">
-                {/* Sender Card - Email & Phone stacked vertically on separate lines */}
-                <div className="bg-slate-50 p-4 border border-slate-100 rounded-xl space-y-3.5">
-                  <div>
-                    <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal">Sender Name</span>
-                    <strong className="text-slate-900 text-xs font-bold">{selectedMessage.name}</strong>
-                  </div>
-                  
-                  <div className="pt-3.5 border-t border-slate-200/60 space-y-3">
-                    <div>
-                      <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal mb-0.5">Email Address</span>
-                      <div className="flex items-center space-x-1.5">
-                        <a href={`mailto:${selectedMessage.email}`} className="text-slate-900 hover:underline font-bold break-all font-mono">
-                          {selectedMessage.email}
-                        </a>
-                        <button
-                          onClick={() => handleCopyToClipboard(selectedMessage.email, 'Email address')}
-                          className="p-1 text-slate-400 hover:text-slate-750 transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-center rounded hover:bg-slate-200"
-                          title="Copy Email"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal mb-0.5">Phone Number</span>
-                      {selectedMessage.phone ? (
-                        <div className="flex items-center space-x-1.5 font-mono">
-                          <span className="text-slate-700 font-bold">{selectedMessage.phone}</span>
-                          <button
-                            onClick={() => handleCopyToClipboard(selectedMessage.phone, 'Phone number')}
-                            className="p-1 text-slate-400 hover:text-slate-750 transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-center rounded hover:bg-slate-200"
-                            title="Copy Phone"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">Not provided</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Subject Info */}
-                <div>
-                  <span className="text-[9px] font-mono uppercase text-slate-450 block mb-1 font-normal">Subject</span>
-                  <div className="bg-slate-50 px-3.5 py-2.5 border border-slate-100 rounded-lg text-slate-900 font-bold">
-                    {selectedMessage.subject}
-                  </div>
-                </div>
-
-                {/* Message Body Text */}
-                <div>
-                  <span className="text-[9px] font-mono uppercase text-slate-450 block mb-1 font-normal">Message Body</span>
-                  <div className="bg-slate-50 p-4 border border-slate-100 rounded-lg text-slate-700 leading-relaxed min-h-[140px] whitespace-pre-wrap">
-                    {selectedMessage.message}
-                  </div>
-                </div>
-              </div>
-
-              {/* Drawer Footer */}
-              <div className="px-6 py-4 border-t border-slate-100 text-center text-[9px] font-mono text-slate-400 tracking-wider">
-                END OF MESSAGE LOG
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Customer Details slide-out Drawer from the right */}
-      <AnimatePresence>
-        {isCustomerDrawerOpen && selectedCustomer && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.3 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsCustomerDrawerOpen(false)}
-              className="fixed inset-0 bg-slate-900 z-50 cursor-pointer"
-            />
-            {/* Drawer container */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed top-0 right-0 h-full w-full max-w-md bg-white border-l border-slate-200/80 shadow-2xl z-50 flex flex-col justify-between"
+      {/* ---------------- Delete product confirmation ---------------- */}
+      <Dialog open={isDeleteProductDialogOpen} onOpenChange={setIsDeleteProductDialogOpen}>
+        <DialogContent className="max-w-md gap-4 rounded-lg border-slate-200 p-6">
+          <DialogHeader className="border-slate-100 pb-3">
+            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+              Delete this product?
+            </DialogTitle>
+            <DialogDescription className={DIALOG_DESC}>
+              <span className="font-medium text-slate-900">{productToDelete?.title}</span> will be removed
+              from inventory tracking, along with its size-wise stock. This does not delete it from
+              Sanity — it stays visible in the store.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="border-slate-100 pt-4">
+            <Action variant="secondary" onClick={() => setIsDeleteProductDialogOpen(false)}>
+              Cancel
+            </Action>
+            <Action
+              variant="primary"
+              onClick={handleDeleteProduct}
+              disabled={isDeletingProduct}
+              className="border-rose-600 bg-rose-600 hover:bg-rose-700"
             >
-              {/* Header */}
-              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center space-x-3.5">
-                  {selectedCustomer.avatarUrl ? (
-                    <img src={selectedCustomer.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full border border-slate-200" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-250 flex items-center justify-center font-bold text-xs text-slate-655">
-                      {selectedCustomer.fullName[0] || 'U'}
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-955 truncate max-w-[200px]">
-                      {selectedCustomer.fullName}
-                    </h3>
-                    <p className="text-[9px] text-slate-400 font-mono uppercase tracking-wider mt-0.5">
-                      Registered: {new Date(selectedCustomer.createdAt).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsCustomerDrawerOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-center rounded-lg hover:bg-slate-50"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Body Content */}
-              <div className="flex-grow p-6 overflow-y-auto space-y-5 text-xs font-medium">
-                {/* Stats Summary Grid */}
-                <div className="grid grid-cols-2 gap-3.5 bg-slate-50/50 p-4 border border-slate-150 rounded-xl">
-                  <div>
-                    <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal">Orders Placed</span>
-                    <strong className="text-slate-900 text-sm font-bold font-mono">{selectedCustomer.ordersCount}</strong>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal">Total Spent</span>
-                    <strong className="text-slate-900 text-sm font-bold font-mono">₹{selectedCustomer.totalSpent.toLocaleString('en-IN')}</strong>
-                  </div>
-                </div>
-
-                {/* Contact Info Card */}
-                <div className="bg-slate-50 p-4 border border-slate-100 rounded-xl space-y-3.5">
-                  <div>
-                    <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal mb-0.5">Account Role</span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded text-[9px] font-mono uppercase font-bold tracking-wider border ${
-                        selectedCustomer.role === 'admin'
-                          ? 'bg-rose-50 text-rose-700 border-rose-100'
-                          : 'bg-slate-100 text-slate-600 border-slate-200/60'
-                      }`}
-                    >
-                      {selectedCustomer.role}
-                    </span>
-                  </div>
-
-                  <div className="pt-3.5 border-t border-slate-200/60 space-y-3">
-                    <div>
-                      <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal mb-0.5">Email Address</span>
-                      <div className="flex items-center space-x-1.5">
-                        <a href={`mailto:${selectedCustomer.email}`} className="text-slate-900 hover:underline font-bold break-all font-mono">
-                          {selectedCustomer.email}
-                        </a>
-                        <button
-                          onClick={() => handleCopyToClipboard(selectedCustomer.email, 'Email address')}
-                          className="p-1 text-slate-400 hover:text-slate-750 transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-center rounded hover:bg-slate-200"
-                          title="Copy Email"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-mono uppercase text-slate-400 block font-normal mb-0.5">Phone Number</span>
-                      {selectedCustomer.phone && selectedCustomer.phone !== '—' ? (
-                        <div className="flex items-center space-x-1.5 font-mono">
-                          <span className="text-slate-700 font-bold">{selectedCustomer.phone}</span>
-                          <button
-                            onClick={() => handleCopyToClipboard(selectedCustomer.phone, 'Phone number')}
-                            className="p-1 text-slate-400 hover:text-slate-750 transition-colors cursor-pointer bg-transparent border-0 flex items-center justify-center rounded hover:bg-slate-200"
-                            title="Copy Phone"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 font-mono">No phone number registered</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Addresses Card */}
-                <div>
-                  <span className="text-[9px] font-mono uppercase text-slate-455 block mb-1.5 font-normal">Saved Shipping Addresses</span>
-                  <div className="space-y-3">
-                    {selectedCustomer.addresses && selectedCustomer.addresses.length > 0 ? (
-                      selectedCustomer.addresses.map((address) => (
-                        <div key={address.id} className="bg-slate-50/75 p-3.5 border border-slate-150 rounded-xl space-y-1 relative">
-                          {address.is_default && (
-                            <span className="absolute top-3 right-3 bg-slate-900 text-white text-[8px] font-bold font-mono tracking-widest px-1.5 py-0.5 rounded uppercase">
-                              Default
-                            </span>
-                          )}
-                          <p className="font-bold text-slate-900 text-xs">{address.full_name}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">Tel: {address.phone}</p>
-                          <p className="text-slate-600 leading-normal pt-1">
-                            {address.address_line_1}
-                            {address.address_line_2 && `, ${address.address_line_2}`}
-                            {address.landmark && <span className="block text-[10px] text-slate-400 mt-0.5 font-sans">Landmark: {address.landmark}</span>}
-                            <span className="block font-mono text-[10px] font-semibold text-slate-700 mt-0.5">
-                              {address.city}, {address.state} — {address.postal_code}
-                            </span>
-                            <span className="block text-[9px] uppercase tracking-wider font-mono text-slate-400 mt-0.5">{address.country}</span>
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="bg-slate-50/50 p-4 border border-slate-100 rounded-xl text-center text-slate-400 font-mono">
-                        No saved addresses found.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Drawer Footer */}
-              <div className="px-6 py-4 border-t border-slate-100 text-center text-[9px] font-mono text-slate-400 tracking-wider">
-                END OF CUSTOMER RECORD
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              {isDeletingProduct ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Delete product
+            </Action>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
