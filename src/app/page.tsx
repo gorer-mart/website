@@ -27,11 +27,20 @@ export const metadata: Metadata = {
     title: 'Gorer Mart | Authentic Kolkata Streetwear & Premium Apparel',
     description: 'Explore Gorer Mart, the premier Kolkata-inspired streetwear brand. Shop premium t-shirts and hoodies that blend Bengal heritage with modern urban style. Ethically sourced, sustainably made.',
     siteName: 'Gorer Mart',
+    images: [
+      {
+        url: '/og-image.jpg',
+        width: 1024,
+        height: 576,
+        alt: 'Gorer Mart — Shop from gorermart.in',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Gorer Mart | Authentic Kolkata Streetwear & Premium Apparel',
     description: 'Explore Gorer Mart, the premier Kolkata-inspired streetwear brand. Shop premium t-shirts and hoodies that blend Bengal heritage with modern urban style. Ethically sourced, sustainably made.',
+    images: ['/og-image.jpg'],
   },
   other: {
     'apple-mobile-web-app-title': 'Gorer Mart',
