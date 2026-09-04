@@ -223,8 +223,8 @@ const Navbar: React.FC = () => {
                           <FontAwesomeIcon icon={faUser} className="w-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
                           <span>My Account</span>
                         </Link>
-                        <Link 
-                          href="/account" 
+                        <Link
+                          href="/account/orders"
                           className="group flex items-center space-x-3 px-4 py-2 text-sm font-normal text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50/50 transition-colors"
                         >
                           <FontAwesomeIcon icon={faBox} className="w-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
@@ -427,6 +427,13 @@ const Navbar: React.FC = () => {
                               >
                                 <FontAwesomeIcon icon={faUser} className="text-sm w-4 text-neutral-400" />
                                 <span className="text-xs font-normal">My Account</span>
+                              </Link>
+                              <Link
+                                href="/account/orders"
+                                className="flex items-center space-x-3 px-4 py-3 rounded-none text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-all duration-200"
+                              >
+                                <FontAwesomeIcon icon={faBox} className="text-sm w-4 text-neutral-400" />
+                                <span className="text-xs font-normal">My Orders</span>
                               </Link>
                               <Link
                                 href="/wishlist"
