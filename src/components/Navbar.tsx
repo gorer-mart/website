@@ -6,10 +6,11 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass, faRightFromBracket, faBox, faChevronRight, faHouse, faStore, faCircleInfo, faEnvelope } from '@fortawesome/free-solid-svg-icons';
+import { faBagShopping, faUser, faBars, faXmark, faMagnifyingGlass, faRightFromBracket, faBox, faChevronRight, faHouse, faStore, faCircleInfo, faEnvelope, faHeart } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram, faFacebookF, faReddit } from '@fortawesome/free-brands-svg-icons';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useWishlist } from '../context/WishlistContext';
 import { Input } from '../ui/input';
 
 import logoBlack from '../assets/logo/logo-blacknavbar.webp';
@@ -23,6 +24,7 @@ const Navbar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isMobileUserExpanded, setIsMobileUserExpanded] = useState<boolean>(false);
   const { setIsCartOpen, cartCount } = useCart();
+  const { count: wishlistCount } = useWishlist();
   const { user, profile, signOut, isAuthenticated } = useAuth();
   const pathname = usePathname();
 
@@ -144,6 +146,21 @@ const Navbar: React.FC = () => {
             >
               <FontAwesomeIcon icon={faMagnifyingGlass} />
             </button>
+            <Link
+              href="/wishlist"
+              className="relative w-8 h-8 flex items-center justify-center transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
+              aria-label={wishlistCount > 0 ? `Wishlist, ${wishlistCount} saved` : 'Wishlist'}
+            >
+              <FontAwesomeIcon icon={faHeart} className="text-lg" />
+              {wishlistCount > 0 && (
+                <span className={`absolute -top-1 -right-1 text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-500 ${isHomePage && !isScrolled
+                  ? 'bg-black text-white lg:bg-white lg:text-black'
+                  : 'bg-black text-white'
+                  }`}>
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
             <button
               className="relative w-8 h-8 flex items-center justify-center transition-transform duration-200 ease-in-out hover:scale-110 cursor-pointer"
               onClick={() => setIsCartOpen(true)}
@@ -212,6 +229,18 @@ const Navbar: React.FC = () => {
                         >
                           <FontAwesomeIcon icon={faBox} className="w-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
                           <span>My Orders</span>
+                        </Link>
+                        <Link
+                          href="/wishlist"
+                          className="group flex items-center justify-between px-4 py-2 text-sm font-normal text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50/50 transition-colors"
+                        >
+                          <span className="flex items-center space-x-3">
+                            <FontAwesomeIcon icon={faHeart} className="w-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
+                            <span>My Wishlist</span>
+                          </span>
+                          {wishlistCount > 0 && (
+                            <span className="text-[10px] font-bold text-neutral-400">{wishlistCount}</span>
+                          )}
                         </Link>
                         <div className="h-px bg-neutral-100 my-2" />
                         <button 
@@ -398,6 +427,18 @@ const Navbar: React.FC = () => {
                               >
                                 <FontAwesomeIcon icon={faUser} className="text-sm w-4 text-neutral-400" />
                                 <span className="text-xs font-normal">My Account</span>
+                              </Link>
+                              <Link
+                                href="/wishlist"
+                                className="flex items-center justify-between px-4 py-3 rounded-none text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-all duration-200"
+                              >
+                                <span className="flex items-center space-x-3">
+                                  <FontAwesomeIcon icon={faHeart} className="text-sm w-4 text-neutral-400" />
+                                  <span className="text-xs font-normal">My Wishlist</span>
+                                </span>
+                                {wishlistCount > 0 && (
+                                  <span className="text-[10px] font-bold text-neutral-400">{wishlistCount}</span>
+                                )}
                               </Link>
                               <button
                                 onClick={() => { setIsMobileMenuOpen(false); signOut(); }}

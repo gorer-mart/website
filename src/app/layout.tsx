@@ -2,6 +2,7 @@ import '../index.css';
 import { Poppins, League_Spartan } from 'next/font/google';
 import { CartProvider } from '../context/CartContext';
 import { AuthProvider } from '../context/AuthContext';
+import { WishlistProvider } from '../context/WishlistContext';
 import Header from '../components/Header';
 import CartDrawer from '../components/CartDrawer';
 import ScrollToTop from '../components/ScrollToTop';
@@ -84,12 +85,16 @@ export default function RootLayout({
       <body className="flex flex-col min-h-screen relative antialiased bg-white text-black">
         <AuthProvider>
           <CartProvider>
-            <ScrollToTop />
-            <Header />
-            <CartDrawer />
-            <main className="flex-grow">{children}</main>
-            <ConditionalFooter />
-            <Toaster />
+            {/* Inside CartProvider so a wishlist item can be moved to the bag,
+                and inside AuthProvider because the list is per-account. */}
+            <WishlistProvider>
+              <ScrollToTop />
+              <Header />
+              <CartDrawer />
+              <main className="flex-grow">{children}</main>
+              <ConditionalFooter />
+              <Toaster />
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
       </body>
