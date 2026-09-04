@@ -15,6 +15,20 @@ export const metadata: Metadata = {
     title: { absolute: 'Shop All | Gorer Mart Premium Streetwear' },
     description: 'Browse the complete Gorer Mart collection of premium Kolkata-inspired apparel.',
     siteName: 'Gorer Mart',
+    images: [
+      {
+        url: '/og-image.jpg',
+        width: 1024,
+        height: 576,
+        alt: 'Gorer Mart — Shop from gorermart.in',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Shop All | Gorer Mart Premium Streetwear',
+    description: 'Browse the complete Gorer Mart collection of premium Kolkata-inspired apparel.',
+    images: ['/og-image.jpg'],
   },
 };
 

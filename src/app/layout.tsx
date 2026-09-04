@@ -44,10 +44,10 @@ export const metadata = {
     siteName: 'Gorer Mart',
     images: [
       {
-        url: '/og-image.webp',
-        width: 1200,
-        height: 630,
-        alt: 'Gorer Mart Premium Streetwear',
+        url: '/og-image.jpg',
+        width: 1024,
+        height: 576,
+        alt: 'Gorer Mart — Shop from gorermart.in',
       },
     ],
   },
@@ -55,7 +55,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Gorer Mart — Premium Kolkata-Inspired Streetwear',
     description: 'Curating premium apparel that blends cultural heritage with contemporary streetwear.',
-    images: ['/og-image.webp'],
+    images: ['/og-image.jpg'],
     creator: '@gorermart',
   },
   robots: {
@@ -70,8 +70,7 @@ export const metadata = {
     },
   },
   icons: {
-  icon: '/favicon1.svg',
-  //icon: '/favicon2.svg'
+    icon: '/favicon1.svg',
   },
 };
 
