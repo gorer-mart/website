@@ -30,6 +30,22 @@ const Checkout: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [confirmedOrderNumber, setConfirmedOrderNumber] = useState<string>('');
   const [paymentPending, setPaymentPending] = useState<boolean>(false);
+
+  // ---- Promo code ----
+  // `appliedCoupon` holds the server's verdict, never anything computed here:
+  // the discount shown must be the discount the server will actually charge.
+  const [couponInput, setCouponInput] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    summary: string;
+    discount: number;
+    total: number;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string>('');
+  const [isCheckingCoupon, setIsCheckingCoupon] = useState<boolean>(false);
+
+  const discount = appliedCoupon?.discount ?? 0;
+  const payableTotal = Math.max(0, cartTotal - discount);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -107,6 +123,84 @@ const Checkout: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  /** Cart lines in the shape every checkout endpoint expects. */
+  const buildCartPayload = () =>
+    cart.map((item) => ({
+      _id: item._id,
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      size: item.selectedSize,
+      color: item.selectedColor || undefined,
+    }));
+
+  const handleApplyCoupon = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const code = couponInput.trim();
+    if (!code) return;
+
+    setIsCheckingCoupon(true);
+    setCouponError('');
+
+    try {
+      const res = await fetch('/api/checkout/validate-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, cartItems: buildCartPayload() }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setAppliedCoupon(null);
+        setCouponError(data.error || 'We could not check that code. Please try again.');
+        return;
+      }
+
+      if (!data.valid) {
+        setAppliedCoupon(null);
+        setCouponError(data.reason || 'That promo code is not valid.');
+        return;
+      }
+
+      setAppliedCoupon({
+        code: data.coupon.code,
+        summary: data.coupon.summary,
+        discount: data.discount,
+        total: data.total,
+      });
+      setCouponInput(data.coupon.code);
+      toast({
+        title: 'Promo code applied',
+        description: `${data.coupon.code} — you saved ₹${Number(data.discount).toLocaleString('en-IN')}.`,
+      });
+    } catch (err) {
+      console.error('Coupon validation error:', err);
+      setAppliedCoupon(null);
+      setCouponError('We could not check that code. Please try again.');
+    } finally {
+      setIsCheckingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
+  // The bag can change after a code is applied — a removed item may drop the
+  // subtotal below the code's minimum, or change a percentage discount. Rather
+  // than show a stale saving, drop the code and ask for it again.
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    setAppliedCoupon(null);
+    setCouponError('Your bag changed — please apply your promo code again.');
+    // Intentionally keyed on the bag contents only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartTotal, cart.length]);
+
   const handleNextStep1 = (e: React.FormEvent) => {
     e.preventDefault();
     setStep(2);
@@ -146,17 +240,11 @@ const Checkout: React.FC = () => {
       // `_id` (the Sanity document id) is what the server resolves against and
       // what order_items keys on, and `size` is required to fulfil the order —
       // both were previously dropped here.
-      const cartItems = cart.map(item => ({
-        _id: item._id,
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        size: item.selectedSize,
-        color: item.selectedColor || undefined,
-      }));
+      const cartItems = buildCartPayload();
 
-      // 3. Request order creation on the server
+      // 3. Request order creation on the server.
+      // Only the promo *code* is sent; the server re-validates it and computes
+      // the discount itself, so a tampered request cannot choose its own price.
       const createRes = await fetch('/api/checkout/create-order', {
         method: 'POST',
         headers: {
@@ -164,6 +252,7 @@ const Checkout: React.FC = () => {
         },
         body: JSON.stringify({
           cartItems,
+          couponCode: appliedCoupon?.code,
           shippingAddress: {
             firstName: formData.firstName,
             lastName: formData.lastName,
@@ -343,7 +432,7 @@ const Checkout: React.FC = () => {
                     <span>{isOrderSummaryOpen ? 'Hide Order Summary' : 'Show Order Summary'}</span>
                     <FontAwesomeIcon icon={faChevronDown} className={`text-[8px] transition-transform duration-300 ${isOrderSummaryOpen ? 'rotate-180' : ''}`} />
                   </div>
-                  <span className="font-display font-black text-black">₹{cartTotal.toLocaleString('en-IN')}</span>
+                  <span className="font-display font-black text-black">₹{payableTotal.toLocaleString('en-IN')}</span>
                 </button>
 
                 <AnimatePresence>
@@ -387,9 +476,19 @@ const Checkout: React.FC = () => {
                           <span>Subtotal</span>
                           <span>₹{cartTotal.toLocaleString('en-IN')}</span>
                         </div>
+                        {appliedCoupon && (
+                          <div className="flex justify-between text-green-700">
+                            <span>Discount ({appliedCoupon.code})</span>
+                            <span className="font-bold">−₹{discount.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span>Shipping</span>
                           <span className="text-green-600 font-bold">Free</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t border-neutral-100 text-black font-bold">
+                          <span>Total</span>
+                          <span>₹{payableTotal.toLocaleString('en-IN')}</span>
                         </div>
                       </div>
                     </motion.div>
@@ -598,7 +697,7 @@ const Checkout: React.FC = () => {
                             <span>Processing...</span>
                           </div>
                         ) : (
-                          `Pay ₹${cartTotal.toLocaleString('en-IN')}`
+                          `Pay ₹${payableTotal.toLocaleString('en-IN')}`
                         )}
                       </Button>
                     </div>
@@ -638,18 +737,94 @@ const Checkout: React.FC = () => {
                   ))}
                 </div>
 
-                <div className="space-y-4 pt-8 border-t border-neutral-100">
+                {/* Promo code */}
+                <div className="pt-8 border-t border-neutral-100">
+                  {appliedCoupon ? (
+                    <div className="flex items-start justify-between gap-3 bg-green-50 border border-green-100 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold uppercase tracking-widest text-green-800">
+                          {appliedCoupon.code} applied
+                        </p>
+                        <p className="text-[11px] text-green-700 mt-0.5">
+                          {appliedCoupon.summary} — you save ₹{discount.toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black underline underline-offset-2 cursor-pointer flex-shrink-0"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <label
+                        htmlFor="promo-code"
+                        className="block text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2"
+                      >
+                        Promo code
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="promo-code"
+                          type="text"
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            setCouponError('');
+                          }}
+                          onKeyDown={(e) => {
+                            // The summary sits inside the checkout form; Enter
+                            // here must apply the code, not submit the step.
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleApplyCoupon();
+                            }
+                          }}
+                          placeholder="Enter code"
+                          disabled={isCheckingCoupon}
+                          autoComplete="off"
+                          spellCheck={false}
+                          className="flex-grow h-11 rounded-none border-neutral-200 uppercase tracking-widest text-xs"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => handleApplyCoupon()}
+                          disabled={isCheckingCoupon || !couponInput.trim()}
+                          variant="outline"
+                          className="h-11 px-5 text-[10px] rounded-none flex-shrink-0"
+                        >
+                          {isCheckingCoupon ? 'Checking…' : 'Apply'}
+                        </Button>
+                      </div>
+                      {couponError && (
+                        <p role="alert" className="text-[11px] text-red-600 mt-2 leading-relaxed">
+                          {couponError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4 pt-6 mt-6 border-t border-neutral-100">
                   <div className="flex justify-between text-sm text-neutral-500 uppercase tracking-widest">
                     <span>Subtotal</span>
                     <span>₹{cartTotal.toLocaleString('en-IN')}</span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-sm uppercase tracking-widest text-green-700">
+                      <span>Discount</span>
+                      <span className="font-bold">−₹{discount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm text-neutral-500 uppercase tracking-widest">
                     <span>Shipping</span>
                     <span className="text-green-600 font-bold">Free</span>
                   </div>
                   <div className="flex justify-between text-xl font-display font-bold uppercase pt-4 border-t border-neutral-50">
                     <span>Total</span>
-                    <span>₹{cartTotal.toLocaleString('en-IN')}</span>
+                    <span>₹{payableTotal.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>

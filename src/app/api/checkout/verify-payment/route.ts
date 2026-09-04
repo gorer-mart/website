@@ -156,6 +156,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // ---- 7. Count the coupon redemption ----------------------------------
+    // Only now that the money is confirmed. `redeem_coupon` is idempotent and
+    // a no-op for orders without a coupon, so the Razorpay webhook can call it
+    // for the same order without double-counting.
+    //
+    // Best-effort by design: the payment has already settled, and failing the
+    // response here would tell a paying customer their order went wrong.
+    try {
+      const { error: redeemError } = await supabase.rpc("redeem_coupon", {
+        p_order_id: order.id,
+      });
+      if (redeemError) {
+        console.error("[verify-payment] coupon redemption failed", redeemError);
+      }
+    } catch (redeemError) {
+      console.error("[verify-payment] coupon redemption threw", redeemError);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Payment verified and order confirmed successfully",

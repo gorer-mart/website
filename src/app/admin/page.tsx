@@ -32,6 +32,7 @@ import {
   LogOut,
   Boxes,
   Inbox,
+  Ticket,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
@@ -149,6 +150,9 @@ interface Order {
   /** Contact details captured at checkout; authoritative for this order. */
   customer_email?: string | null;
   customer_phone?: string | null;
+  /** Promo code applied at checkout, if any. */
+  discount_amount?: number | null;
+  coupon_code?: string | null;
   users?: {
     full_name: string;
     email: string;
@@ -218,6 +222,26 @@ interface Subscriber {
   created_at: string;
 }
 
+interface Coupon {
+  id: string;
+  code: string;
+  description?: string | null;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  max_discount_amount?: number | null;
+  min_order_value: number;
+  usage_limit?: number | null;
+  per_user_limit?: number | null;
+  usage_count: number;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  is_active: boolean;
+  created_at: string;
+  /** Derived server-side from coupon_redemptions. */
+  redeemed_count?: number;
+  total_discounted?: number;
+}
+
 interface SizeStockItem {
   id?: string;
   size: string;
@@ -247,6 +271,7 @@ const TAB_META: Record<string, { title: string; description: string }> = {
   reviews: { title: 'Reviews', description: 'Customer reviews across the catalogue' },
   messages: { title: 'Messages', description: 'Enquiries sent through the contact form' },
   subscribers: { title: 'Subscribers', description: 'Newsletter mailing list' },
+  coupons: { title: 'Promo codes', description: 'Discount codes customers can apply at checkout' },
   settings: { title: 'Settings', description: 'Connection status for content and data services' },
 };
 
@@ -290,6 +315,7 @@ const AdminDashboard: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
 
   // Sanity Catalog States
   const [sanityProducts, setSanityProducts] = useState<any[]>([]);
@@ -368,6 +394,40 @@ const AdminDashboard: React.FC = () => {
     sizes: DEFAULT_SIZES,
   });
 
+  // Promo code create/edit
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState<boolean>(false);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [isSavingCoupon, setIsSavingCoupon] = useState<boolean>(false);
+  const [couponToDelete, setCouponToDelete] = useState<Coupon | null>(null);
+  const [isDeletingCoupon, setIsDeletingCoupon] = useState<boolean>(false);
+  const [couponStatusFilter, setCouponStatusFilter] = useState<string>('');
+
+  const [couponForm, setCouponForm] = useState<{
+    code: string;
+    description: string;
+    discount_type: 'percentage' | 'fixed';
+    discount_value: string;
+    max_discount_amount: string;
+    min_order_value: string;
+    usage_limit: string;
+    per_user_limit: string;
+    starts_at: string;
+    expires_at: string;
+    is_active: boolean;
+  }>({
+    code: '',
+    description: '',
+    discount_type: 'percentage',
+    discount_value: '',
+    max_discount_amount: '',
+    min_order_value: '',
+    usage_limit: '',
+    per_user_limit: '',
+    starts_at: '',
+    expires_at: '',
+    is_active: true,
+  });
+
   // Messages Detail Drawer
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState<boolean>(false);
@@ -396,6 +456,7 @@ const AdminDashboard: React.FC = () => {
       { key: 'reviews', url: '/api/admin/reviews', field: 'reviews', apply: setReviews },
       { key: 'messages', url: '/api/admin/messages', field: 'messages', apply: setMessages },
       { key: 'subscribers', url: '/api/admin/subscribers', field: 'subscribers', apply: setSubscribers },
+      { key: 'coupons', url: '/api/admin/coupons', field: 'coupons', apply: setCoupons },
     ] as const;
 
     try {
@@ -909,6 +970,186 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // ---- PROMO CODE HANDLERS ----
+
+  /** `datetime-local` inputs need `YYYY-MM-DDTHH:mm` in local time. */
+  const toLocalInput = (iso?: string | null): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleOpenCreateCoupon = () => {
+    setEditingCoupon(null);
+    setCouponForm({
+      code: '',
+      description: '',
+      discount_type: 'percentage',
+      discount_value: '',
+      max_discount_amount: '',
+      min_order_value: '',
+      usage_limit: '',
+      per_user_limit: '',
+      starts_at: '',
+      expires_at: '',
+      is_active: true,
+    });
+    setIsCouponModalOpen(true);
+  };
+
+  const handleOpenEditCoupon = (coupon: Coupon) => {
+    setEditingCoupon(coupon);
+    setCouponForm({
+      code: coupon.code,
+      description: coupon.description || '',
+      discount_type: coupon.discount_type,
+      discount_value: String(coupon.discount_value ?? ''),
+      max_discount_amount: coupon.max_discount_amount != null ? String(coupon.max_discount_amount) : '',
+      min_order_value: coupon.min_order_value ? String(coupon.min_order_value) : '',
+      usage_limit: coupon.usage_limit != null ? String(coupon.usage_limit) : '',
+      per_user_limit: coupon.per_user_limit != null ? String(coupon.per_user_limit) : '',
+      starts_at: toLocalInput(coupon.starts_at),
+      expires_at: toLocalInput(coupon.expires_at),
+      is_active: coupon.is_active,
+    });
+    setIsCouponModalOpen(true);
+  };
+
+  const handleSaveCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const code = couponForm.code.trim().toUpperCase();
+    if (code.length < 3) {
+      toast({ title: 'Check the code', description: 'Use at least 3 characters.', variant: 'destructive' });
+      return;
+    }
+    const value = Number(couponForm.discount_value);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast({ title: 'Check the discount', description: 'Enter a value greater than zero.', variant: 'destructive' });
+      return;
+    }
+    if (couponForm.discount_type === 'percentage' && value > 100) {
+      toast({ title: 'Check the discount', description: 'A percentage cannot exceed 100%.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSavingCoupon(true);
+    try {
+      // Empty text inputs become null rather than 0 — "no limit" and "limit of
+      // zero" mean very different things to the validator.
+      const optionalNumber = (v: string) => (v.trim() === '' ? null : Number(v));
+
+      const payload: Record<string, unknown> = {
+        code,
+        description: couponForm.description.trim() || null,
+        discount_type: couponForm.discount_type,
+        discount_value: value,
+        max_discount_amount:
+          couponForm.discount_type === 'percentage'
+            ? optionalNumber(couponForm.max_discount_amount)
+            : null,
+        min_order_value: couponForm.min_order_value.trim() === '' ? 0 : Number(couponForm.min_order_value),
+        usage_limit: optionalNumber(couponForm.usage_limit),
+        per_user_limit: optionalNumber(couponForm.per_user_limit),
+        // `datetime-local` has no timezone; converting through Date gives the
+        // admin's local intent as a correct UTC instant.
+        starts_at: couponForm.starts_at ? new Date(couponForm.starts_at).toISOString() : null,
+        expires_at: couponForm.expires_at ? new Date(couponForm.expires_at).toISOString() : null,
+        is_active: couponForm.is_active,
+      };
+
+      if (editingCoupon) payload.id = editingCoupon.id;
+
+      const res = await fetch('/api/admin/coupons', {
+        method: editingCoupon ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not save the promo code.');
+
+      toast({
+        title: editingCoupon ? 'Promo code updated' : 'Promo code created',
+        description: `${code} is ${couponForm.is_active ? 'live' : 'saved but inactive'}.`,
+      });
+
+      setIsCouponModalOpen(false);
+      fetchAllData(true);
+    } catch (err: any) {
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSavingCoupon(false);
+    }
+  };
+
+  /** Flip a code live/paused straight from the table. */
+  const handleToggleCoupon = async (coupon: Coupon) => {
+    // Optimistic: the switch should feel instant, and it is reverted on failure.
+    setCoupons((prev) =>
+      prev.map((c) => (c.id === coupon.id ? { ...c, is_active: !c.is_active } : c))
+    );
+
+    try {
+      const res = await fetch('/api/admin/coupons', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: coupon.id,
+          code: coupon.code,
+          description: coupon.description,
+          discount_type: coupon.discount_type,
+          discount_value: coupon.discount_value,
+          max_discount_amount: coupon.max_discount_amount,
+          min_order_value: coupon.min_order_value,
+          usage_limit: coupon.usage_limit,
+          per_user_limit: coupon.per_user_limit,
+          starts_at: coupon.starts_at,
+          expires_at: coupon.expires_at,
+          is_active: !coupon.is_active,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not update the promo code.');
+
+      toast({
+        title: !coupon.is_active ? 'Promo code activated' : 'Promo code paused',
+        description: `${coupon.code} is now ${!coupon.is_active ? 'live' : 'inactive'}.`,
+      });
+    } catch (err: any) {
+      setCoupons((prev) =>
+        prev.map((c) => (c.id === coupon.id ? { ...c, is_active: coupon.is_active } : c))
+      );
+      toast({ title: 'Update failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteCoupon = async () => {
+    if (!couponToDelete) return;
+    setIsDeletingCoupon(true);
+
+    try {
+      const res = await fetch(`/api/admin/coupons/${couponToDelete.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not remove the promo code.');
+
+      toast({
+        title: data.deactivated ? 'Promo code deactivated' : 'Promo code deleted',
+        description:
+          data.message || `${couponToDelete.code} has been removed.`,
+      });
+
+      setCouponToDelete(null);
+      fetchAllData(true);
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsDeletingCoupon(false);
+    }
+  };
+
   /**
    * Revenue sparkline for the overview.
    *
@@ -1114,6 +1355,40 @@ const AdminDashboard: React.FC = () => {
     s.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  /**
+   * Whether a code would actually work right now.
+   *
+   * `is_active` alone is not the whole story — a code can be switched on but
+   * scheduled for next week, expired, or fully claimed. The table shows this
+   * rather than the raw flag, so the admin never wonders why a "live" code is
+   * being rejected at checkout.
+   */
+  const couponState = (c: Coupon): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } => {
+    if (!c.is_active) return { label: 'Paused', tone: 'neutral' };
+    const now = Date.now();
+    if (c.starts_at && new Date(c.starts_at).getTime() > now) {
+      return { label: 'Scheduled', tone: 'warning' };
+    }
+    if (c.expires_at && new Date(c.expires_at).getTime() <= now) {
+      return { label: 'Expired', tone: 'danger' };
+    }
+    if (c.usage_limit != null && Number(c.usage_count) >= Number(c.usage_limit)) {
+      return { label: 'Fully claimed', tone: 'danger' };
+    }
+    return { label: 'Live', tone: 'success' };
+  };
+
+  const filteredCoupons = coupons.filter((c) => {
+    const query = searchQuery.toLowerCase();
+    const matchesSearch =
+      c.code.toLowerCase().includes(query) ||
+      (c.description || '').toLowerCase().includes(query);
+    const matchesStatus = couponStatusFilter
+      ? couponState(c).label.toLowerCase() === couponStatusFilter.toLowerCase()
+      : true;
+    return matchesSearch && matchesStatus;
+  });
+
   // ---- PAGINATION ----
   // Ten rows per table. `usePagination` resets to page 1 whenever a filter
   // shrinks the list past the current page, so narrowing a search never leaves
@@ -1124,6 +1399,7 @@ const AdminDashboard: React.FC = () => {
   const reviewPage = usePagination(filteredReviews);
   const messagePage = usePagination(filteredMessages);
   const subscriberPage = usePagination(filteredSubscribers);
+  const couponPage = usePagination(filteredCoupons);
 
   // ---- DERIVED SUMMARY VALUES ----
   // Each falls back to a client-side calculation so the overview still reads
@@ -1171,6 +1447,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'reviews', label: 'Reviews', icon: Star, count: reviews.length },
     { id: 'messages', label: 'Messages', icon: MessageSquare, count: messages.length },
     { id: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
+    { id: 'coupons', label: 'Promo codes', icon: Ticket, count: coupons.length },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -2161,6 +2438,145 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
 
+            {/* ============================ PROMO CODES ============================ */}
+            {activeTab === 'coupons' && (
+              <div className="space-y-4">
+                <Panel bodyClassName="p-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label="Search" className="sm:col-span-2">
+                      <SearchField
+                        icon={Search}
+                        type="text"
+                        placeholder="Code or description"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Status">
+                      <SelectField
+                        value={couponStatusFilter}
+                        onChange={(e) => setCouponStatusFilter(e.target.value)}
+                      >
+                        <option value="">All</option>
+                        <option value="Live">Live</option>
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Paused">Paused</option>
+                        <option value="Expired">Expired</option>
+                        <option value="Fully claimed">Fully claimed</option>
+                      </SelectField>
+                    </Field>
+                    <div className="flex items-end">
+                      <Action variant="primary" onClick={handleOpenCreateCoupon} className="w-full">
+                        <Plus className="h-4 w-4" />
+                        New promo code
+                      </Action>
+                    </div>
+                  </div>
+                </Panel>
+
+                {coupons.length === 0 ? (
+                  <Panel bodyClassName="p-0">
+                    <EmptyState
+                      icon={Ticket}
+                      title="No promo codes yet"
+                      description="Create a code and customers can apply it at checkout for a discount."
+                      action={
+                        <Action variant="primary" onClick={handleOpenCreateCoupon}>
+                          <Plus className="h-4 w-4" />
+                          New promo code
+                        </Action>
+                      }
+                    />
+                  </Panel>
+                ) : (
+                  <TableCard footer={<Pagination state={couponPage} noun="promo codes" />}>
+                    <THead>
+                      <Th>Code</Th>
+                      <Th>Discount</Th>
+                      <Th align="right">Min order</Th>
+                      <Th>Valid until</Th>
+                      <Th align="right">Used</Th>
+                      <Th align="right">Given away</Th>
+                      <Th>Status</Th>
+                      <Th align="right">Actions</Th>
+                    </THead>
+                    <TBody>
+                      {couponPage.pageItems.map((c) => {
+                        const state = couponState(c);
+                        const discountLabel =
+                          c.discount_type === 'percentage'
+                            ? `${Number(c.discount_value)}% off${
+                                c.max_discount_amount ? ` (max ${money(c.max_discount_amount)})` : ''
+                              }`
+                            : `${money(c.discount_value)} off`;
+
+                        return (
+                          <Tr key={c.id}>
+                            <Td>
+                              <Mono className="font-medium text-slate-900">{c.code}</Mono>
+                              {c.description && (
+                                <p className="mt-0.5 max-w-xs truncate text-xs text-slate-500">
+                                  {c.description}
+                                </p>
+                              )}
+                            </Td>
+                            <Td className="text-slate-700">{discountLabel}</Td>
+                            <Td align="right" className="tabular-nums text-slate-600">
+                              {Number(c.min_order_value) > 0 ? money(c.min_order_value) : '—'}
+                            </Td>
+                            <Td className="whitespace-nowrap text-slate-600">
+                              {c.expires_at ? shortDate(c.expires_at) : 'No end date'}
+                            </Td>
+                            <Td align="right" className="tabular-nums text-slate-700">
+                              {c.usage_count}
+                              {c.usage_limit != null && (
+                                <span className="text-slate-400"> / {c.usage_limit}</span>
+                              )}
+                            </Td>
+                            <Td align="right" className="tabular-nums text-slate-700">
+                              {money(c.total_discounted ?? 0)}
+                            </Td>
+                            <Td>
+                              <Badge tone={state.tone}>{state.label}</Badge>
+                            </Td>
+                            <Td align="right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Action
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleToggleCoupon(c)}
+                                >
+                                  {c.is_active ? 'Pause' : 'Activate'}
+                                </Action>
+                                <Action
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleOpenEditCoupon(c)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit
+                                </Action>
+                                <IconAction
+                                  label={`Delete ${c.code}`}
+                                  variant="danger"
+                                  onClick={() => setCouponToDelete(c)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </IconAction>
+                              </div>
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                      {filteredCoupons.length === 0 && (
+                        <EmptyRow colSpan={8}>No promo codes match this filter.</EmptyRow>
+                      )}
+                    </TBody>
+                  </TableCard>
+                )}
+              </div>
+            )}
+
             {/* ============================ SETTINGS ============================ */}
             {activeTab === 'settings' && (
               <div className="max-w-2xl space-y-4">
@@ -2546,6 +2962,19 @@ const AdminDashboard: React.FC = () => {
             <DrawerSection title="Payment summary" icon={IndianRupee}>
               <dl className="space-y-1">
                 <DetailRow label="Subtotal">{money(selectedOrder.subtotal ?? selectedOrder.total)}</DetailRow>
+                {Number(selectedOrder.discount_amount) > 0 && (
+                  <DetailRow
+                    label={
+                      selectedOrder.coupon_code
+                        ? `Discount (${selectedOrder.coupon_code})`
+                        : 'Discount'
+                    }
+                  >
+                    <span className="text-emerald-700">
+                      −{money(selectedOrder.discount_amount)}
+                    </span>
+                  </DetailRow>
+                )}
                 <DetailRow label="Shipping">{money(selectedOrder.shipping_cost)}</DetailRow>
                 <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2.5">
                   <dt className="text-sm font-medium text-slate-900">Total</dt>
@@ -3000,6 +3429,230 @@ const AdminDashboard: React.FC = () => {
               </Action>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---------------- Promo code create / edit ---------------- */}
+      <Dialog open={isCouponModalOpen} onOpenChange={setIsCouponModalOpen}>
+        <DialogContent className="max-h-[90vh] max-w-2xl gap-4 overflow-y-auto rounded-lg border-slate-200 p-6">
+          <DialogHeader className="border-slate-100 pb-3">
+            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
+              <Ticket className="h-4 w-4 text-slate-400" />
+              {editingCoupon ? `Edit ${editingCoupon.code}` : 'New promo code'}
+            </DialogTitle>
+            <DialogDescription className={DIALOG_DESC}>
+              Customers type this code at checkout. The discount is recalculated on the server when
+              they pay, so limits and dates are always enforced.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveCoupon} className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Code" hint="Letters, numbers, hyphens and underscores.">
+                <input
+                  type="text"
+                  required
+                  placeholder="DURGA20"
+                  value={couponForm.code}
+                  onChange={(e) =>
+                    setCouponForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))
+                  }
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 font-mono text-sm uppercase tracking-wide text-slate-900 placeholder:font-sans placeholder:normal-case placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+
+              <Field label="Internal note" hint="Only shown here, never to customers.">
+                <input
+                  type="text"
+                  placeholder="Puja campaign"
+                  value={couponForm.description}
+                  onChange={(e) => setCouponForm((p) => ({ ...p, description: e.target.value }))}
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Discount type">
+                <SelectField
+                  value={couponForm.discount_type}
+                  onChange={(e) =>
+                    setCouponForm((p) => ({
+                      ...p,
+                      discount_type: e.target.value as 'percentage' | 'fixed',
+                      // A cap is meaningless on a fixed-amount coupon.
+                      max_discount_amount: e.target.value === 'fixed' ? '' : p.max_discount_amount,
+                    }))
+                  }
+                >
+                  <option value="percentage">Percentage off</option>
+                  <option value="fixed">Fixed amount off</option>
+                </SelectField>
+              </Field>
+
+              <Field label={couponForm.discount_type === 'percentage' ? 'Percentage (%)' : 'Amount (₹)'}>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step={couponForm.discount_type === 'percentage' ? '0.01' : '1'}
+                  max={couponForm.discount_type === 'percentage' ? '100' : undefined}
+                  placeholder={couponForm.discount_type === 'percentage' ? '20' : '300'}
+                  value={couponForm.discount_value}
+                  onChange={(e) => setCouponForm((p) => ({ ...p, discount_value: e.target.value }))}
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm tabular-nums text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+
+              <Field
+                label="Maximum discount (₹)"
+                hint={
+                  couponForm.discount_type === 'percentage'
+                    ? 'Optional cap. Leave blank for none.'
+                    : 'Only applies to percentage codes.'
+                }
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="500"
+                  disabled={couponForm.discount_type !== 'percentage'}
+                  value={couponForm.max_discount_amount}
+                  onChange={(e) =>
+                    setCouponForm((p) => ({ ...p, max_discount_amount: e.target.value }))
+                  }
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm tabular-nums text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Minimum order (₹)" hint="Leave blank for no minimum.">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="999"
+                  value={couponForm.min_order_value}
+                  onChange={(e) => setCouponForm((p) => ({ ...p, min_order_value: e.target.value }))}
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm tabular-nums text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+
+              <Field label="Total uses" hint="Blank means unlimited.">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="100"
+                  value={couponForm.usage_limit}
+                  onChange={(e) => setCouponForm((p) => ({ ...p, usage_limit: e.target.value }))}
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm tabular-nums text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+
+              <Field label="Uses per customer" hint="Blank means unlimited.">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="1"
+                  value={couponForm.per_user_limit}
+                  onChange={(e) => setCouponForm((p) => ({ ...p, per_user_limit: e.target.value }))}
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm tabular-nums text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Starts" hint="Blank means it starts immediately.">
+                <input
+                  type="datetime-local"
+                  value={couponForm.starts_at}
+                  onChange={(e) => setCouponForm((p) => ({ ...p, starts_at: e.target.value }))}
+                  className="h-10 w-full cursor-pointer rounded-md border border-slate-300 px-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+
+              <Field label="Ends" hint="Blank means it never expires.">
+                <input
+                  type="datetime-local"
+                  value={couponForm.expires_at}
+                  onChange={(e) => setCouponForm((p) => ({ ...p, expires_at: e.target.value }))}
+                  className="h-10 w-full cursor-pointer rounded-md border border-slate-300 px-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </Field>
+            </div>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={couponForm.is_active}
+                onChange={(e) => setCouponForm((p) => ({ ...p, is_active: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-slate-900"
+              />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">Active</span>
+                <span className="mt-0.5 block text-xs text-slate-500">
+                  Customers can only use the code while this is on.
+                </span>
+              </span>
+            </label>
+
+            <DialogFooter className="border-slate-100 pt-4">
+              <Action type="button" variant="secondary" onClick={() => setIsCouponModalOpen(false)}>
+                Cancel
+              </Action>
+              <Action type="submit" variant="primary" disabled={isSavingCoupon}>
+                {isSavingCoupon ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {editingCoupon ? 'Save changes' : 'Create code'}
+              </Action>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---------------- Delete promo code confirmation ---------------- */}
+      <Dialog open={!!couponToDelete} onOpenChange={(open) => !open && setCouponToDelete(null)}>
+        <DialogContent className="max-w-md gap-4 rounded-lg border-slate-200 p-6">
+          <DialogHeader className="border-slate-100 pb-3">
+            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+              Delete this promo code?
+            </DialogTitle>
+            <DialogDescription className={DIALOG_DESC}>
+              <Mono className="font-medium text-slate-900">{couponToDelete?.code}</Mono> will stop
+              working immediately.
+              {(couponToDelete?.redeemed_count ?? 0) > 0
+                ? ' Because it has already been used, it will be deactivated rather than deleted, so past orders keep their record.'
+                : ' It has never been used, so it will be deleted outright.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="border-slate-100 pt-4">
+            <Action variant="secondary" onClick={() => setCouponToDelete(null)}>
+              Cancel
+            </Action>
+            <Action
+              variant="primary"
+              onClick={handleDeleteCoupon}
+              disabled={isDeletingCoupon}
+              className="border-rose-600 bg-rose-600 hover:bg-rose-700"
+            >
+              {isDeletingCoupon ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              {(couponToDelete?.redeemed_count ?? 0) > 0 ? 'Deactivate' : 'Delete'}
+            </Action>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

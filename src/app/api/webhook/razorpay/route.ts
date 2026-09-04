@@ -116,6 +116,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to update order status" }, { status: 500 });
       }
 
+      // Count the coupon redemption on this settlement path too — this webhook
+      // is the backstop when the browser never reaches verify-payment (closed
+      // tab, lost connection). `redeem_coupon` is idempotent, so whichever path
+      // arrives first wins and the other is a no-op.
+      try {
+        const { error: redeemError } = await supabase.rpc("redeem_coupon", {
+          p_order_id: order.id,
+        });
+        if (redeemError) {
+          console.error("[razorpay-webhook] coupon redemption failed", redeemError);
+        }
+      } catch (redeemError) {
+        console.error("[razorpay-webhook] coupon redemption threw", redeemError);
+      }
+
       return NextResponse.json({ success: true });
     }
 
