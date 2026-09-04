@@ -3,11 +3,23 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUser } from "@/lib/server/auth";
 import { apiError } from "@/lib/server/http";
 import { toProductUuid } from "@/lib/server/product-sync";
+import { sweepPendingOrders } from "@/lib/server/order-settlement";
 import { getProducts } from "@/lib/sanity";
 import { resolveImageUrl } from "@/lib/image";
 import type { Product } from "@/types/product";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Pending orders reconciled inline before the history is read.
+ *
+ * Small and capped: this runs before the response, so it must stay a fraction
+ * of a second even when the gateway is slow. A customer rarely has more than
+ * one stranded checkout, and anything beyond the cap is picked up on the next
+ * read or by the admin sweep.
+ */
+const SWEEP_LIMIT = 3;
+const SWEEP_THROTTLE_MS = 60 * 1000;
 
 /**
  * Pick the gallery image for the colour that was actually purchased.
@@ -58,6 +70,20 @@ export async function GET() {
 
   try {
     const supabase = createAdminSupabaseClient();
+
+    // Settle this customer's stranded checkouts before reading, so the page
+    // never shows "payment pending" for an attempt the gateway has long since
+    // resolved. Best-effort by design: order history must still load if
+    // Razorpay is unreachable.
+    try {
+      await sweepPendingOrders(supabase, {
+        userId: user.id,
+        limit: SWEEP_LIMIT,
+        throttleMs: SWEEP_THROTTLE_MS,
+      });
+    } catch (sweepError) {
+      console.error("[account.orders] pending sweep failed", sweepError);
+    }
 
     const { data: orders, error } = await supabase
       .from("orders")
