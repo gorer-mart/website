@@ -16,6 +16,7 @@ import {
   faReceipt,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useWishlist } from '../../context/WishlistContext';
 import { Button } from '../../ui/button';
 
 interface OrderItem {
@@ -80,6 +81,7 @@ const StatusPill: React.FC<{ label: string; styles: Record<string, string> }> = 
 
 const Account: React.FC = () => {
   const { user, profile, loading, signOut, isAuthenticated } = useAuth();
+  const { count: wishlistCount } = useWishlist();
   const router = useRouter();
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -134,8 +136,11 @@ const Account: React.FC = () => {
     {
       icon: faHeart,
       title: 'Saved Items',
-      description: 'Browse the shop and add favourites to your bag',
-      onClick: () => router.push('/shop'),
+      description:
+        wishlistCount > 0
+          ? `${wishlistCount} ${wishlistCount === 1 ? 'item' : 'items'} in your wishlist`
+          : 'Save pieces you love for later',
+      onClick: () => router.push('/wishlist'),
     },
     {
       icon: faLocationDot,

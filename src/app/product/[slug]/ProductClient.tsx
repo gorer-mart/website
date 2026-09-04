@@ -13,6 +13,7 @@ import { Product } from '../../../types/product';
 import { useCart, MAX_QUANTITY_PER_ITEM } from '../../../context/CartContext';
 import { DETAIL_WIDTHS, imageProps } from '../../../lib/image';
 import ProductCard from '../../../components/ProductCard';
+import WishlistButton from '../../../components/WishlistButton';
 import { Button } from '../../../ui/button';
 import { useAuth } from '../../../context/AuthContext';
 import { Maximize2 } from 'lucide-react';
@@ -523,9 +524,7 @@ const ProductDetail: React.FC<ProductClientProps> = ({ initialProduct, initialPr
               >
                 Add to Bag
               </Button>
-              <Button variant="outline" className="flex-1 py-5">
-                Wishlist
-              </Button>
+              <WishlistButton product={product} variant="inline" className="flex-1 py-5" />
             </div>
 
             {/* Share Section */}

@@ -3,27 +3,14 @@ import Razorpay from "razorpay";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { client as sanityClient } from "@/lib/sanity";
 import { getAuthenticatedUser } from "@/lib/server/auth";
 import { ensureProductRow } from "@/lib/server/product-sync";
 import { apiError, readJson } from "@/lib/server/http";
 import { hit, rateLimitResponse } from "@/lib/server/rate-limit";
+import { cartItemSchema, MAX_LINES, priceCart, toMoney } from "@/lib/server/pricing";
+import { evaluateCoupon } from "@/lib/server/coupons";
 
 export const dynamic = "force-dynamic";
-
-const MAX_QTY_PER_LINE = 10;
-const MAX_LINES = 20;
-const MAX_ORDER_VALUE = 500_000; // ₹5,00,000 sanity ceiling
-
-const cartItemSchema = z.object({
-  _id: z.string().trim().min(1).max(200).optional(),
-  id: z.union([z.string().trim().min(1).max(200), z.number()]).optional(),
-  name: z.string().trim().max(300).optional(),
-  price: z.number().nonnegative().optional(),
-  quantity: z.number().int().positive().max(MAX_QTY_PER_LINE),
-  size: z.string().trim().max(40).optional(),
-  color: z.string().trim().max(60).optional(),
-});
 
 const shippingAddressSchema = z.object({
   firstName: z
@@ -54,16 +41,9 @@ const shippingAddressSchema = z.object({
 const bodySchema = z.object({
   cartItems: z.array(cartItemSchema).min(1).max(MAX_LINES),
   shippingAddress: shippingAddressSchema,
+  /** Optional promo code. Re-validated here; never trusted from the client. */
+  couponCode: z.string().trim().max(60).optional(),
 });
-
-interface CatalogProduct {
-  _id: string;
-  id?: number | string | null;
-  name?: string | null;
-  slug?: string | null;
-  price?: number | null;
-  sizes?: string[] | null;
-}
 
 export async function POST(request: Request) {
   // ---- 1. Authenticate -------------------------------------------------
@@ -82,40 +62,21 @@ export async function POST(request: Request) {
     const first = parsed.error.issues[0];
     return apiError(first?.message || "Your order details are incomplete.", 400);
   }
-  const { cartItems, shippingAddress } = parsed.data;
+  const { cartItems, shippingAddress, couponCode } = parsed.data;
 
   try {
-    // ---- 3. Resolve the catalog from Sanity (server is the price authority)
-    const sanityIds = cartItems
-      .map((item) => item._id ?? (typeof item.id === "string" ? item.id : undefined))
-      .filter((v): v is string => typeof v === "string");
-
-    const numericIds = cartItems
-      .map((item) => {
-        const raw = item.id ?? item._id;
-        const n = typeof raw === "number" ? raw : Number(raw);
-        return Number.isFinite(n) ? n : undefined;
-      })
-      .filter((v): v is number => typeof v === "number");
-
-    const catalog: CatalogProduct[] = await sanityClient.fetch(
-      `*[_type == "product" && (_id in $sanityIds || id in $numericIds)] {
-        _id, id, name, "slug": slug.current, price, sizes
-      }`,
-      { sanityIds, numericIds }
-    );
-
-    // Index by every identifier a client could legitimately send.
-    const byKey = new Map<string, CatalogProduct>();
-    for (const product of catalog) {
-      byKey.set(product._id, product);
-      if (product.id !== undefined && product.id !== null) {
-        byKey.set(String(product.id), product);
-      }
+    // ---- 3. Price the cart from the catalog (server is the price authority)
+    // Shared with the coupon preview endpoint so a quoted discount and a
+    // charged discount are always derived from the same subtotal.
+    const pricing = await priceCart(cartItems);
+    if (!pricing.ok) {
+      return apiError(pricing.message, pricing.status);
     }
+    const { subtotal, lines } = pricing;
 
     const supabase = createAdminSupabaseClient();
 
+    // Mirror each catalog product into Supabase so order_items has a real FK.
     const resolvedLines: {
       productId: string;
       quantity: number;
@@ -125,77 +86,57 @@ export async function POST(request: Request) {
       name: string;
     }[] = [];
 
-    let subtotal = 0;
-
-    for (const item of cartItems) {
-      const lookupKeys = [item._id, item.id !== undefined ? String(item.id) : undefined].filter(
-        (v): v is string => typeof v === "string"
-      );
-
-      const product = lookupKeys.map((k) => byKey.get(k)).find(Boolean);
-
-      if (!product) {
-        return apiError(
-          `"${item.name || "An item in your bag"}" is no longer available. Please remove it and try again.`,
-          400
-        );
-      }
-
-      const serverPrice = Number(product.price);
-      if (!Number.isFinite(serverPrice) || serverPrice < 0) {
-        return apiError(`Pricing is unavailable for "${product.name}". Please try again later.`, 400);
-      }
-
-      // The server price is authoritative. A mismatch means the price moved
-      // while the item sat in the bag — tell the customer instead of silently
-      // charging a different amount than the one they were shown.
-      if (item.price !== undefined && Math.round(item.price) !== Math.round(serverPrice)) {
-        return apiError(
-          `The price of "${product.name}" has changed. Please review your bag and try again.`,
-          409
-        );
-      }
-
-      // Size must be one the catalog actually offers.
-      const availableSizes = Array.isArray(product.sizes) ? product.sizes : [];
-      const size: string | null = item.size ?? null;
-      if (availableSizes.length > 0) {
-        if (!size || !availableSizes.includes(size)) {
-          return apiError(`Please choose an available size for "${product.name}".`, 400);
-        }
-      }
-
-      const sync = await ensureProductRow(supabase, product);
+    for (const line of lines) {
+      const sync = await ensureProductRow(supabase, line.product);
       if (!sync.ok) {
         return apiError(
-          `We could not process "${product.name}" right now. Please try again shortly.`,
+          `We could not process "${line.product.name}" right now. Please try again shortly.`,
           503,
           { scope: "create-order.productSync", cause: sync.reason }
         );
       }
 
-      subtotal += serverPrice * item.quantity;
       resolvedLines.push({
         productId: sync.productId,
-        quantity: item.quantity,
-        unitPrice: serverPrice,
-        size,
-        color: item.color ?? null,
-        name: product.name || item.name || "Gorer Mart Product",
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        size: line.size,
+        color: line.color,
+        name: line.name,
       });
     }
 
-    subtotal = Math.round(subtotal * 100) / 100;
+    // ---- 3b. Apply the promo code ----------------------------------------
+    // Re-validated from scratch against the freshly computed subtotal. The
+    // code may have expired, hit its usage limit, or stopped qualifying since
+    // the customer applied it, so failing loudly is the only safe option:
+    // silently charging full price after showing a discount is worse.
+    let discountAmount = 0;
+    let appliedCouponId: string | null = null;
+    let appliedCouponCode: string | null = null;
 
-    if (subtotal <= 0) {
-      return apiError("Your order total is invalid. Please review your bag.", 400);
-    }
-    if (subtotal > MAX_ORDER_VALUE) {
-      return apiError("This order exceeds the maximum value we can process online.", 400);
+    if (couponCode && couponCode.trim()) {
+      const evaluation = await evaluateCoupon(supabase, couponCode, subtotal, user.id);
+      if (!evaluation.ok) {
+        return apiError(evaluation.reason, 409);
+      }
+      discountAmount = evaluation.discount;
+      appliedCouponId = evaluation.coupon.id;
+      appliedCouponCode = evaluation.coupon.code;
     }
 
     const shippingCost = 0;
-    const total = Math.round((subtotal + shippingCost) * 100) / 100;
+    const total = toMoney(Math.max(0, subtotal + shippingCost - discountAmount));
+
+    // A zero-rupee order cannot be sent to a payment gateway. Coupons are
+    // capped at the subtotal rather than beyond it, so this only triggers on a
+    // 100%-off code — which needs a different flow than "pay now".
+    if (total <= 0) {
+      return apiError(
+        "This promo code covers your whole order. Please contact us to complete it.",
+        409
+      );
+    }
 
     // ---- 4. Persist the shipping address --------------------------------
     // Reuse an identical saved address instead of inserting a fresh row on
@@ -287,6 +228,19 @@ export async function POST(request: Request) {
     }
 
     // ---- 6. Record the pending order -------------------------------------
+    // The discount columns are only sent when a code was actually applied.
+    // Beyond being tidier, this keeps an un-migrated database from breaking
+    // ordinary checkout: without `015_coupons.sql` those columns do not exist,
+    // and naming them unconditionally would fail every single order insert.
+    const discountFields =
+      discountAmount > 0
+        ? {
+            discount_amount: discountAmount,
+            coupon_id: appliedCouponId,
+            coupon_code: appliedCouponCode,
+          }
+        : {};
+
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
       .insert({
@@ -295,6 +249,7 @@ export async function POST(request: Request) {
         subtotal,
         shipping_cost: shippingCost,
         total,
+        ...discountFields,
         payment_status: "pending",
         order_status: "pending",
         payment_provider: "razorpay",
@@ -372,6 +327,9 @@ export async function POST(request: Request) {
         currency: razorpayOrder.currency,
       },
       orderNumber,
+      subtotal,
+      discount: discountAmount,
+      couponCode: appliedCouponCode,
       total,
     });
   } catch (error) {

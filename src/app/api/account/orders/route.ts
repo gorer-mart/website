@@ -28,6 +28,8 @@ export async function GET() {
         order_number,
         subtotal,
         shipping_cost,
+        discount_amount,
+        coupon_code,
         total,
         payment_status,
         order_status,

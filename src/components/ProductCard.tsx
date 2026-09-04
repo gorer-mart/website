@@ -8,6 +8,7 @@ import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../context/CartContext';
 import { Product } from '../types/product';
 import { Button } from '../ui/button';
+import WishlistButton from './WishlistButton';
 import { CARD_WIDTHS, imageProps, resolveImageUrl } from '../lib/image';
 
 interface ProductCardProps {
@@ -107,6 +108,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) 
           {/* Overlay on Hover */}
           <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         </Link>
+
+        {/* Save to wishlist. Always visible — a hover-only heart is
+            undiscoverable on touch, where most browsing happens. */}
+        <WishlistButton product={product} className="absolute top-3 right-3 z-30" />
 
         {/* Quick Actions (Desktop only) */}
         <div className="hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 items-center space-x-3 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 z-30 w-full px-6">
