@@ -18,6 +18,10 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { Button } from '../../ui/button';
+import { sizedImageUrl } from '../../lib/image';
+
+/** Orders shown on the dashboard; the full history lives at /account/orders. */
+const RECENT_ORDER_COUNT = 3;
 
 interface OrderItem {
   id: string;
@@ -27,6 +31,8 @@ interface OrderItem {
   size?: string | null;
   color?: string | null;
   products?: { title?: string | null; slug?: string | null } | null;
+  /** Catalog snapshot added by `/api/account/orders` — display only. */
+  product?: { name: string; image: string; slug: string | null } | null;
 }
 
 interface Order {
@@ -129,9 +135,11 @@ const Account: React.FC = () => {
     {
       icon: faBox,
       title: 'Order History',
-      description: 'Track and manage your recent purchases',
-      onClick: () =>
-        document.getElementById('order-history')?.scrollIntoView({ behavior: 'smooth' }),
+      description:
+        orders.length > 0
+          ? `Track, reorder and review ${orders.length} ${orders.length === 1 ? 'order' : 'orders'}`
+          : 'Track and manage your purchases',
+      onClick: () => router.push('/account/orders'),
     },
     {
       icon: faHeart,
@@ -236,21 +244,31 @@ const Account: React.FC = () => {
             ))}
           </div>
 
-          {/* Order History */}
+          {/* Recent orders — the full history lives at /account/orders */}
           <section id="order-history" className="scroll-mt-28">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-display font-bold uppercase tracking-tighter flex items-center gap-3">
                 <FontAwesomeIcon icon={faReceipt} className="text-neutral-400 text-lg" />
-                Order History
+                Recent Orders
               </h2>
-              <button
-                type="button"
-                onClick={loadOrders}
-                disabled={ordersLoading}
-                className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-black transition-colors disabled:opacity-40 cursor-pointer"
-              >
-                {ordersLoading ? 'Refreshing…' : 'Refresh'}
-              </button>
+              {orders.length > 0 ? (
+                <Link
+                  href="/account/orders"
+                  className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-black transition-colors flex items-center gap-2"
+                >
+                  View All
+                  <FontAwesomeIcon icon={faArrowRight} className="text-[9px]" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={loadOrders}
+                  disabled={ordersLoading}
+                  className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-black transition-colors disabled:opacity-40 cursor-pointer"
+                >
+                  {ordersLoading ? 'Refreshing…' : 'Refresh'}
+                </button>
+              )}
             </div>
 
             {ordersLoading ? (
@@ -276,63 +294,82 @@ const Account: React.FC = () => {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-5">
-                {orders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="bg-white rounded-3xl border border-neutral-100 overflow-hidden"
-                  >
-                    <div className="px-6 sm:px-8 py-5 border-b border-neutral-50 flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <p className="font-display font-bold tracking-tight">#{order.order_number}</p>
+              <div className="bg-white rounded-3xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
+                {orders.slice(0, RECENT_ORDER_COUNT).map((order) => {
+                  const items = order.order_items ?? [];
+                  const units = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+                  return (
+                    <Link
+                      key={order.id}
+                      href="/account/orders"
+                      className="group flex items-center gap-5 px-6 sm:px-8 py-5 hover:bg-neutral-50/60 transition-colors"
+                    >
+                      {/* Overlapping thumbnails read as "one order" at a glance. */}
+                      <div className="flex flex-shrink-0">
+                        {items.slice(0, 3).map((item, index) => (
+                          <div
+                            key={item.id}
+                            className="w-12 h-14 bg-neutral-100 border-2 border-white overflow-hidden rounded-lg"
+                            style={{ marginLeft: index === 0 ? 0 : -14, zIndex: 3 - index }}
+                          >
+                            {item.product?.image ? (
+                              <img
+                                src={sizedImageUrl(item.product.image, 96)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="w-full h-full flex items-center justify-center text-neutral-300 text-xs">
+                                <FontAwesomeIcon icon={faBox} />
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-display font-bold tracking-tight truncate">
+                          #{order.order_number}
+                        </p>
                         <p className="text-[10px] uppercase tracking-widest text-neutral-400 mt-1">
-                          Placed {formatDate(order.created_at)}
+                          {formatDate(order.created_at)} • {units} {units === 1 ? 'piece' : 'pieces'}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+
+                      <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                         <StatusPill label={order.order_status} styles={ORDER_STATUS_STYLES} />
                         <StatusPill label={order.payment_status} styles={PAYMENT_STATUS_STYLES} />
                       </div>
-                    </div>
 
-                    <div className="px-6 sm:px-8 py-5 space-y-3">
-                      {(order.order_items ?? []).map((item) => (
-                        <div key={item.id} className="flex items-start justify-between gap-4 text-sm">
-                          <div className="min-w-0">
-                            <p className="truncate">{item.product_name || item.products?.title || 'Product'}</p>
-                            <p className="text-[10px] uppercase tracking-widest text-neutral-400 mt-0.5">
-                              {[item.size && `Size ${item.size}`, item.color, `Qty ${item.quantity}`]
-                                .filter(Boolean)
-                                .join(' • ')}
-                            </p>
-                          </div>
-                          <p className="font-bold whitespace-nowrap">
-                            {formatCurrency(Number(item.price) * item.quantity)}
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-display font-bold">{formatCurrency(order.total)}</p>
+                        {order.tracking_number && (
+                          <p className="text-[9px] uppercase tracking-widest text-neutral-400 mt-1 flex items-center justify-end gap-1.5">
+                            <FontAwesomeIcon icon={faTruck} className="text-[8px]" />
+                            Tracked
                           </p>
-                        </div>
-                      ))}
-                    </div>
+                        )}
+                      </div>
 
-                    <div className="px-6 sm:px-8 py-5 bg-neutral-50/70 border-t border-neutral-50 flex flex-wrap items-center justify-between gap-4">
-                      {order.tracking_number ? (
-                        <p className="text-[10px] uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                          <FontAwesomeIcon icon={faTruck} className="text-neutral-400" />
-                          Tracking: <span className="text-black font-bold">{order.tracking_number}</span>
-                          {order.estimated_delivery && (
-                            <span className="text-neutral-400">
-                              • Est. {formatDate(order.estimated_delivery)}
-                            </span>
-                          )}
-                        </p>
-                      ) : (
-                        <p className="text-[10px] uppercase tracking-widest text-neutral-400">
-                          Tracking details will appear once your order ships
-                        </p>
-                      )}
-                      <p className="font-display font-bold text-lg">{formatCurrency(order.total)}</p>
-                    </div>
-                  </div>
-                ))}
+                      <FontAwesomeIcon
+                        icon={faArrowRight}
+                        className="text-neutral-300 text-xs flex-shrink-0 group-hover:text-black group-hover:translate-x-1 transition-all"
+                      />
+                    </Link>
+                  );
+                })}
+
+                {orders.length > RECENT_ORDER_COUNT && (
+                  <Link
+                    href="/account/orders"
+                    className="block px-6 sm:px-8 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black hover:bg-neutral-50/60 transition-colors"
+                  >
+                    View all {orders.length} orders
+                  </Link>
+                )}
               </div>
             )}
           </section>

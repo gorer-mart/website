@@ -331,6 +331,15 @@ const AdminDashboard: React.FC = () => {
   const [paymentFilter, setPaymentFilter] = useState<string>('');
   const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState<string>('');
 
+  /**
+   * Abandoned checkouts are hidden by default.
+   *
+   * An order row is written before the customer pays, so every dismissed
+   * payment leaves a record. Those are not orders — showing them alongside real
+   * ones made the list impossible to work from.
+   */
+  const [showAbandoned, setShowAbandoned] = useState<boolean>(false);
+
   // Messages Sorting state
   const [messageSortOrder, setMessageSortOrder] = useState<'newest' | 'oldest'>('newest');
 
@@ -1255,7 +1264,24 @@ const AdminDashboard: React.FC = () => {
   };
 
   // ---- FILTERED DATA SETS ----
+
+  /**
+   * A checkout the customer never completed.
+   *
+   * `failed` payment plus `cancelled` fulfilment is the signature written by
+   * `lib/server/order-settlement` — either the customer dismissed the payment
+   * modal, or the scheduled sweep confirmed with Razorpay that no payment ever
+   * arrived. An order cancelled after being paid carries `refunded`, not
+   * `failed`, so a real cancellation is never hidden by this.
+   */
+  const isAbandonedCheckout = (o: Order): boolean =>
+    o.payment_status === 'failed' && o.order_status === 'cancelled';
+
+  const abandonedCount = orders.filter(isAbandonedCheckout).length;
+
   const filteredOrders = orders.filter((o) => {
+    if (!showAbandoned && isAbandonedCheckout(o)) return false;
+
     const matchesSearch =
       o.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.users?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1408,19 +1434,22 @@ const AdminDashboard: React.FC = () => {
     .filter((o) => o.payment_status === 'paid')
     .reduce((sum, o) => sum + (o.total || 0), 0);
   const totalRevenue = stats?.totalRevenue ?? paidRevenue;
-  const totalOrders = stats?.totalOrders ?? orders.length;
+  // Fallbacks mirror the stats endpoint: abandoned checkouts are not orders.
+  const realOrders = orders.filter((o) => !isAbandonedCheckout(o));
+  const totalOrders = stats?.totalOrders ?? realOrders.length;
   const totalCustomers = stats?.totalCustomers ?? customers.length;
   const totalStockUnits = products.reduce(
     (acc, p) => acc + (p.product_variants?.reduce((s, v) => s + v.stock, 0) || 0),
     0
   );
   const pendingOrders =
-    stats?.statusBreakdown?.pending ?? orders.filter((o) => o.order_status === 'pending').length;
+    stats?.statusBreakdown?.pending ??
+    realOrders.filter((o) => o.order_status === 'pending').length;
   const payingCustomers = customers.filter((c) => c.ordersCount > 0).length;
   const averageItemsPerOrder =
     totalOrders > 0
       ? (
-          orders.reduce(
+          realOrders.reduce(
             (sum, o) => sum + (o.order_items?.reduce((s, i) => s + (i.quantity || 1), 0) || 0),
             0
           ) / Math.max(1, totalOrders)
@@ -1435,13 +1464,14 @@ const AdminDashboard: React.FC = () => {
 
   const statusCounts: Record<string, number> = ORDER_STATUSES.reduce((acc, status) => {
     acc[status] =
-      stats?.statusBreakdown?.[status] ?? orders.filter((o) => o.order_status === status).length;
+      stats?.statusBreakdown?.[status] ??
+      realOrders.filter((o) => o.order_status === status).length;
     return acc;
   }, {} as Record<string, number>);
 
   const navTabs = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'orders', label: 'Orders', icon: ShoppingBag, count: orders.length },
+    { id: 'orders', label: 'Orders', icon: ShoppingBag, count: realOrders.length },
     { id: 'inventory', label: 'Inventory', icon: Package, count: products.length },
     { id: 'customers', label: 'Customers', icon: Users, count: customers.length },
     { id: 'reviews', label: 'Reviews', icon: Star, count: reviews.length },
@@ -1604,7 +1634,17 @@ const AdminDashboard: React.FC = () => {
                   <StatCard
                     label="Orders"
                     value={totalOrders.toLocaleString('en-IN')}
-                    hint={`${pendingOrders} awaiting fulfilment`}
+                    hint={
+                      <>
+                        {pendingOrders} awaiting fulfilment
+                        {(stats?.abandonedCheckouts ?? abandonedCount) > 0 && (
+                          <>
+                            {' · '}
+                            {stats?.abandonedCheckouts ?? abandonedCount} abandoned
+                          </>
+                        )}
+                      </>
+                    }
                     icon={ShoppingBag}
                   />
                   <StatCard
@@ -1727,7 +1767,7 @@ const AdminDashboard: React.FC = () => {
                       <Th align="right">Total</Th>
                     </THead>
                     <TBody>
-                      {orders.slice(0, 5).map((o) => (
+                      {realOrders.slice(0, 5).map((o) => (
                         <Tr key={o.id} onClick={() => handleOpenOrderDrawer(o)}>
                           <Td>
                             <Mono className="font-medium text-slate-900">#{o.order_number}</Mono>
@@ -1751,7 +1791,7 @@ const AdminDashboard: React.FC = () => {
                           </Td>
                         </Tr>
                       ))}
-                      {orders.length === 0 && <EmptyRow colSpan={7}>No orders yet.</EmptyRow>}
+                      {realOrders.length === 0 && <EmptyRow colSpan={7}>No orders yet.</EmptyRow>}
                     </TBody>
                   </TableCard>
 
@@ -1828,6 +1868,24 @@ const AdminDashboard: React.FC = () => {
                       </SelectField>
                     </Field>
                   </div>
+
+                  {abandonedCount > 0 && (
+                    <label className="mt-3 flex cursor-pointer items-center gap-2.5 border-t border-slate-100 pt-3">
+                      <input
+                        type="checkbox"
+                        checked={showAbandoned}
+                        onChange={(e) => setShowAbandoned(e.target.checked)}
+                        className="h-4 w-4 cursor-pointer accent-slate-900"
+                      />
+                      <span className="text-sm text-slate-600">
+                        Show {abandonedCount} abandoned{' '}
+                        {abandonedCount === 1 ? 'checkout' : 'checkouts'}
+                        <span className="ml-1 text-slate-400">
+                          — payment was started but never completed
+                        </span>
+                      </span>
+                    </label>
+                  )}
                 </Panel>
 
                 {/* Rows open the detail panel on click; per-item names, sizes
@@ -1869,7 +1927,7 @@ const AdminDashboard: React.FC = () => {
                     ))}
                     {filteredOrders.length === 0 && (
                       <EmptyRow colSpan={7}>
-                        {orders.length === 0 ? 'No orders yet.' : 'No orders match these filters.'}
+                        {realOrders.length === 0 ? 'No orders yet.' : 'No orders match these filters.'}
                       </EmptyRow>
                     )}
                   </TBody>

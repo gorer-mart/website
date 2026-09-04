@@ -50,8 +50,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Could not load dashboard statistics." }, { status: 500 });
     }
 
-    const totalOrders = orders.length;
-    const paidOrders = orders.filter((o) => o.payment_status === "paid");
+    /**
+     * A checkout that was started but never paid for.
+     *
+     * An order row exists before payment, so every dismissed payment modal
+     * leaves one behind. Counting those as orders overstated the order count
+     * and buried real cancellations in the status breakdown, so they are
+     * reported separately as a funnel number instead.
+     */
+    const isAbandoned = (o: { payment_status: string; order_status: string }) =>
+      o.payment_status === "failed" && o.order_status === "cancelled";
+
+    const abandonedCheckouts = orders.filter(isAbandoned).length;
+    const realOrders = orders.filter((o) => !isAbandoned(o));
+
+    const totalOrders = realOrders.length;
+    const paidOrders = realOrders.filter((o) => o.payment_status === "paid");
     const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total), 0);
     const averageOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
 
@@ -66,13 +80,15 @@ export async function GET(request: Request) {
     }
 
     // 3. Status breakdown
+    // Built from real orders only, so "cancelled" means an order someone
+    // cancelled rather than a payment nobody finished.
     const statusBreakdown = {
-      pending: orders.filter((o) => o.order_status === "pending").length,
-      confirmed: orders.filter((o) => o.order_status === "confirmed").length,
-      processing: orders.filter((o) => o.order_status === "processing").length,
-      shipped: orders.filter((o) => o.order_status === "shipped").length,
-      delivered: orders.filter((o) => o.order_status === "delivered").length,
-      cancelled: orders.filter((o) => o.order_status === "cancelled").length,
+      pending: realOrders.filter((o) => o.order_status === "pending").length,
+      confirmed: realOrders.filter((o) => o.order_status === "confirmed").length,
+      processing: realOrders.filter((o) => o.order_status === "processing").length,
+      shipped: realOrders.filter((o) => o.order_status === "shipped").length,
+      delivered: realOrders.filter((o) => o.order_status === "delivered").length,
+      cancelled: realOrders.filter((o) => o.order_status === "cancelled").length,
     };
 
     // 4. Group sales over the requested window for the chart.
@@ -103,7 +119,7 @@ export async function GET(request: Request) {
 
     const windowStart = buckets.length > 0 ? buckets[0].start : today;
 
-    orders.forEach((o) => {
+    realOrders.forEach((o) => {
       const placed = new Date(o.created_at);
       if (placed < windowStart) return;
 
@@ -170,6 +186,7 @@ export async function GET(request: Request) {
       stats: {
         totalRevenue: Math.round(totalRevenue),
         totalOrders,
+        abandonedCheckouts,
         averageOrderValue: Math.round(averageOrderValue),
         totalCustomers: customerCount || 0,
         statusBreakdown,

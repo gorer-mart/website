@@ -220,6 +220,27 @@ const Checkout: React.FC = () => {
     });
   };
 
+  /**
+   * Let the server close out a checkout the customer dismissed.
+   *
+   * `keepalive` matters: the customer often navigates away or closes the tab
+   * right after cancelling, and without it the browser drops the request.
+   * Failures are ignored — the scheduled reconciliation sweep is the real
+   * guarantee, this only makes the common case immediate.
+   */
+  const reportAbandonedCheckout = (orderNumber: string) => {
+    try {
+      fetch('/api/checkout/abandon-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNumber }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      // Never let cleanup bookkeeping surface to the customer.
+    }
+  };
+
   const handlePayment = async () => {
     setIsProcessing(true);
     
@@ -343,11 +364,33 @@ const Checkout: React.FC = () => {
         modal: {
           ondismiss: function () {
             setIsProcessing(false);
+            // Tell the server the customer walked away, so the order does not
+            // linger as pending. The server re-checks with Razorpay before
+            // cancelling anything, so this is a hint and not an instruction.
+            reportAbandonedCheckout(orderNumber);
+            toast({
+              title: 'Payment cancelled',
+              description: 'Your bag is still saved — you can pay whenever you are ready.',
+            });
           }
         }
       };
 
       const rzp = new (window as any).Razorpay(options);
+
+      // Fires when an attempt fails inside the modal (wrong OTP, declined card).
+      // The customer may retry, so the order is only closed out once the modal
+      // itself is dismissed — this is here to surface the gateway's reason.
+      rzp.on('payment.failed', function (response: any) {
+        console.warn('Razorpay payment failed:', response?.error);
+        toast({
+          title: 'Payment failed',
+          description:
+            response?.error?.description || 'That payment did not go through. Please try again.',
+          variant: 'destructive',
+        });
+      });
+
       rzp.open();
 
     } catch (err: any) {
