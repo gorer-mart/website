@@ -19,8 +19,16 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Loader2, Trash2, X } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../../ui/dialog';
 
 /** Brand red, matching the storefront. Used for identity, never for chrome. */
 export const BRAND = '#a6101b';
@@ -777,4 +785,139 @@ export function dateTime(value: string | null | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Destructive confirmation                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How long the final button stays inert after the first stage advances.
+ *
+ * Without it, two-stage confirmation is defeated by a double-click: the first
+ * click advances the modal and the second lands on whatever now occupies that
+ * corner — which is the confirm button. Long enough to break the double-click
+ * gesture, short enough that a deliberate second click never waits.
+ */
+const ARM_DELAY_MS = 450;
+
+/**
+ * Two-stage confirmation for a destructive action.
+ *
+ * Every delete in the console routes through this, so the guard is a property
+ * of the component rather than five hand-written dialogs that drift. Stage one
+ * says what will be removed; stage two asks for an unambiguous second act.
+ *
+ * Closing at any point resets to stage one — a reopened dialog must never come
+ * back already half-confirmed.
+ */
+export function ConfirmDeleteDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  detail,
+  confirmLabel,
+  finalTitle = 'Are you sure?',
+  finalDescription = 'This cannot be undone.',
+  finalLabel,
+  busy = false,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Stage-one question, e.g. "Delete this order?". */
+  title: string;
+  /** What will happen, in full. */
+  description: React.ReactNode;
+  /** Optional extra context, e.g. the review text being removed. */
+  detail?: React.ReactNode;
+  /** Stage-one button, e.g. "Delete order". */
+  confirmLabel: string;
+  finalTitle?: string;
+  finalDescription?: React.ReactNode;
+  /** Stage-two button. Defaults to "Yes, <confirmLabel lowercased>". */
+  finalLabel?: string;
+  busy?: boolean;
+  onConfirm: () => void;
+}) {
+  const [stage, setStage] = React.useState<1 | 2>(1);
+  const [armed, setArmed] = React.useState(false);
+
+  // Reopening always starts over, including after a failed delete that left
+  // the dialog open on stage two.
+  React.useEffect(() => {
+    if (!open) {
+      setStage(1);
+      setArmed(false);
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    if (stage !== 2) return;
+    setArmed(false);
+    const timer = window.setTimeout(() => setArmed(true), ARM_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [stage]);
+
+  const stageTwoLabel = finalLabel ?? `Yes, ${confirmLabel.toLowerCase()}`;
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // A delete in flight must finish; dismissing mid-request would leave
+        // the console unsure whether the row is gone.
+        if (busy) return;
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent className="max-w-md gap-4 rounded-lg border-slate-200 p-6">
+        <DialogHeader className="border-slate-100 pb-3">
+          <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
+            <AlertCircle className="h-4 w-4 text-rose-600" />
+            {stage === 1 ? title : finalTitle}
+          </DialogTitle>
+          <DialogDescription className="font-sans text-sm font-normal normal-case leading-relaxed tracking-normal text-slate-500">
+            {stage === 1 ? description : finalDescription}
+          </DialogDescription>
+        </DialogHeader>
+
+        {stage === 1 && detail}
+
+        <DialogFooter className="border-slate-100 pt-4">
+          {stage === 1 ? (
+            <>
+              <Action variant="secondary" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Action>
+              <Action
+                variant="primary"
+                onClick={() => setStage(2)}
+                className="border-rose-600 bg-rose-600 hover:bg-rose-700"
+              >
+                <Trash2 className="h-4 w-4" />
+                {confirmLabel}
+              </Action>
+            </>
+          ) : (
+            <>
+              <Action variant="secondary" onClick={() => setStage(1)} disabled={busy}>
+                Back
+              </Action>
+              <Action
+                variant="primary"
+                onClick={onConfirm}
+                disabled={busy || !armed}
+                className="border-rose-600 bg-rose-600 hover:bg-rose-700"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {stageTwoLabel}
+              </Action>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }

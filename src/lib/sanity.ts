@@ -234,6 +234,40 @@ export async function getCategories(): Promise<Category[]> {
   }
 }
 
+export interface SanityCollection {
+  _id: string;
+  name: string;
+  slug?: string | null;
+}
+
+/**
+ * Collections available to scope a promo code to.
+ *
+ * Server-only: the sole caller is the admin console, so there is no browser
+ * proxy branch and no local fallback dataset — an empty list simply means the
+ * Studio has no collections yet, and the coupon form says so.
+ */
+export async function getCollections(): Promise<SanityCollection[]> {
+  if (!isSanityConfigured()) return [];
+
+  try {
+    const collections = await client.fetch(
+      `*[_type == "collection"] | order(name asc) {
+        _id,
+        name,
+        "slug": slug.current
+      }`,
+      {},
+      catalogCache
+    );
+
+    return (collections || []).filter((c: SanityCollection) => c?._id && c?.name);
+  } catch (error) {
+    console.error('Failed to fetch collections from Sanity.', error);
+    return [];
+  }
+}
+
 export interface HomePageShowcase {
   heroData?: HeroData;
   showNotificationBar?: boolean;

@@ -53,7 +53,12 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminSupabaseClient();
-    const result = await evaluateCoupon(supabase, code, pricing.subtotal, user.id);
+    const result = await evaluateCoupon(
+      supabase,
+      code,
+      { subtotal: pricing.subtotal, lines: pricing.lines },
+      user.id
+    );
 
     if (!result.ok) {
       // 200 with `valid: false`: the request was well-formed, the code simply

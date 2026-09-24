@@ -27,6 +27,9 @@ import {
   faTruckFast,
   faBan,
   faArrowRight,
+  faArrowUpRightFromSquare,
+  faStar,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../../context/AuthContext';
 import { useCart } from '../../../context/CartContext';
@@ -34,6 +37,7 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { useToast } from '../../../ui/use-toast';
 import { imageProps } from '../../../lib/image';
+import { normalizeTrackingUrl } from '../../../lib/tracking';
 import type { Product } from '../../../types/product';
 
 /* ------------------------------------------------------------------ */
@@ -42,6 +46,7 @@ import type { Product } from '../../../types/product';
 
 interface OrderItem {
   id: string;
+  product_id?: string | null;
   product_name?: string | null;
   quantity: number;
   price: number;
@@ -86,6 +91,7 @@ interface Order {
   customer_email?: string | null;
   customer_phone?: string | null;
   tracking_number?: string | null;
+  tracking_url?: string | null;
   estimated_delivery?: string | null;
   created_at: string;
   updated_at?: string | null;
@@ -202,7 +208,8 @@ const MetaLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const CopyButton: React.FC<{ value: string; label: string }> = ({ value, label }) => {
   const [copied, setCopied] = useState(false);
 
-  const copy = async () => {
+  const copy = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
@@ -293,25 +300,30 @@ const FulfilmentTracker: React.FC<{ status: string }> = ({ status }) => {
 
 /** Placeholder card used while the first page of orders loads. */
 const SkeletonCard: React.FC = () => (
-  <div className="border border-neutral-200 animate-pulse">
-    <div className="h-20 bg-neutral-50 border-b border-neutral-100" />
-    <div className="p-6 space-y-5">
-      <div className="h-2 bg-neutral-100 w-2/3" />
-      <div className="flex gap-4">
-        <div className="w-20 h-24 bg-neutral-100 flex-shrink-0" />
-        <div className="flex-1 space-y-3 pt-2">
-          <div className="h-2 bg-neutral-100 w-1/3" />
-          <div className="h-2 bg-neutral-100 w-3/5" />
-          <div className="h-2 bg-neutral-100 w-1/4" />
-        </div>
+  <div className="border border-neutral-200 bg-white p-4 sm:p-5 animate-pulse flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex items-center gap-4 flex-1">
+      <div className="w-16 h-20 sm:w-20 sm:h-24 bg-neutral-100 flex-shrink-0" />
+      <div className="flex-1 space-y-2.5">
+        <div className="h-3 bg-neutral-100 w-1/4" />
+        <div className="h-4 bg-neutral-100 w-3/5" />
+        <div className="h-3 bg-neutral-100 w-1/3" />
       </div>
     </div>
+    <div className="w-24 h-8 bg-neutral-100 flex-shrink-0 hidden sm:block" />
   </div>
 );
 
 /* ------------------------------------------------------------------ */
 /* Order card                                                          */
 /* ------------------------------------------------------------------ */
+/* Review Data Type                                                    */
+/* ------------------------------------------------------------------ */
+
+interface UserReviewData {
+  id?: string;
+  rating: number;
+  comment?: string;
+}
 
 interface OrderCardProps {
   order: Order;
@@ -319,6 +331,8 @@ interface OrderCardProps {
   onToggle: () => void;
   onReorder: (order: Order) => void;
   onBuyAgain: (item: OrderItem) => void;
+  onOpenReview: (item: OrderItem, initialRating?: number, initialComment?: string) => void;
+  reviewMap: Record<string, UserReviewData>;
   busy: boolean;
   busyItemId: string | null;
 }
@@ -329,9 +343,12 @@ const OrderCard: React.FC<OrderCardProps> = ({
   onToggle,
   onReorder,
   onBuyAgain,
+  onOpenReview,
+  reviewMap,
   busy,
   busyItemId,
 }) => {
+  const [headerHoverRating, setHeaderHoverRating] = useState(0);
   const items = order.order_items ?? [];
   const unitCount = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const discount = Number(order.discount_amount || 0);
@@ -340,6 +357,21 @@ const OrderCard: React.FC<OrderCardProps> = ({
   const cancelled = order.order_status === 'cancelled';
   const isPaid = order.payment_status === 'paid';
   const address = order.shipping_address;
+
+  /**
+   * Re-validated on the way into the `href`, not trusted from the API — see
+   * `normalizeTrackingUrl`. Null means no button rather than a dead one.
+   */
+  const trackingUrl = normalizeTrackingUrl(order.tracking_url);
+
+  const showExpectedDelivery =
+    Boolean(order.estimated_delivery) && order.order_status !== 'delivered';
+  /**
+   * The meta strip is dropped entirely when the link is the only thing we have
+   * to say, so the button does not sit under an empty ruled line.
+   */
+  const showTrackingMeta =
+    Boolean(order.tracking_number) || showExpectedDelivery || !trackingUrl;
 
   const orderMeta = ORDER_STATUS_META[order.order_status] ?? {
     label: order.order_status,
@@ -380,121 +412,53 @@ const OrderCard: React.FC<OrderCardProps> = ({
             }
           : null;
 
+  const firstItem = items[0];
+  const primaryName = firstItem ? itemLabel(firstItem) : 'Order Item';
+  const extraItemsCount = items.length > 1 ? items.length - 1 : 0;
+  const primaryImage = firstItem?.product?.image;
+  const primaryImgProps = imageProps(primaryImage, {
+    widths: [96, 160, 240],
+    sizes: THUMB_SIZES,
+    fallbackWidth: 160,
+  });
+
+  const firstProductId = (firstItem?.product_id || '').toLowerCase();
+  const firstSanityId = (firstItem?.product?.sanityId || '').toLowerCase();
+  const reviewedItem = reviewMap[firstProductId] || (firstSanityId ? reviewMap[firstSanityId] : undefined);
+
   return (
     <motion.article
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="border border-neutral-200 bg-white hover:border-neutral-300 transition-colors"
+      className={`border bg-white transition-all duration-200 ${
+        expanded ? 'border-black/50 shadow-sm' : 'border-neutral-200 hover:border-neutral-400'
+      }`}
     >
-      {/* ---- Summary strip: the four facts a customer scans for ---- */}
-      <header className="bg-neutral-50/80 border-b border-neutral-200 px-5 sm:px-7 py-5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
-          <div>
-            <MetaLabel>Order Placed</MetaLabel>
-            <p className="text-xs sm:text-sm font-medium text-neutral-800 mt-1.5">
-              {formatDate(order.created_at)}
-            </p>
-          </div>
-
-          <div className="min-w-0">
-            <MetaLabel>Order Number</MetaLabel>
-            <div className="flex items-center gap-2 mt-1.5">
-              <p className="text-xs sm:text-sm font-medium text-neutral-800 truncate">
-                {order.order_number}
-              </p>
-              <CopyButton value={order.order_number} label="order number" />
-            </div>
-          </div>
-
-          <div>
-            <MetaLabel>{items.length === 1 ? 'Item' : 'Items'}</MetaLabel>
-            <p className="text-xs sm:text-sm font-medium text-neutral-800 mt-1.5">
-              {unitCount} {unitCount === 1 ? 'piece' : 'pieces'}
-            </p>
-          </div>
-
-          <div className="lg:text-right">
-            <MetaLabel>Order Total</MetaLabel>
-            <p className="font-display font-bold text-base sm:text-lg text-black mt-1">
-              {formatCurrency(order.total)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 mt-5">
-          <Pill label={orderMeta.label} className={orderMeta.pill} />
-          <Pill label={paymentMeta.label} className={paymentMeta.pill} />
-          {order.coupon_code && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.15em] border border-neutral-200 bg-white text-neutral-500">
-              <FontAwesomeIcon icon={faTag} className="text-[8px]" />
-              {order.coupon_code}
-            </span>
-          )}
-        </div>
-      </header>
-
-      <div className="px-5 sm:px-7 py-6">
-        {notice && (
-          <div className={`flex items-start gap-3 border px-4 py-3 mb-6 ${notice.tone}`}>
-            <FontAwesomeIcon icon={notice.icon} className="text-xs mt-0.5 flex-shrink-0" />
-            <p className="text-xs leading-relaxed">{notice.text}</p>
-          </div>
-        )}
-
-        {/* ---- Where it is ---- */}
-        {!cancelled && isPaid && (
-          <div className="mb-6">
-            <FulfilmentTracker status={order.order_status} />
-
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-4 pt-4 border-t border-neutral-100">
-              {order.tracking_number ? (
-                <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-neutral-500">
-                  <FontAwesomeIcon icon={faTruckFast} className="text-neutral-300" />
-                  Tracking
-                  <span className="font-bold text-black tracking-normal normal-case text-xs">
-                    {order.tracking_number}
-                  </span>
-                  <CopyButton value={order.tracking_number} label="tracking number" />
-                </span>
-              ) : (
-                <span className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">
-                  Tracking appears here once your parcel ships
-                </span>
-              )}
-
-              {order.estimated_delivery && order.order_status !== 'delivered' && (
-                <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-neutral-500">
-                  <FontAwesomeIcon icon={faCalendarDays} className="text-neutral-300" />
-                  Expected
-                  <span className="font-bold text-black">{formatDate(order.estimated_delivery)}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ---- What was bought ---- */}
-        <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
-          {items.map((item) => {
-            const name = itemLabel(item);
-            const slug = item.product?.slug;
-            const href = slug ? `/product/${slug}` : null;
-            const img = imageProps(item.product?.image, {
-              widths: [96, 160, 240],
-              sizes: THUMB_SIZES,
-              fallbackWidth: 160,
-            });
-            const quantity = Number(item.quantity || 0);
-            const unitPrice = Number(item.price || 0);
-
-            const thumbnail = img.src ? (
+      {/* ---- Rectangular Header Row: Product Image + Status ("Delivered on {Date}") + Bigger Review Stars + Arrow ---- */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        aria-expanded={expanded}
+        className="p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer select-none transition-colors hover:bg-neutral-50/60"
+      >
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          {/* Primary Product Image Thumbnail */}
+          <div className="relative w-16 h-20 sm:w-20 sm:h-24 bg-neutral-100 flex-shrink-0 overflow-hidden border border-neutral-200">
+            {primaryImgProps.src ? (
               <img
-                src={img.src}
-                srcSet={img.srcSet}
-                sizes={img.sizes}
-                alt={name}
+                src={primaryImgProps.src}
+                srcSet={primaryImgProps.srcSet}
+                sizes={primaryImgProps.sizes}
+                alt={primaryName}
                 width={160}
                 height={200}
                 loading="lazy"
@@ -502,124 +466,129 @@ const OrderCard: React.FC<OrderCardProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="w-full h-full flex items-center justify-center text-neutral-300">
-                <FontAwesomeIcon icon={faBox} />
+              <div className="w-full h-full flex items-center justify-center text-neutral-300">
+                <FontAwesomeIcon icon={faBox} className="text-base" />
+              </div>
+            )}
+            {extraItemsCount > 0 && (
+              <span className="absolute bottom-1 right-1 bg-black/85 text-white text-[9px] font-bold px-1.5 py-0.5 tracking-wider">
+                +{extraItemsCount}
               </span>
-            );
+            )}
+          </div>
 
-            return (
-              <li key={item.id} className="flex gap-4 sm:gap-5 py-5">
-                <div className="w-16 h-20 sm:w-20 sm:h-24 bg-neutral-50 flex-shrink-0 overflow-hidden">
-                  {href ? (
-                    <Link href={href} className="block w-full h-full">
-                      {thumbnail}
-                    </Link>
-                  ) : (
-                    thumbnail
-                  )}
-                </div>
+          {/* Beside product image: First status written like "Delivered on {Date}" (no uppercase), then product name */}
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="text-sm sm:text-base font-semibold text-neutral-900 leading-snug">
+              {order.order_status === 'delivered' ? (
+                <>Delivered on {formatDate(order.updated_at || order.created_at)}</>
+              ) : order.order_status === 'shipped' ? (
+                <>In Transit{order.estimated_delivery ? ` on ${formatDate(order.estimated_delivery)}` : ''}</>
+              ) : order.order_status === 'processing' ? (
+                <>Being Packed{order.estimated_delivery ? ` on ${formatDate(order.estimated_delivery)}` : ''}</>
+              ) : order.order_status === 'confirmed' ? (
+                <>Confirmed{order.estimated_delivery ? ` on ${formatDate(order.estimated_delivery)}` : ''}</>
+              ) : order.order_status === 'cancelled' ? (
+                <>Cancelled</>
+              ) : (
+                <>{orderMeta.label}</>
+              )}
+            </p>
 
-                <div className="flex-1 min-w-0">
-                  {item.product?.category && (
-                    <p className="text-[9px] uppercase tracking-[0.18em] text-neutral-400 mb-1">
-                      {item.product.category}
-                    </p>
-                  )}
+            <h3 className="text-xs sm:text-sm font-medium text-neutral-500 truncate">
+              {primaryName}
+              {extraItemsCount > 0 && (
+                <span className="text-neutral-400 ml-1">
+                  (+{extraItemsCount} more)
+                </span>
+              )}
+            </h3>
+          </div>
+        </div>
 
-                  {href ? (
-                    <Link
-                      href={href}
-                      className="text-sm sm:text-base font-display leading-snug hover:underline"
-                    >
-                      {name}
-                    </Link>
-                  ) : (
-                    <p className="text-sm sm:text-base font-display leading-snug">{name}</p>
-                  )}
-
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-neutral-400 mt-1.5">
-                    {[item.size && `Size ${item.size}`, item.color, `Qty ${quantity}`]
-                      .filter(Boolean)
-                      .join('  •  ')}
-                  </p>
-
-                  {item.product?.available ? (
-                    <button
-                      type="button"
-                      onClick={() => onBuyAgain(item)}
-                      disabled={busyItemId === item.id}
-                      className="mt-3 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-500 hover:text-black transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      <FontAwesomeIcon
-                        icon={busyItemId === item.id ? faSpinner : faBagShopping}
-                        className={busyItemId === item.id ? 'animate-spin text-[10px]' : 'text-[10px]'}
-                      />
-                      Buy Again
-                    </button>
-                  ) : (
-                    <p className="mt-3 text-[10px] uppercase tracking-[0.15em] text-neutral-300">
-                      No longer available
-                    </p>
-                  )}
-                </div>
-
-                <div className="text-right flex-shrink-0">
-                  <p className="font-display font-bold text-sm sm:text-base whitespace-nowrap">
-                    {formatCurrency(unitPrice * quantity)}
-                  </p>
-                  {quantity > 1 && (
-                    <p className="text-[10px] text-neutral-400 mt-1 whitespace-nowrap">
-                      {formatCurrency(unitPrice)} each
-                    </p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
-      {/* ---- Actions ---- */}
-      <div className="px-5 sm:px-7 py-4 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500 hover:text-black transition-colors cursor-pointer"
-        >
-          {expanded ? 'Hide Details' : 'Order Details'}
-          <FontAwesomeIcon
-            icon={faChevronDown}
-            className={`text-[8px] transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/contact"
-            className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500 hover:text-black transition-colors"
+        {/* Right side of card: Bigger Rating Stars with dynamic hover effect & Arrow Button ONLY */}
+        <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
+          {/* Rating / Review Prompt */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex flex-col items-end gap-1 select-none"
           >
-            <FontAwesomeIcon icon={faHeadset} className="text-[10px]" />
-            Need Help
-          </Link>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-neutral-500">
+                {headerHoverRating
+                  ? `${headerHoverRating} Star${headerHoverRating > 1 ? 's' : ''}`
+                  : reviewedItem
+                    ? 'Your Review'
+                    : 'Rate Product'}
+              </span>
+              {reviewedItem && (
+                <button
+                  type="button"
+                  onClick={() => onOpenReview(firstItem, reviewedItem.rating, reviewedItem.comment)}
+                  className="text-[9px] font-bold text-neutral-400 hover:text-black underline cursor-pointer transition-colors"
+                >
+                  Change
+                </button>
+              )}
+            </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onReorder(order)}
-            disabled={busy}
-            className="text-[10px] tracking-[0.15em] cursor-pointer"
+            {/* Bigger stars with hover effect */}
+            <div
+              className="flex items-center gap-1 text-[#D4AF37]"
+              onMouseLeave={() => setHeaderHoverRating(0)}
+            >
+              {[1, 2, 3, 4, 5].map((star) => {
+                const isLit = headerHoverRating
+                  ? star <= headerHoverRating
+                  : reviewedItem
+                    ? star <= reviewedItem.rating
+                    : false;
+
+                return (
+                  <button
+                    key={star}
+                    type="button"
+                    onMouseEnter={() => setHeaderHoverRating(star)}
+                    onClick={() => onOpenReview(firstItem, star, reviewedItem?.comment)}
+                    className="p-0.5 text-base sm:text-xl transition-transform hover:scale-125 cursor-pointer focus:outline-none"
+                    title={
+                      reviewedItem
+                        ? `Change rating to ${star} star${star > 1 ? 's' : ''}`
+                        : `Rate ${star} star${star > 1 ? 's' : ''}`
+                    }
+                    aria-label={`Rate ${star} stars`}
+                  >
+                    <FontAwesomeIcon
+                      icon={faStar}
+                      className={`transition-colors duration-150 ${
+                        isLit
+                          ? 'text-[#D4AF37]'
+                          : reviewedItem
+                            ? 'text-neutral-200'
+                            : 'text-neutral-300 hover:text-[#D4AF37]'
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Arrow Button ONLY - No "view details" text */}
+          <div
+            aria-label={expanded ? 'Collapse order' : 'Expand order'}
+            className={`w-8 h-8 border flex items-center justify-center transition-all duration-300 ${
+              expanded
+                ? 'rotate-180 bg-black text-white border-black'
+                : 'bg-white text-neutral-600 border-neutral-200 hover:border-black'
+            }`}
           >
-            <FontAwesomeIcon
-              icon={busy ? faSpinner : faRotateRight}
-              className={busy ? 'animate-spin mr-2 text-[10px]' : 'mr-2 text-[10px]'}
-            />
-            Order Again
-          </Button>
+            <FontAwesomeIcon icon={faChevronDown} className="text-[9px]" />
+          </div>
         </div>
       </div>
 
-      {/* ---- Details: address, money, delivery ---- */}
+      {/* ---- Expanded Details: Status Timeline, Order Details, Info & Actions ---- */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -627,136 +596,303 @@ const OrderCard: React.FC<OrderCardProps> = ({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="overflow-hidden border-t border-neutral-100 bg-neutral-50/60"
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="overflow-hidden border-t border-neutral-200 bg-neutral-50/40"
           >
-            <div className="px-5 sm:px-7 py-7 grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Delivery address */}
-              <section>
-                <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800 mb-4">
-                  <FontAwesomeIcon icon={faLocationDot} className="text-neutral-300" />
-                  Delivery Address
-                </h3>
-                {address ? (
-                  <address className="not-italic text-xs leading-relaxed text-neutral-600 space-y-0.5">
-                    {address.full_name && <p className="font-bold text-neutral-900">{address.full_name}</p>}
-                    {address.address_line_1 && <p>{address.address_line_1}</p>}
-                    {address.address_line_2 && <p>{address.address_line_2}</p>}
-                    <p>
-                      {[address.city, address.state].filter(Boolean).join(', ')}
-                      {address.postal_code ? ` — ${address.postal_code}` : ''}
-                    </p>
-                    {address.country && <p>{address.country}</p>}
-                    {address.phone && <p className="pt-1.5 text-neutral-500">{address.phone}</p>}
-                  </address>
-                ) : (
-                  <p className="text-xs text-neutral-400">No address recorded for this order.</p>
-                )}
-              </section>
+            <div className="p-5 sm:p-7 space-y-6">
+              {/* Notice */}
+              {notice && (
+                <div className={`flex items-start gap-3 border px-4 py-3 ${notice.tone}`}>
+                  <FontAwesomeIcon icon={notice.icon} className="text-xs mt-0.5 flex-shrink-0" />
+                  <p className="text-xs leading-relaxed">{notice.text}</p>
+                </div>
+              )}
 
-              {/* Payment summary */}
-              <section>
-                <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800 mb-4">
-                  <FontAwesomeIcon icon={faCreditCard} className="text-neutral-300" />
-                  Payment Summary
-                </h3>
-                <dl className="text-xs text-neutral-600 space-y-2">
-                  <div className="flex items-center justify-between gap-4">
-                    <dt>Subtotal</dt>
-                    <dd className="font-medium text-neutral-900">{formatCurrency(order.subtotal)}</dd>
-                  </div>
-                  {discount > 0 && (
-                    <div className="flex items-center justify-between gap-4 text-emerald-700">
-                      <dt>Discount{order.coupon_code ? ` (${order.coupon_code})` : ''}</dt>
-                      <dd className="font-medium">−{formatCurrency(discount)}</dd>
+              {/* Status Timeline */}
+              {!cancelled && isPaid && (
+                <div className="bg-white border border-neutral-200 p-5">
+                  <FulfilmentTracker status={order.order_status} />
+
+                  {showTrackingMeta && (
+                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-4 pt-4 border-t border-neutral-100">
+                      {order.tracking_number ? (
+                        <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-neutral-500">
+                          <FontAwesomeIcon icon={faTruckFast} className="text-neutral-300" />
+                          Tracking
+                          <span className="font-bold text-black tracking-normal normal-case text-xs">
+                            {order.tracking_number}
+                          </span>
+                          <CopyButton value={order.tracking_number} label="tracking number" />
+                        </span>
+                      ) : trackingUrl ? null : (
+                        /* Only promised while there is nothing to show. With a
+                           link in hand the button below says it better. */
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">
+                          Tracking appears here once your parcel ships
+                        </span>
+                      )}
+
+                      {showExpectedDelivery && (
+                        <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-neutral-500">
+                          <FontAwesomeIcon icon={faCalendarDays} className="text-neutral-300" />
+                          Expected
+                          <span className="font-bold text-black">
+                            {formatDate(order.estimated_delivery)}
+                          </span>
+                        </span>
+                      )}
                     </div>
                   )}
-                  <div className="flex items-center justify-between gap-4">
-                    <dt>Shipping</dt>
-                    <dd className="font-medium text-neutral-900">
-                      {shipping > 0 ? formatCurrency(shipping) : 'Free'}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 pt-2.5 mt-1 border-t border-neutral-200">
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800">
-                      {/* An unpaid or refunded order was never "paid" — say what is true. */}
-                      {isPaid ? 'Total Paid' : 'Order Total'}
-                    </dt>
-                    <dd className="font-display font-bold text-base text-black">
-                      {formatCurrency(order.total)}
-                    </dd>
-                  </div>
-                </dl>
 
-                <div className="mt-4 pt-4 border-t border-neutral-200 space-y-1.5">
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">
-                    Method:{' '}
-                    <span className="text-neutral-700 font-bold">
-                      {order.payment_provider === 'razorpay'
-                        ? 'Razorpay (Card / UPI / Netbanking)'
-                        : order.payment_provider || 'Online'}
-                    </span>
-                  </p>
-                  {order.razorpay_payment_id && (
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-neutral-400 break-all">
-                      Payment ID:{' '}
-                      <span className="text-neutral-700 normal-case tracking-normal">
-                        {order.razorpay_payment_id}
-                      </span>
-                    </p>
+                  {/* The courier's own live status, one tap away. Only rendered
+                      when the admin has actually supplied a link. */}
+                  {trackingUrl && (
+                    <div
+                      className={`flex justify-center ${
+                        showTrackingMeta ? 'mt-4' : 'mt-4 pt-4 border-t border-neutral-100'
+                      }`}
+                    >
+                      <a
+                        href={trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="group inline-flex items-center gap-2.5 border border-black bg-black px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white transition-colors hover:bg-neutral-800"
+                      >
+                        <FontAwesomeIcon icon={faTruckFast} className="text-[11px]" />
+                        Track Shipment
+                        <FontAwesomeIcon
+                          icon={faArrowUpRightFromSquare}
+                          className="text-[9px] text-white/60 transition-colors group-hover:text-white"
+                        />
+                      </a>
+                    </div>
                   )}
                 </div>
-              </section>
+              )}
 
-              {/* Delivery details */}
-              <section>
-                <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800 mb-4">
-                  <FontAwesomeIcon icon={faTruckFast} className="text-neutral-300" />
-                  Delivery Details
-                </h3>
-                <dl className="text-xs text-neutral-600 space-y-3">
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
-                      Status
-                    </dt>
-                    <dd className="mt-1 font-medium text-neutral-900">{orderMeta.label}</dd>
+              {/* Order Details Section: details on left, button "View Product" on right, NO amount shown */}
+              <div className="bg-white border border-neutral-200 p-5 sm:p-6 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800">
+                    Order Details
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-400">
+                      Order ID:
+                    </span>
+                    <span className="font-mono text-xs font-bold text-neutral-900">{order.order_number}</span>
+                    <CopyButton value={order.order_number} label="order ID" />
                   </div>
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
-                      Tracking Number
-                    </dt>
-                    <dd className="mt-1 font-medium text-neutral-900 break-all">
-                      {order.tracking_number || 'Not assigned yet'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
-                      Expected Delivery
-                    </dt>
-                    <dd className="mt-1 font-medium text-neutral-900">
-                      {order.estimated_delivery ? formatDate(order.estimated_delivery) : 'To be confirmed'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
-                      Last Updated
-                    </dt>
-                    <dd className="mt-1 font-medium text-neutral-900">
-                      {formatDateTime(order.updated_at || order.created_at)}
-                    </dd>
-                  </div>
-                  {(order.customer_email || order.customer_phone) && (
-                    <div>
-                      <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
-                        Contact On Order
-                      </dt>
-                      <dd className="mt-1 text-neutral-700 break-all">
-                        {[order.customer_email, order.customer_phone].filter(Boolean).join(' • ')}
+                </div>
+
+                <div className="divide-y divide-neutral-100">
+                  {items.map((item) => {
+                    const name = itemLabel(item);
+                    const slug = item.product?.slug || item.products?.slug;
+                    const href = slug ? `/product/${slug}` : '/shop';
+                    const quantity = Number(item.quantity || 1);
+                    const itemProductId = (item.product_id || '').toLowerCase();
+                    const itemSanityId = (item.product?.sanityId || '').toLowerCase();
+                    const itemReview = reviewMap[itemProductId] || (itemSanityId ? reviewMap[itemSanityId] : undefined);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      >
+                        {/* Left side: Order Details */}
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          <Link
+                            href={href}
+                            className="text-sm font-display font-bold text-neutral-900 hover:underline block truncate"
+                          >
+                            {name}
+                          </Link>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 uppercase tracking-wider">
+                            {item.size && (
+                              <span>
+                                Size: <strong className="text-neutral-900">{item.size}</strong>
+                              </span>
+                            )}
+                            {item.color && (
+                              <span>
+                                Colour: <strong className="text-neutral-900">{item.color}</strong>
+                              </span>
+                            )}
+                            <span>
+                              Qty: <strong className="text-neutral-900">{quantity}</strong>
+                            </span>
+                          </div>
+
+                          {/* Review status / change review for this specific item */}
+                          <div className="pt-0.5 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onOpenReview(item, itemReview?.rating, itemReview?.comment)}
+                              className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-600 hover:text-black transition-colors cursor-pointer"
+                            >
+                              <FontAwesomeIcon
+                                icon={faStar}
+                                className={`text-[9px] ${itemReview ? 'text-[#D4AF37]' : 'text-neutral-300'}`}
+                              />
+                              {itemReview ? `Your Review: ${itemReview.rating}★ (Change)` : 'Write a Review'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Right side: Button "View Product" (NO amount / price shown) */}
+                        <div className="flex-shrink-0 self-start sm:self-center">
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-4 text-[10px] font-bold uppercase tracking-[0.16em] border-neutral-300 hover:border-black hover:bg-black hover:text-white transition-all cursor-pointer"
+                          >
+                            <Link href={href} className="inline-flex items-center gap-2">
+                              <span>View Product</span>
+                              <FontAwesomeIcon icon={faArrowRight} className="text-[9px]" />
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Order Details: Address, Payment, Delivery */}
+              <div className="bg-white border border-neutral-200 p-5 grid grid-cols-1 md:grid-cols-3 gap-8">
+                {/* Delivery address */}
+                <section>
+                  <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800 mb-4">
+                    <FontAwesomeIcon icon={faLocationDot} className="text-neutral-300" />
+                    Delivery Address
+                  </h3>
+                  {address ? (
+                    <address className="not-italic text-xs leading-relaxed text-neutral-600 space-y-0.5">
+                      {address.full_name && <p className="font-bold text-neutral-900">{address.full_name}</p>}
+                      {address.address_line_1 && <p>{address.address_line_1}</p>}
+                      {address.address_line_2 && <p>{address.address_line_2}</p>}
+                      <p>
+                        {[address.city, address.state].filter(Boolean).join(', ')}
+                        {address.postal_code ? ` — ${address.postal_code}` : ''}
+                      </p>
+                      {address.country && <p>{address.country}</p>}
+                      {address.phone && <p className="pt-1.5 text-neutral-500">{address.phone}</p>}
+                    </address>
+                  ) : (
+                    <p className="text-xs text-neutral-400">No address recorded for this order.</p>
+                  )}
+                </section>
+
+                {/* Payment summary */}
+                <section>
+                  <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800 mb-4">
+                    <FontAwesomeIcon icon={faCreditCard} className="text-neutral-300" />
+                    Payment Summary
+                  </h3>
+                  <dl className="text-xs text-neutral-600 space-y-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <dt>Subtotal</dt>
+                      <dd className="font-medium text-neutral-900">{formatCurrency(order.subtotal)}</dd>
+                    </div>
+                    {discount > 0 && (
+                      <div className="flex items-center justify-between gap-4 text-emerald-700">
+                        <dt>Discount{order.coupon_code ? ` (${order.coupon_code})` : ''}</dt>
+                        <dd className="font-medium">−{formatCurrency(discount)}</dd>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-4">
+                      <dt>Shipping</dt>
+                      <dd className="font-medium text-neutral-900">
+                        {shipping > 0 ? formatCurrency(shipping) : 'Free'}
                       </dd>
                     </div>
-                  )}
-                </dl>
-              </section>
+                    <div className="flex items-center justify-between gap-4 pt-2.5 mt-1 border-t border-neutral-200">
+                      <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800">
+                        {isPaid ? 'Total Paid' : 'Order Total'}
+                      </dt>
+                      <dd className="font-display font-bold text-base text-black">
+                        {formatCurrency(order.total)}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-4 pt-4 border-t border-neutral-200 space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">
+                      Method: <span className="text-neutral-700 font-bold">Razorpay</span>
+                    </p>
+                  </div>
+                </section>
+
+                {/* Delivery details */}
+                <section>
+                  <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-800 mb-4">
+                    <FontAwesomeIcon icon={faTruckFast} className="text-neutral-300" />
+                    Delivery Details
+                  </h3>
+                  <dl className="text-xs text-neutral-600 space-y-3">
+                    <div>
+                      <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
+                        Status
+                      </dt>
+                      <dd className="mt-1 font-medium text-neutral-900">{orderMeta.label}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
+                        Expected Delivery
+                      </dt>
+                      <dd className="mt-1 font-medium text-neutral-900">
+                        {order.estimated_delivery ? formatDate(order.estimated_delivery) : 'To be confirmed'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-400">
+                        Last Updated
+                      </dt>
+                      <dd className="mt-1 font-medium text-neutral-900">
+                        {formatDateTime(order.updated_at || order.created_at)}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200">
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500 hover:text-black transition-colors"
+                >
+                  <FontAwesomeIcon icon={faHeadset} className="text-[10px]" />
+                  Need Help
+                </Link>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onToggle}
+                    className="text-[10px] tracking-[0.15em] cursor-pointer"
+                  >
+                    Hide Details
+                  </Button>
+
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => onReorder(order)}
+                    disabled={busy}
+                    className="text-[10px] tracking-[0.15em] bg-black text-white hover:bg-neutral-800 cursor-pointer"
+                  >
+                    <FontAwesomeIcon
+                      icon={busy ? faSpinner : faRotateRight}
+                      className={busy ? 'animate-spin mr-2 text-[10px]' : 'mr-2 text-[10px]'}
+                    />
+                    Order Again
+                  </Button>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -796,6 +932,145 @@ const OrdersClient: React.FC = () => {
 
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [buyingItemId, setBuyingItemId] = useState<string | null>(null);
+
+  /* ---- Review Modal & Ratings State ---- */
+  const [reviewMap, setReviewMap] = useState<Record<string, UserReviewData>>({});
+  const [reviewModalItem, setReviewModalItem] = useState<OrderItem | null>(null);
+  const [selectedRating, setSelectedRating] = useState<number>(5);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+
+  // Load reviews from cache on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('gm_user_reviews_v2');
+      if (saved) {
+        setReviewMap(JSON.parse(saved));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Fetch reviews from database when signed in
+  const loadUserReviews = useCallback(async () => {
+    try {
+      const res = await fetch('/api/reviews?mine=true', { cache: 'no-store' });
+      if (res.ok) {
+        const list: Array<{ id: string; product_id: string; rating: number; comment?: string }> =
+          await res.json();
+        const map: Record<string, UserReviewData> = {};
+        for (const rev of list) {
+          if (rev.product_id) {
+            map[rev.product_id.toLowerCase()] = {
+              id: rev.id,
+              rating: rev.rating,
+              comment: rev.comment,
+            };
+          }
+        }
+        setReviewMap((prev) => {
+          const merged = { ...prev, ...map };
+          try {
+            localStorage.setItem('gm_user_reviews_v2', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.warn('Could not load user reviews from API', err);
+    }
+  }, []);
+
+  const handleOpenReview = (item: OrderItem, initialRating?: number, initialComment?: string) => {
+    const itemProductId = (item.product_id || '').toLowerCase();
+    const itemSanityId = (item.product?.sanityId || '').toLowerCase();
+    const existing = reviewMap[itemProductId] || (itemSanityId ? reviewMap[itemSanityId] : undefined);
+
+    setSelectedRating(initialRating || existing?.rating || 5);
+    setHoverRating(0);
+    setReviewComment(initialComment !== undefined ? initialComment : existing?.comment || '');
+    setReviewModalItem(item);
+  };
+
+  const handleCloseReview = () => {
+    if (submittingReview) return;
+    setReviewModalItem(null);
+    setReviewComment('');
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewModalItem) return;
+    const rawId = reviewModalItem.product_id || reviewModalItem.product?.sanityId;
+    if (!rawId) {
+      toast({ title: 'Error', description: 'Product identifier missing.', variant: 'destructive' });
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: String(rawId),
+          rating: selectedRating,
+          comment: reviewComment.trim(),
+          name: itemLabel(reviewModalItem),
+          price: reviewModalItem.price,
+          slug: reviewModalItem.product?.slug || reviewModalItem.products?.slug || '',
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        toast({
+          title: 'Review failed',
+          description: data.error || 'Could not submit your review. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const key = String(rawId).toLowerCase();
+      const sanityKey = reviewModalItem.product?.sanityId?.toLowerCase();
+      const existing = reviewMap[key] || (sanityKey ? reviewMap[sanityKey] : undefined);
+      const isUpdate = Boolean(data.updated || existing);
+
+      setReviewMap((prev) => {
+        const updated = {
+          ...prev,
+          [key]: { rating: selectedRating, comment: reviewComment.trim(), id: data.id },
+        };
+        if (sanityKey) {
+          updated[sanityKey] = { rating: selectedRating, comment: reviewComment.trim(), id: data.id };
+        }
+        try {
+          localStorage.setItem('gm_user_reviews_v2', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      toast({
+        title: isUpdate ? 'Review updated' : 'Review submitted',
+        description: isUpdate
+          ? 'Your rating and feedback have been updated.'
+          : 'Thank you for your review! Your feedback helps other shoppers.',
+      });
+      setReviewModalItem(null);
+    } catch (err) {
+      console.error('Review submit failed:', err);
+      toast({
+        title: 'Network error',
+        description: 'Could not connect to the server. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   /** Catalog for reorder, fetched once on first use rather than on page load. */
   const catalogRef = useRef<Product[] | null>(null);
@@ -851,8 +1126,11 @@ const OrdersClient: React.FC = () => {
   );
 
   useEffect(() => {
-    if (isAuthenticated) loadOrders();
-  }, [isAuthenticated, loadOrders]);
+    if (isAuthenticated) {
+      loadOrders();
+      loadUserReviews();
+    }
+  }, [isAuthenticated, loadOrders, loadUserReviews]);
 
   /* ---- Derived data ---- */
 
@@ -1070,37 +1348,11 @@ const OrdersClient: React.FC = () => {
     );
   }
 
-  const statTiles = [
-    { label: 'Total Orders', value: String(stats.total) },
-    { label: 'In Progress', value: String(stats.inProgress) },
-    { label: 'Delivered', value: String(stats.delivered) },
-    { label: 'Total Spent', value: formatCurrency(stats.spent) },
-  ];
-
   return (
-    <div className="pt-24 pb-24 min-h-screen bg-white">
-      <div className="container mx-auto px-6 md:px-12 lg:px-24">
-        {/* ---- Breadcrumb ---- */}
-        <nav aria-label="Breadcrumb" className="pt-8">
-          <ol className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-400">
-            <li>
-              <Link href="/" className="hover:text-black transition-colors">
-                Home
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li>
-              <Link href="/account" className="hover:text-black transition-colors">
-                My Account
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li className="text-black">Orders</li>
-          </ol>
-        </nav>
-
+    <div className="pt-16 pb-24 min-h-screen bg-white px-4 sm:px-6 md:px-12 lg:px-24">
+      <div className="container mx-auto">
         {/* ---- Header ---- */}
-        <header className="mt-6 mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <header className="pt-8 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-display font-bold uppercase tracking-tighter">
               My Orders
@@ -1110,7 +1362,7 @@ const OrdersClient: React.FC = () => {
                 ? 'Loading your order history…'
                 : orders.length === 0
                   ? 'You have not placed an order yet.'
-                  : `${orders.length} ${orders.length === 1 ? 'order' : 'orders'} placed · every purchase, shipment and payment in one place.`}
+                  : `${orders.length} ${orders.length === 1 ? 'order' : 'orders'} placed · track status, shipments & invoices.`}
             </p>
           </div>
 
@@ -1119,7 +1371,7 @@ const OrdersClient: React.FC = () => {
               type="button"
               onClick={() => loadOrders(true)}
               disabled={refreshing || loading}
-              className="inline-flex items-center gap-2 h-11 px-4 border border-neutral-200 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-600 hover:border-black hover:text-black transition-colors disabled:opacity-40 cursor-pointer"
+              className="inline-flex items-center gap-2 h-10 px-4 border border-neutral-200 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-600 hover:border-black hover:text-black transition-colors disabled:opacity-40 cursor-pointer"
             >
               <FontAwesomeIcon
                 icon={faRotateRight}
@@ -1128,7 +1380,7 @@ const OrdersClient: React.FC = () => {
               {refreshing ? 'Refreshing' : 'Refresh'}
             </button>
 
-            <Button asChild variant="outline" className="h-11 text-[10px] tracking-[0.18em]">
+            <Button asChild variant="outline" className="h-10 text-[10px] tracking-[0.18em]">
               <Link href="/shop">
                 Continue Shopping
                 <FontAwesomeIcon icon={faArrowRight} className="ml-2 text-[10px]" />
@@ -1137,199 +1389,399 @@ const OrdersClient: React.FC = () => {
           </div>
         </header>
 
-        {/* ---- At-a-glance ---- */}
-        {!loading && !error && orders.length > 0 && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 border border-neutral-200 mb-10">
-            {statTiles.map((tile, index) => (
-              <div
-                key={tile.label}
-                className={`px-6 py-6 ${index % 2 === 1 ? 'border-l border-neutral-200' : ''} ${
-                  index < 2 ? 'border-b border-neutral-200 lg:border-b-0' : ''
-                } ${index === 2 ? 'lg:border-l lg:border-neutral-200' : ''}`}
-              >
-                <MetaLabel>{tile.label}</MetaLabel>
-                <p className="font-display font-bold text-2xl md:text-3xl tracking-tighter mt-2">
-                  {tile.value}
+        {/* ---- Main Two-Column Sectioning: Left and Right ---- */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+          {/* ---- Left Section: Order Status Dropdown + Total Orders + Total Spent ---- */}
+          <aside className="lg:col-span-4 xl:col-span-3 space-y-4 lg:sticky lg:top-20">
+            {/* Status Dropdown */}
+            <div className="border border-neutral-200 bg-white p-4 sm:p-5 transition-all hover:border-neutral-300">
+              <MetaLabel>Order Status</MetaLabel>
+              <div className="relative mt-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filter by order status"
+                  className="w-full appearance-none bg-white border border-neutral-200 pl-3.5 pr-8 py-2.5 text-xs font-semibold uppercase tracking-wider text-neutral-800 focus:outline-none focus:border-black cursor-pointer transition-colors"
+                >
+                  {STATUS_TABS.map((tab) => (
+                    <option key={tab.value} value={tab.value}>
+                      {tab.label} ({tabCounts[tab.value] ?? 0})
+                    </option>
+                  ))}
+                </select>
+                <FontAwesomeIcon
+                  icon={faChevronDown}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none text-neutral-400"
+                />
+              </div>
+            </div>
+
+            {/* Stat cards: 2 columns on mobile, stacked on desktop */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
+              <div className="border border-neutral-200 bg-white p-4 sm:p-5 transition-all hover:border-neutral-300">
+                <MetaLabel>Total Orders</MetaLabel>
+                <p className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl text-black tracking-tight mt-1.5">
+                  {loading ? '—' : stats.total}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-400 mt-1">
+                  Lifetime placed
                 </p>
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* ---- Filters ---- */}
-        {!loading && !error && orders.length > 0 && (
-          <div className="border-y border-neutral-100 py-4 mb-10">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                  {STATUS_TABS.map((tab) => (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      onClick={() => setStatusFilter(tab.value)}
-                      className={`flex-shrink-0 px-4 py-2 text-[11px] font-bold uppercase tracking-widest border transition-colors cursor-pointer ${
-                        statusFilter === tab.value
-                          ? 'bg-black text-white border-black'
-                          : 'bg-white text-neutral-600 border-neutral-200 hover:border-black hover:text-black'
-                      }`}
-                    >
-                      {tab.label} ({tabCounts[tab.value] ?? 0})
-                    </button>
-                  ))}
-                </div>
+              <div className="border border-neutral-200 bg-white p-4 sm:p-5 transition-all hover:border-neutral-300">
+                <MetaLabel>Total Spent</MetaLabel>
+                <p className="font-display font-bold text-2xl sm:text-3xl lg:text-4xl text-black tracking-tight mt-1.5">
+                  {loading ? '—' : formatCurrency(stats.spent)}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-400 mt-1">
+                  Across paid orders
+                </p>
               </div>
+            </div>
+          </aside>
 
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <div className="relative flex-1 lg:flex-none">
+          {/* ---- Right Section: Top Search & Sort + Rectangular Expandable Cards ---- */}
+          <section className="lg:col-span-8 xl:col-span-9 min-w-0 space-y-6">
+            {/* Right Top Toolbar: Search bar and Sort By dropdown */}
+            {!loading && !error && orders.length > 0 && (
+              <div className="border border-neutral-200 bg-white p-3.5 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                {/* Search input */}
+                <div className="relative flex-1 min-w-0">
                   <Input
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Order no., product, tracking"
+                    placeholder="Search by order no., product, tracking..."
                     aria-label="Search orders"
-                    className="h-11 w-full lg:w-64 pl-9 rounded-none border-neutral-200 text-xs"
+                    className="h-10 w-full pl-9 rounded-none border-neutral-200 text-xs"
                   />
                   <FontAwesomeIcon
                     icon={faMagnifyingGlass}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-300 pointer-events-none"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none"
                   />
                 </div>
 
-                <div className="relative flex-shrink-0">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    aria-label="Sort orders"
-                    className="h-11 appearance-none bg-white border border-neutral-200 pl-4 pr-9 text-xs font-medium text-neutral-800 focus:outline-none focus:border-black cursor-pointer"
-                  >
-                    {SORT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <FontAwesomeIcon
-                    icon={faChevronDown}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none text-neutral-400"
-                  />
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-2.5 flex-shrink-0 self-end sm:self-auto">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-500 whitespace-nowrap">
+                    Sort By
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      aria-label="Sort orders"
+                      className="h-10 appearance-none bg-white border border-neutral-200 pl-3.5 pr-8 text-xs font-medium text-neutral-800 focus:outline-none focus:border-black cursor-pointer transition-colors"
+                    >
+                      {SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <FontAwesomeIcon
+                      icon={faChevronDown}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none text-neutral-400"
+                    />
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ---- Body ---- */}
-        {loading ? (
-          <div className="space-y-8">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        ) : error ? (
-          <div className="border border-rose-200 bg-rose-50/50 px-6 py-14 text-center">
-            <div className="w-14 h-14 rounded-full bg-white border border-rose-100 flex items-center justify-center mx-auto mb-5 text-rose-500">
-              <FontAwesomeIcon icon={faCircleExclamation} className="text-xl" />
-            </div>
-            <h2 className="text-xl font-display font-bold uppercase tracking-tighter mb-2">
-              Something Went Wrong
-            </h2>
-            <p className="text-sm text-neutral-600 mb-6 max-w-sm mx-auto">{error}</p>
-            <Button variant="outline" onClick={() => loadOrders(true)} className="cursor-pointer">
-              Try Again
-            </Button>
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="py-20 px-6 text-center border border-neutral-200">
-            <div className="w-16 h-16 rounded-full bg-neutral-50 flex items-center justify-center mx-auto mb-6 text-neutral-300">
-              <FontAwesomeIcon icon={faBox} className="text-2xl" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-display font-bold uppercase tracking-tighter mb-3">
-              No Orders Yet
-            </h2>
-            <p className="text-neutral-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
-              Once you place your first order it will appear here, with tracking, invoices and a
-              one-tap reorder.
-            </p>
-            <Button asChild>
-              <Link href="/shop">Start Shopping</Link>
-            </Button>
-          </div>
-        ) : visibleOrders.length === 0 ? (
-          <div className="py-24 text-center">
-            <h2 className="text-xl font-display font-bold uppercase tracking-tighter mb-3">
-              No Matching Orders
-            </h2>
-            <p className="text-sm text-neutral-500 mb-6">
-              Nothing in your history matches these filters.
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setStatusFilter('all');
-                setQuery('');
-                setSortBy('recent');
-              }}
-              className="cursor-pointer"
-            >
-              Clear Filters
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-8">
-              {visibleOrders.slice(0, visibleCount).map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  expanded={expandedId === order.id}
-                  onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
-                  onReorder={handleReorder}
-                  onBuyAgain={handleBuyAgain}
-                  busy={reorderingId === order.id}
-                  busyItemId={buyingItemId}
-                />
-              ))}
-            </div>
-
-            {visibleCount < visibleOrders.length && (
-              <div className="mt-10 text-center">
-                <Button
-                  variant="outline"
-                  onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
-                  className="cursor-pointer"
-                >
-                  Load Older Orders
-                </Button>
               </div>
             )}
 
-            <p className="mt-10 text-xs text-neutral-400 text-center">
-              Showing {Math.min(visibleCount, visibleOrders.length)} of {visibleOrders.length}
-              {hasFilters ? ' matching' : ''} {visibleOrders.length === 1 ? 'order' : 'orders'}
-            </p>
-          </>
-        )}
+            {/* Orders list / status states */}
+            {loading ? (
+              <div className="space-y-4">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            ) : error ? (
+              <div className="border border-rose-200 bg-rose-50/50 px-6 py-14 text-center">
+                <div className="w-14 h-14 rounded-full bg-white border border-rose-100 flex items-center justify-center mx-auto mb-5 text-rose-500">
+                  <FontAwesomeIcon icon={faCircleExclamation} className="text-xl" />
+                </div>
+                <h2 className="text-xl font-display font-bold uppercase tracking-tighter mb-2">
+                  Something Went Wrong
+                </h2>
+                <p className="text-sm text-neutral-600 mb-6 max-w-sm mx-auto">{error}</p>
+                <Button variant="outline" onClick={() => loadOrders(true)} className="cursor-pointer">
+                  Try Again
+                </Button>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="py-20 px-6 text-center border border-neutral-200 bg-white">
+                <div className="w-16 h-16 rounded-full bg-neutral-50 flex items-center justify-center mx-auto mb-6 text-neutral-300">
+                  <FontAwesomeIcon icon={faBox} className="text-2xl" />
+                </div>
+                <h2 className="text-2xl md:text-3xl font-display font-bold uppercase tracking-tighter mb-3">
+                  No Orders Yet
+                </h2>
+                <p className="text-neutral-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
+                  Once you place your first order it will appear here, with tracking, invoices and a
+                  one-tap reorder.
+                </p>
+                <Button asChild>
+                  <Link href="/shop">Start Shopping</Link>
+                </Button>
+              </div>
+            ) : visibleOrders.length === 0 ? (
+              <div className="py-20 text-center border border-neutral-200 bg-white">
+                <h2 className="text-xl font-display font-bold uppercase tracking-tighter mb-3">
+                  No Matching Orders
+                </h2>
+                <p className="text-sm text-neutral-500 mb-6">
+                  Nothing in your history matches these filters.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setQuery('');
+                    setSortBy('recent');
+                  }}
+                  className="cursor-pointer"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  {visibleOrders.slice(0, visibleCount).map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      expanded={expandedId === order.id}
+                      onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
+                      onReorder={handleReorder}
+                      onBuyAgain={handleBuyAgain}
+                      onOpenReview={handleOpenReview}
+                      reviewMap={reviewMap}
+                      busy={reorderingId === order.id}
+                      busyItemId={buyingItemId}
+                    />
+                  ))}
+                </div>
 
-        {/* ---- Support footer ---- */}
-        {!loading && !error && orders.length > 0 && (
-          <div className="mt-16 border border-neutral-200 bg-neutral-50/60 px-6 sm:px-10 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div>
-              <h2 className="text-lg font-display font-bold uppercase tracking-tight mb-1.5">
-                Need Help With An Order?
-              </h2>
-              <p className="text-sm text-neutral-500 leading-relaxed">
-                Quote your order number and our team will pick it up from there.
-              </p>
-            </div>
-            <Button asChild variant="outline" className="flex-shrink-0">
-              <Link href="/contact">
-                <FontAwesomeIcon icon={faHeadset} className="mr-2 text-[11px]" />
-                Contact Support
-              </Link>
-            </Button>
-          </div>
-        )}
+                {visibleCount < visibleOrders.length && (
+                  <div className="mt-8 text-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+                      className="cursor-pointer"
+                    >
+                      Load Older Orders
+                    </Button>
+                  </div>
+                )}
+
+                <p className="mt-6 text-xs text-neutral-400 text-center">
+                  Showing {Math.min(visibleCount, visibleOrders.length)} of {visibleOrders.length}
+                  {hasFilters ? ' matching' : ''} {visibleOrders.length === 1 ? 'order' : 'orders'}
+                </p>
+              </>
+            )}
+
+            {/* Support footer */}
+            {!loading && !error && orders.length > 0 && (
+              <div className="mt-10 border border-neutral-200 bg-neutral-50/60 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div>
+                  <h3 className="text-base font-display font-bold uppercase tracking-tight mb-1">
+                    Need Help With An Order?
+                  </h3>
+                  <p className="text-xs text-neutral-500 leading-relaxed">
+                    Quote your order number and our team will pick it up from there.
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm" className="flex-shrink-0">
+                  <Link href="/contact">
+                    <FontAwesomeIcon icon={faHeadset} className="mr-2 text-[11px]" />
+                    Contact Support
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </section>
+        </div>
       </div>
+
+      {/* ---- Interactive Review Modal ---- */}
+      <AnimatePresence>
+        {reviewModalItem && (() => {
+          const itemKey = (reviewModalItem.product_id || '').toLowerCase();
+          const sanityKey = (reviewModalItem.product?.sanityId || '').toLowerCase();
+          const existingReview = reviewMap[itemKey] || (sanityKey ? reviewMap[sanityKey] : undefined);
+          const isEdit = Boolean(existingReview);
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={handleCloseReview}
+                className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+              />
+
+              {/* Modal Dialog */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="relative w-full max-w-lg bg-white border border-neutral-200 shadow-2xl p-6 sm:p-7 z-10 space-y-5"
+              >
+                {/* Header with Close */}
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-display font-bold uppercase tracking-tight text-neutral-900">
+                      {isEdit ? 'Update Your Review' : 'Rate & Review'}
+                    </h3>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      {isEdit
+                        ? 'Change your rating or update your feedback below'
+                        : 'Share your experience to help other shoppers'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCloseReview}
+                    disabled={submittingReview}
+                    className="w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-black border border-neutral-200 hover:border-neutral-400 transition-colors cursor-pointer"
+                    aria-label="Close review dialog"
+                  >
+                    <FontAwesomeIcon icon={faXmark} className="text-sm" />
+                  </button>
+                </div>
+
+                {/* Product Info Preview */}
+                <div className="flex items-center gap-3.5 p-3 bg-neutral-50 border border-neutral-200">
+                  <div className="w-12 h-14 bg-white border border-neutral-200 overflow-hidden flex-shrink-0">
+                    {reviewModalItem.product?.image ? (
+                      <img
+                        src={reviewModalItem.product.image}
+                        alt={itemLabel(reviewModalItem)}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-neutral-300">
+                        <FontAwesomeIcon icon={faBox} className="text-xs" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-neutral-900 truncate">
+                      {itemLabel(reviewModalItem)}
+                    </p>
+                    <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">
+                      {[
+                        reviewModalItem.size ? `Size: ${reviewModalItem.size}` : null,
+                        reviewModalItem.color ? `Color: ${reviewModalItem.color}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 5-Star Interactive Rating Picker */}
+                <div className="text-center py-2 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-500">
+                    {isEdit ? 'Your Updated Rating' : 'Overall Rating'}
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const isLit = hoverRating ? star <= hoverRating : star <= selectedRating;
+                      return (
+                        <button
+                          key={star}
+                          type="button"
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          onClick={() => setSelectedRating(star)}
+                          className="p-1.5 text-2xl sm:text-3xl transition-transform hover:scale-115 cursor-pointer focus:outline-none"
+                          title={`${star} Star${star > 1 ? 's' : ''}`}
+                        >
+                          <FontAwesomeIcon
+                            icon={faStar}
+                            className={`transition-colors ${isLit ? 'text-[#D4AF37]' : 'text-neutral-200'}`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+                    {
+                      {
+                        1: '1 Star — Poor',
+                        2: '2 Stars — Fair',
+                        3: '3 Stars — Good',
+                        4: '4 Stars — Very Good',
+                        5: '5 Stars — Excellent',
+                      }[hoverRating || selectedRating]
+                    }
+                  </p>
+                </div>
+
+                {/* Review Comment Textarea */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="review-comment-input"
+                    className="block text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-600"
+                  >
+                    Your Feedback (Optional)
+                  </label>
+                  <textarea
+                    id="review-comment-input"
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="What did you like or dislike about this product? How is the fit and quality?"
+                    maxLength={2000}
+                    rows={3}
+                    className="w-full border border-neutral-200 p-3 text-xs text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:border-black resize-none"
+                  />
+                  <p className="text-[10px] text-neutral-400 text-right">
+                    {reviewComment.length}/2000 characters
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-neutral-100">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCloseReview}
+                    disabled={submittingReview}
+                    className="text-[10px] tracking-[0.15em] cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSubmitReview}
+                    disabled={submittingReview}
+                    className="text-[10px] tracking-[0.15em] bg-black text-white hover:bg-neutral-800 cursor-pointer"
+                  >
+                    {submittingReview ? (
+                      <>
+                        <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2 text-[10px]" />
+                        Saving…
+                      </>
+                    ) : isEdit ? (
+                      'Update Review'
+                    ) : (
+                      'Submit Review'
+                    )}
+                  </Button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 };
