@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { toMoney } from "@/lib/server/pricing";
+import { toMoney, type PricedLine } from "@/lib/server/pricing";
 
 /**
  * Coupon validation and discount arithmetic.
@@ -27,6 +27,16 @@ export interface CouponRow {
   starts_at: string | null;
   expires_at: string | null;
   is_active: boolean;
+  /** Sanity collection ids the code is limited to. Null means whole catalogue. */
+  collection_ids: string[] | null;
+  /** Display snapshot parallel to `collection_ids`. */
+  collection_names: string[] | null;
+}
+
+/** The server-priced bag a coupon is judged against. */
+export interface CouponCart {
+  subtotal: number;
+  lines: PricedLine[];
 }
 
 export type CouponEvaluation =
@@ -37,6 +47,11 @@ export type CouponEvaluation =
       discount: number;
       /** Subtotal minus discount, floored at zero. */
       payable: number;
+      /**
+       * Portion of the subtotal the discount was actually computed on. Equals
+       * the cart subtotal for an unscoped code.
+       */
+      eligibleSubtotal: number;
     }
   | { ok: false; reason: string };
 
@@ -46,39 +61,91 @@ export function normaliseCode(code: string): string {
 }
 
 /**
- * Discount a coupon is worth against a given subtotal.
+ * Is this code limited to particular collections?
  *
- * Percentage coupons respect `max_discount_amount` when one is set. Either kind
- * is capped at the subtotal, so an over-generous fixed coupon can reduce an
- * order to zero but never below it.
+ * An empty array is treated as unscoped rather than "matches nothing". The
+ * database constraint rejects empty arrays, so this only guards against rows
+ * written before that constraint existed — where the safe reading is the old
+ * behaviour, not silently refusing every cart.
  */
-export function calculateDiscount(coupon: CouponRow, subtotal: number): number {
+export function isCollectionScoped(
+  coupon: Pick<CouponRow, "collection_ids">
+): boolean {
+  return Array.isArray(coupon.collection_ids) && coupon.collection_ids.length > 0;
+}
+
+/** Human-readable list of the scoped collections, e.g. "Top Picks and Winter Specials". */
+function describeScope(coupon: CouponRow): string {
+  const names = (coupon.collection_names ?? []).filter(Boolean);
+  if (names.length === 0) return "selected collections";
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
+ * Subtotal of the cart lines a coupon may discount.
+ *
+ * For a collection-scoped code this is the sum of only those lines whose
+ * product belongs to one of the scoped collections — so "20% off Winter
+ * Specials" never discounts the cotton kurta sitting next to it in the bag.
+ */
+export function eligibleSubtotalFor(coupon: CouponRow, cart: CouponCart): number {
+  if (!isCollectionScoped(coupon)) return cart.subtotal;
+
+  const scoped = new Set(coupon.collection_ids ?? []);
+
+  let eligible = 0;
+  for (const line of cart.lines) {
+    const memberships = line.product.collectionIds ?? [];
+    if (memberships.some((id) => scoped.has(id))) {
+      eligible += line.unitPrice * line.quantity;
+    }
+  }
+
+  return toMoney(eligible);
+}
+
+/**
+ * Discount a coupon is worth against a given base amount.
+ *
+ * `base` is the eligible subtotal, not necessarily the cart subtotal — see
+ * `eligibleSubtotalFor`. Percentage coupons respect `max_discount_amount` when
+ * one is set. Either kind is capped at the base, so an over-generous fixed
+ * coupon can reduce the eligible items to zero but never below it, and can
+ * never eat into items the promotion does not cover.
+ */
+export function calculateDiscount(coupon: CouponRow, base: number): number {
   const value = Number(coupon.discount_value) || 0;
 
-  let discount =
-    coupon.discount_type === "percentage" ? (subtotal * value) / 100 : value;
+  let discount = coupon.discount_type === "percentage" ? (base * value) / 100 : value;
 
   if (coupon.discount_type === "percentage" && coupon.max_discount_amount != null) {
     discount = Math.min(discount, Number(coupon.max_discount_amount));
   }
 
-  discount = Math.min(discount, subtotal);
+  discount = Math.min(discount, base);
   return toMoney(Math.max(0, discount));
 }
 
-/** Human-readable summary, e.g. "20% off (up to ₹500)". */
+/** Human-readable summary, e.g. "20% off (up to ₹500) on Top Picks". */
 export function describeCoupon(coupon: CouponRow): string {
+  const scope = isCollectionScoped(coupon) ? ` on ${describeScope(coupon)}` : "";
+
   if (coupon.discount_type === "percentage") {
     const cap = coupon.max_discount_amount
       ? ` (up to ₹${Number(coupon.max_discount_amount).toLocaleString("en-IN")})`
       : "";
-    return `${Number(coupon.discount_value)}% off${cap}`;
+    return `${Number(coupon.discount_value)}% off${cap}${scope}`;
   }
-  return `₹${Number(coupon.discount_value).toLocaleString("en-IN")} off`;
+  return `₹${Number(coupon.discount_value).toLocaleString("en-IN")} off${scope}`;
 }
 
 /**
  * Validate a code for one customer and cart, and price the discount.
+ *
+ * Takes the whole priced cart rather than just its subtotal, because a
+ * collection-scoped code has to know *which* lines it may discount, not only
+ * how much the bag came to.
  *
  * Failure messages are written to be shown directly to the customer, and are
  * deliberately specific about *why* a code did not apply — "add ₹300 more" is
@@ -87,7 +154,7 @@ export function describeCoupon(coupon: CouponRow): string {
 export async function evaluateCoupon(
   supabase: SupabaseClient,
   rawCode: string,
-  subtotal: number,
+  cart: CouponCart,
   userId: string
 ): Promise<CouponEvaluation> {
   const code = normaliseCode(rawCode);
@@ -122,12 +189,31 @@ export async function evaluateCoupon(
     return { ok: false, reason: "That promo code has expired." };
   }
 
-  const minOrder = Number(coupon.min_order_value) || 0;
-  if (subtotal < minOrder) {
-    const shortfall = toMoney(minOrder - subtotal);
+  const row = coupon as CouponRow;
+  const scoped = isCollectionScoped(row);
+
+  // What this code is allowed to discount. For a scoped code the minimum-order
+  // test and the discount arithmetic both run against this figure, so "spend
+  // ₹999 on Winter Specials for 20% off Winter Specials" reads consistently
+  // and an expensive ineligible item cannot unlock the promotion.
+  const eligibleSubtotal = eligibleSubtotalFor(row, cart);
+
+  if (scoped && eligibleSubtotal <= 0) {
     return {
       ok: false,
-      reason: `Add ₹${shortfall.toLocaleString("en-IN")} more to use this code (minimum order ₹${minOrder.toLocaleString("en-IN")}).`,
+      reason: `This code only applies to ${describeScope(row)}. Your bag has nothing from ${
+        (row.collection_names ?? []).length > 1 ? "those collections" : "that collection"
+      }.`,
+    };
+  }
+
+  const minOrder = Number(coupon.min_order_value) || 0;
+  if (eligibleSubtotal < minOrder) {
+    const shortfall = toMoney(minOrder - eligibleSubtotal);
+    const qualifier = scoped ? ` of ${describeScope(row)}` : "";
+    return {
+      ok: false,
+      reason: `Add ₹${shortfall.toLocaleString("en-IN")} more${qualifier} to use this code (minimum ₹${minOrder.toLocaleString("en-IN")}).`,
     };
   }
 
@@ -152,7 +238,7 @@ export async function evaluateCoupon(
     }
   }
 
-  const discount = calculateDiscount(coupon as CouponRow, subtotal);
+  const discount = calculateDiscount(row, eligibleSubtotal);
 
   if (discount <= 0) {
     return { ok: false, reason: "That promo code does not apply to your bag." };
@@ -160,8 +246,10 @@ export async function evaluateCoupon(
 
   return {
     ok: true,
-    coupon: coupon as CouponRow,
+    coupon: row,
     discount,
-    payable: toMoney(Math.max(0, subtotal - discount)),
+    // Taken off the whole bag, even when the discount was sized from a subset.
+    payable: toMoney(Math.max(0, cart.subtotal - discount)),
+    eligibleSubtotal,
   };
 }

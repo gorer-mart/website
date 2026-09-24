@@ -31,6 +31,13 @@ const couponSchema = z.object({
   starts_at: z.string().trim().min(1).optional().nullable(),
   expires_at: z.string().trim().min(1).optional().nullable(),
   is_active: z.boolean().optional().default(true),
+  /**
+   * Sanity collection ids the code is limited to. Omitted or empty means the
+   * whole catalogue, which is how every code behaved before scoping existed.
+   */
+  collection_ids: z.array(z.string().trim().min(1).max(200)).max(50).optional().nullable(),
+  /** Parallel display snapshot; recorded so the console never re-reads Sanity. */
+  collection_names: z.array(z.string().trim().min(1).max(200)).max(50).optional().nullable(),
 });
 
 /** Shared checks the database also enforces, surfaced with better wording. */
@@ -46,8 +53,43 @@ function validateBusinessRules(input: z.infer<typeof couponSchema>): string | nu
   return null;
 }
 
+/**
+ * Normalise the collection scope into the two parallel arrays the table holds.
+ *
+ * Ids are de-duplicated and paired with their display name by position. A
+ * missing name falls back to the id rather than being dropped: the database
+ * requires one name per id, and an unreadable label is a far smaller problem
+ * than a rejected save. No collections at all becomes `null, null` — the
+ * "entire catalogue" case, which the CHECK constraint distinguishes from an
+ * empty array.
+ */
+function toCollectionScope(input: z.infer<typeof couponSchema>): {
+  collection_ids: string[] | null;
+  collection_names: string[] | null;
+} {
+  const ids = (input.collection_ids ?? []).map((id) => id.trim()).filter(Boolean);
+  if (ids.length === 0) {
+    return { collection_ids: null, collection_names: null };
+  }
+
+  const names = input.collection_names ?? [];
+  const seen = new Set<string>();
+  const scopedIds: string[] = [];
+  const scopedNames: string[] = [];
+
+  ids.forEach((id, index) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    scopedIds.push(id);
+    scopedNames.push((names[index] ?? "").trim() || id);
+  });
+
+  return { collection_ids: scopedIds, collection_names: scopedNames };
+}
+
 function toRow(input: z.infer<typeof couponSchema>) {
   return {
+    ...toCollectionScope(input),
     code: normaliseCode(input.code),
     description: input.description?.trim() || null,
     discount_type: input.discount_type,

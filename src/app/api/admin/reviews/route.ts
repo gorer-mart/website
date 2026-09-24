@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/server/auth";
 import { apiError } from "@/lib/server/http";
+import { refreshProductRating } from "@/lib/server/reviews";
 
 export const dynamic = "force-dynamic";
 
@@ -97,26 +98,10 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Could not complete the review operation." }, { status: 500 });
     }
 
-    // 3. Recalculate average_rating and review_count for the product
-    const { data: allReviews, error: calcErr } = await supabase
-      .from("reviews")
-      .select("rating")
-      .eq("product_id", productId)
-      .eq("status", "approved");
-
-    if (!calcErr && allReviews) {
-      const count = allReviews.length;
-      const sum = allReviews.reduce((acc, r) => acc + r.rating, 0);
-      const avg = count > 0 ? Number((sum / count).toFixed(2)) : 0;
-
-      await supabase
-        .from("products")
-        .update({
-          average_rating: avg,
-          review_count: count,
-        })
-        .eq("id", productId);
-    }
+    // 3. Recalculate average_rating and review_count for the product. Shared
+    //    with the delete route so moderating and removing a review cannot
+    //    drift apart in how they recount.
+    await refreshProductRating(supabase, productId);
 
     return NextResponse.json({
       success: true,

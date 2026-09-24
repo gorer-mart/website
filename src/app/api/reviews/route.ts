@@ -11,6 +11,25 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+
+    // If requesting user's own reviews across all products
+    if (searchParams.get("mine") === "true") {
+      const user = await getAuthenticatedUser();
+      if (!user) {
+        return NextResponse.json([]);
+      }
+      const supabase = createAdminSupabaseClient();
+      const { data: userReviews, error: userRevError } = await supabase
+        .from("reviews")
+        .select("id, product_id, rating, comment, created_at")
+        .eq("user_id", user.id);
+
+      if (userRevError) {
+        return apiError("Could not load your reviews.", 500, { scope: "reviews.mine", cause: userRevError });
+      }
+      return NextResponse.json(userReviews ?? []);
+    }
+
     const productId = searchParams.get("productId");
 
     if (!productId) {
@@ -86,7 +105,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // One review per customer per product.
+    // One review per customer per product: update if already exists so there is never duplicate reviews
     const { data: existing } = await supabase
       .from("reviews")
       .select("id")
@@ -95,7 +114,44 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existing) {
-      return apiError("You've already reviewed this product.", 409);
+      const { data: updatedReview, error: updateError } = await supabase
+        .from("reviews")
+        .update({
+          rating,
+          comment: comment ?? "",
+          status: "approved",
+        })
+        .eq("id", existing.id)
+        .select("id, rating, comment, created_at, is_verified_purchase, users(full_name, avatar_url)")
+        .single();
+
+      if (updateError) {
+        return apiError("Failed to update your review. Please try again.", 500, {
+          scope: "reviews.update",
+          cause: updateError,
+        });
+      }
+
+      // Refresh the denormalised rating aggregate on the product.
+      const { data: allReviews } = await supabase
+        .from("reviews")
+        .select("rating")
+        .eq("product_id", productId)
+        .eq("status", "approved");
+
+      if (allReviews) {
+        const count = allReviews.length;
+        const sum = allReviews.reduce((acc, r) => acc + r.rating, 0);
+        await supabase
+          .from("products")
+          .update({
+            average_rating: count > 0 ? Number((sum / count).toFixed(2)) : 0,
+            review_count: count,
+          })
+          .eq("id", productId);
+      }
+
+      return NextResponse.json({ ...updatedReview, updated: true });
     }
 
     // Mark the review as verified when this customer actually paid for the item.

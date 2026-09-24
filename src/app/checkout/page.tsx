@@ -190,16 +190,29 @@ const Checkout: React.FC = () => {
     setCouponError('');
   };
 
+  /**
+   * Identity of the bag, not just its size.
+   *
+   * A total and a line count are not enough: swapping one item for another at
+   * the same price leaves both unchanged, and a collection-scoped code cares
+   * very much which item it was. `create-order` would still reject the stale
+   * code, but at payment time — this keeps the quoted saving honest on screen.
+   */
+  const cartSignature = cart
+    .map((item) => `${item._id || item.id}:${item.selectedSize}:${item.quantity}:${item.price}`)
+    .join('|');
+
   // The bag can change after a code is applied — a removed item may drop the
-  // subtotal below the code's minimum, or change a percentage discount. Rather
-  // than show a stale saving, drop the code and ask for it again.
+  // subtotal below the code's minimum, take the last item the code applies to,
+  // or change a percentage discount. Rather than show a stale saving, drop the
+  // code and ask for it again.
   useEffect(() => {
     if (!appliedCoupon) return;
     setAppliedCoupon(null);
     setCouponError('Your bag changed — please apply your promo code again.');
     // Intentionally keyed on the bag contents only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartTotal, cart.length]);
+  }, [cartSignature]);
 
   const handleNextStep1 = (e: React.FormEvent) => {
     e.preventDefault();

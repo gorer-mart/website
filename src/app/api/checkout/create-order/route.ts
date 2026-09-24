@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     let appliedCouponCode: string | null = null;
 
     if (couponCode && couponCode.trim()) {
-      const evaluation = await evaluateCoupon(supabase, couponCode, subtotal, user.id);
+      const evaluation = await evaluateCoupon(supabase, couponCode, { subtotal, lines }, user.id);
       if (!evaluation.ok) {
         return apiError(evaluation.reason, 409);
       }
