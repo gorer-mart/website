@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/server/auth";
 import { apiError, readJson } from "@/lib/server/http";
+import { TRACKING_URL_MAX_LENGTH, normalizeTrackingUrl } from "@/lib/tracking";
 import { z } from "zod";
 
 // Statuses must match the payment_status / order_status enums in the database.
@@ -19,6 +20,12 @@ const updateSchema = z.object({
   order_status: z.enum(ORDER_STATUSES).optional(),
   payment_status: z.enum(PAYMENT_STATUSES).optional(),
   tracking_number: z.string().trim().max(120).nullable().optional(),
+  tracking_url: z
+    .string()
+    .trim()
+    .max(TRACKING_URL_MAX_LENGTH, "That tracking link is too long.")
+    .nullable()
+    .optional(),
   estimated_delivery: z.string().trim().max(60).nullable().optional(),
 });
 
@@ -48,7 +55,8 @@ export async function PUT(
     if (!parsed.success) {
       return apiError(parsed.error.issues[0]?.message ?? "Invalid update payload.", 400);
     }
-    const { order_status, payment_status, tracking_number, estimated_delivery } = parsed.data;
+    const { order_status, payment_status, tracking_number, tracking_url, estimated_delivery } =
+      parsed.data;
 
     const supabase = createAdminSupabaseClient();
 
@@ -57,6 +65,18 @@ export async function PUT(
     if (order_status !== undefined) updateData.order_status = order_status;
     if (payment_status !== undefined) updateData.payment_status = payment_status;
     if (tracking_number !== undefined) updateData.tracking_number = tracking_number || null;
+    if (tracking_url !== undefined) {
+      // Reject rather than silently drop: an admin who pasted a broken link
+      // needs to know, otherwise the customer just never sees a button.
+      const normalized = normalizeTrackingUrl(tracking_url);
+      if (tracking_url && !normalized) {
+        return apiError(
+          "That tracking link is not a valid web address. Use the full https:// link from the courier.",
+          400
+        );
+      }
+      updateData.tracking_url = normalized;
+    }
     if (estimated_delivery !== undefined) {
       updateData.estimated_delivery = estimated_delivery
         ? new Date(estimated_delivery).toISOString()

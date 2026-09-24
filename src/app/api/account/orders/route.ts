@@ -103,6 +103,7 @@ export async function GET() {
         customer_email,
         customer_phone,
         tracking_number,
+        tracking_url,
         estimated_delivery,
         created_at,
         updated_at,

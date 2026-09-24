@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -33,10 +33,12 @@ import {
   Boxes,
   Inbox,
   Ticket,
+  ExternalLink,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../ui/use-toast';
+import { normalizeTrackingUrl } from '../../lib/tracking';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +51,7 @@ import {
   Action,
   Badge,
   BRAND,
+  ConfirmDeleteDialog,
   DetailRow,
   Drawer,
   DrawerSection,
@@ -145,6 +148,8 @@ interface Order {
   order_status: string;
   payment_provider: string;
   tracking_number?: string;
+  /** Courier deep link; surfaced to the customer as a "Track Shipment" button. */
+  tracking_url?: string | null;
   estimated_delivery?: string;
   created_at: string;
   /** Contact details captured at checkout; authoritative for this order. */
@@ -222,6 +227,12 @@ interface Subscriber {
   created_at: string;
 }
 
+interface SanityCollectionOption {
+  _id: string;
+  name: string;
+  slug?: string | null;
+}
+
 interface Coupon {
   id: string;
   code: string;
@@ -237,6 +248,10 @@ interface Coupon {
   expires_at?: string | null;
   is_active: boolean;
   created_at: string;
+  /** Sanity collection ids the code is limited to. Null/empty = whole catalogue. */
+  collection_ids?: string[] | null;
+  /** Display snapshot parallel to `collection_ids`. */
+  collection_names?: string[] | null;
   /** Derived server-side from coupon_redemptions. */
   redeemed_count?: number;
   total_discounted?: number;
@@ -320,6 +335,8 @@ const AdminDashboard: React.FC = () => {
   // Sanity Catalog States
   const [sanityProducts, setSanityProducts] = useState<any[]>([]);
   const [sanityCategories, setSanityCategories] = useState<any[]>([]);
+  /** Collections a promo code can be scoped to. */
+  const [sanityCollections, setSanityCollections] = useState<SanityCollectionOption[]>([]);
   const [isSyncingSanity, setIsSyncingSanity] = useState<boolean>(false);
   const [selectedSanityCategory, setSelectedSanityCategory] = useState<string>('');
   const [selectedSanityProductSlug, setSelectedSanityProductSlug] = useState<string>('');
@@ -361,7 +378,11 @@ const AdminDashboard: React.FC = () => {
   const [modOrderStatus, setModOrderStatus] = useState<string>('');
   const [modPaymentStatus, setModPaymentStatus] = useState<string>('');
   const [modTrackingNumber, setModTrackingNumber] = useState<string>('');
+  const [modTrackingUrl, setModTrackingUrl] = useState<string>('');
   const [modEstimatedDelivery, setModEstimatedDelivery] = useState<string>('');
+
+  /** Non-null only while the typed link is something the customer could open. */
+  const previewTrackingUrl = useMemo(() => normalizeTrackingUrl(modTrackingUrl), [modTrackingUrl]);
 
   // Inventory & Product Create/Edit States
   const [isProductModalOpen, setIsProductModalOpen] = useState<boolean>(false);
@@ -423,6 +444,8 @@ const AdminDashboard: React.FC = () => {
     starts_at: string;
     expires_at: string;
     is_active: boolean;
+    /** Empty means the code applies to the entire catalogue. */
+    collection_ids: string[];
   }>({
     code: '',
     description: '',
@@ -435,12 +458,19 @@ const AdminDashboard: React.FC = () => {
     starts_at: '',
     expires_at: '',
     is_active: true,
+    collection_ids: [],
   });
 
   // Messages Detail Drawer
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState<boolean>(false);
   const [updatingMessageId, setUpdatingMessageId] = useState<string | null>(null);
+  const [messageToDelete, setMessageToDelete] = useState<ContactMessage | null>(null);
+  const [isDeletingMessage, setIsDeletingMessage] = useState<boolean>(false);
+
+  // Review moderation
+  const [reviewToDelete, setReviewToDelete] = useState<Review | null>(null);
+  const [isDeletingReview, setIsDeletingReview] = useState<boolean>(false);
 
   // Customers Detail Drawer
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -495,6 +525,9 @@ const AdminDashboard: React.FC = () => {
           }
           if (result.endpoint.key === 'sanityCatalog' && (result.data as any)?.categories) {
             setSanityCategories((result.data as any).categories || []);
+          }
+          if (result.endpoint.key === 'sanityCatalog' && (result.data as any)?.collections) {
+            setSanityCollections((result.data as any).collections || []);
           }
           if (result.endpoint.key === 'products' && (result.data as any)?.sanityProducts) {
             setSanityProducts((result.data as any).sanityProducts || []);
@@ -558,12 +591,36 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  /**
+   * Leave the console for the admin login page, not the storefront.
+   *
+   * `replace` rather than `assign`, so Back does not return to the console
+   * shell and briefly flash admin chrome before it bounces to login. A full
+   * document load rather than `router.replace`, so every server component and
+   * cached RSC payload is re-read against the cleared session instead of the
+   * client tree being reused.
+   *
+   * The navigation is in `finally`: if sign-out failed the session may still
+   * be live, and the login page is the right place to find that out — it sends
+   * a still-valid admin straight back to the console.
+   */
+  const handleAdminSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('Admin sign out failed:', err);
+    } finally {
+      window.location.replace('/admin/login');
+    }
+  };
+
   // ---- ORDER HANDLERS ----
   const handleOpenOrderDrawer = (order: Order) => {
     setSelectedOrder(order);
     setModOrderStatus(order.order_status);
     setModPaymentStatus(order.payment_status);
     setModTrackingNumber(order.tracking_number || '');
+    setModTrackingUrl(order.tracking_url || '');
     setModEstimatedDelivery(
       order.estimated_delivery ? new Date(order.estimated_delivery).toISOString().split('T')[0] : ''
     );
@@ -572,6 +629,20 @@ const AdminDashboard: React.FC = () => {
 
   const handleUpdateOrder = async () => {
     if (!selectedOrder) return;
+
+    // Checked here as well as server-side so a mistyped link is caught before
+    // the round trip, while the admin is still looking at the field.
+    const trackingUrlInput = modTrackingUrl.trim();
+    const trackingUrl = normalizeTrackingUrl(trackingUrlInput);
+    if (trackingUrlInput && !trackingUrl) {
+      toast({
+        title: 'Invalid Tracking Link',
+        description: 'Paste the full tracking web address, e.g. https://www.delhivery.com/track/123.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSavingOrder(true);
 
     try {
@@ -582,6 +653,7 @@ const AdminDashboard: React.FC = () => {
           order_status: modOrderStatus,
           payment_status: modPaymentStatus,
           tracking_number: modTrackingNumber,
+          tracking_url: trackingUrl,
           estimated_delivery: modEstimatedDelivery || null,
         }),
       });
@@ -595,6 +667,8 @@ const AdminDashboard: React.FC = () => {
 
         setOrders((prev) => prev.map((o) => o.id === selectedOrder.id ? { ...o, ...data.order } : o));
         setSelectedOrder((prev) => prev ? { ...prev, ...data.order } : null);
+        // Show what was actually stored — the link is normalised on the way in.
+        setModTrackingUrl(data.order?.tracking_url || '');
         fetchAllData(true);
       } else {
         throw new Error(data.error || 'Failed to update order');
@@ -1004,6 +1078,7 @@ const AdminDashboard: React.FC = () => {
       starts_at: '',
       expires_at: '',
       is_active: true,
+      collection_ids: [],
     });
     setIsCouponModalOpen(true);
   };
@@ -1022,6 +1097,7 @@ const AdminDashboard: React.FC = () => {
       starts_at: toLocalInput(coupon.starts_at),
       expires_at: toLocalInput(coupon.expires_at),
       is_active: coupon.is_active,
+      collection_ids: coupon.collection_ids ?? [],
     });
     setIsCouponModalOpen(true);
   };
@@ -1067,6 +1143,12 @@ const AdminDashboard: React.FC = () => {
         starts_at: couponForm.starts_at ? new Date(couponForm.starts_at).toISOString() : null,
         expires_at: couponForm.expires_at ? new Date(couponForm.expires_at).toISOString() : null,
         is_active: couponForm.is_active,
+        // The name snapshot travels with the ids so the console and the
+        // customer-facing message stay readable without re-reading Sanity.
+        collection_ids: couponForm.collection_ids,
+        collection_names: couponForm.collection_ids.map(
+          (id) => sanityCollections.find((c) => c._id === id)?.name || id
+        ),
       };
 
       if (editingCoupon) payload.id = editingCoupon.id;
@@ -1118,6 +1200,11 @@ const AdminDashboard: React.FC = () => {
           starts_at: coupon.starts_at,
           expires_at: coupon.expires_at,
           is_active: !coupon.is_active,
+          // This endpoint replaces the whole row, so the collection scope has
+          // to be echoed back. Omitting it would silently turn a pause into
+          // "pause and widen this code to the entire catalogue".
+          collection_ids: coupon.collection_ids ?? [],
+          collection_names: coupon.collection_names ?? [],
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1132,6 +1219,65 @@ const AdminDashboard: React.FC = () => {
         prev.map((c) => (c.id === coupon.id ? { ...c, is_active: coupon.is_active } : c))
       );
       toast({ title: 'Update failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    setIsDeletingMessage(true);
+
+    try {
+      const res = await fetch(`/api/admin/messages/${messageToDelete.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not delete the message.');
+
+      // Dropped locally as well as refetched, so the row disappears at once
+      // instead of on the next round trip.
+      setMessages((prev) => prev.filter((m) => m.id !== messageToDelete.id));
+
+      // The detail modal would otherwise be left open on a message that is gone.
+      if (selectedMessage?.id === messageToDelete.id) {
+        setIsMessageModalOpen(false);
+        setSelectedMessage(null);
+      }
+
+      toast({
+        title: 'Message deleted',
+        description: `The enquiry from ${messageToDelete.name} has been removed.`,
+      });
+
+      setMessageToDelete(null);
+      fetchAllData(true);
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsDeletingMessage(false);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!reviewToDelete) return;
+    setIsDeletingReview(true);
+
+    try {
+      const res = await fetch(`/api/admin/reviews/${reviewToDelete.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not delete the review.');
+
+      setReviews((prev) => prev.filter((r) => r.id !== reviewToDelete.id));
+
+      toast({
+        title: 'Review deleted',
+        description: `The ${reviewToDelete.rating}-star review has been removed and the product rating recalculated.`,
+      });
+
+      setReviewToDelete(null);
+      // Refetched because the product's average rating moved server-side.
+      fetchAllData(true);
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsDeletingReview(false);
     }
   };
 
@@ -1572,7 +1718,7 @@ const AdminDashboard: React.FC = () => {
       <IconAction
         label="Sign out"
         variant="ghost"
-        onClick={() => signOut().then(() => { window.location.href = '/'; })}
+        onClick={handleAdminSignOut}
         className="text-slate-400 hover:bg-rose-50 hover:text-rose-600"
       >
         <LogOut className="h-4 w-4" />
@@ -2318,7 +2464,7 @@ const AdminDashboard: React.FC = () => {
                     <Th>Rating</Th>
                     <Th>Review</Th>
                     <Th>Date</Th>
-                    <Th align="right">Status</Th>
+                    <Th align="right">Actions</Th>
                   </THead>
                   <TBody>
                     {reviewPage.pageItems.map((r) => (
@@ -2343,7 +2489,13 @@ const AdminDashboard: React.FC = () => {
                         <Td className="max-w-md whitespace-normal text-slate-700">{r.comment}</Td>
                         <Td className="whitespace-nowrap text-slate-600">{shortDate(r.created_at)}</Td>
                         <Td align="right">
-                          <StatusBadge status={r.status || 'approved'} />
+                          <IconAction
+                            label={`Delete review by ${r.users?.full_name || 'customer'}`}
+                            variant="danger"
+                            onClick={() => setReviewToDelete(r)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </IconAction>
                         </Td>
                       </Tr>
                     ))}
@@ -2425,16 +2577,25 @@ const AdminDashboard: React.FC = () => {
                           </SelectField>
                         </Td>
                         <Td align="right" onClick={(e) => e.stopPropagation()}>
-                          <Action
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setSelectedMessage(m);
-                              setIsMessageModalOpen(true);
-                            }}
-                          >
-                            Read
-                          </Action>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Action
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                setSelectedMessage(m);
+                                setIsMessageModalOpen(true);
+                              }}
+                            >
+                              Read
+                            </Action>
+                            <IconAction
+                              label={`Delete message from ${m.name}`}
+                              variant="danger"
+                              onClick={() => setMessageToDelete(m)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </IconAction>
+                          </div>
                         </Td>
                       </Tr>
                     ))}
@@ -2578,7 +2739,18 @@ const AdminDashboard: React.FC = () => {
                                 </p>
                               )}
                             </Td>
-                            <Td className="text-slate-700">{discountLabel}</Td>
+                            <Td className="text-slate-700">
+                              {discountLabel}
+                              {/* What the code is limited to. Read from the stored
+                                  name snapshot, so this renders without Sanity. */}
+                              {(c.collection_ids?.length ?? 0) > 0 ? (
+                                <p className="mt-0.5 max-w-xs text-xs text-slate-500">
+                                  on {(c.collection_names ?? []).join(', ')}
+                                </p>
+                              ) : (
+                                <p className="mt-0.5 text-xs text-slate-400">Entire catalogue</p>
+                              )}
+                            </Td>
                             <Td align="right" className="tabular-nums text-slate-600">
                               {Number(c.min_order_value) > 0 ? money(c.min_order_value) : '—'}
                             </Td>
@@ -2798,6 +2970,36 @@ const AdminDashboard: React.FC = () => {
                     onChange={(e) => setModEstimatedDelivery(e.target.value)}
                     className="h-10 w-full cursor-pointer rounded-md border border-slate-300 px-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
+                </Field>
+                <Field
+                  label="Tracking link"
+                  className="sm:col-span-2"
+                  hint="Shown to the customer as a “Track Shipment” button on their order. Leave blank to hide it."
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://www.delhivery.com/track/package/12345"
+                      value={modTrackingUrl}
+                      onChange={(e) => setModTrackingUrl(e.target.value)}
+                      className="h-10 w-full min-w-0 rounded-md border border-slate-300 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                    {/* Verifying the link goes where it should is a click, not a
+                        guess — worth it before the customer gets it. */}
+                    {previewTrackingUrl && (
+                      <a
+                        href={previewTrackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open this tracking link in a new tab"
+                        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-slate-300 px-3 text-xs font-medium text-slate-600 transition-colors hover:border-slate-900 hover:text-slate-900"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Test
+                      </a>
+                    )}
+                  </div>
                 </Field>
               </div>
               <div className="mt-4 flex justify-end">
@@ -3132,6 +3334,24 @@ const AdminDashboard: React.FC = () => {
                 >
                   <Mail className="h-4 w-4" />
                   Reply by email
+                </Action>
+              </div>
+            </DrawerSection>
+
+            {/* Reading the message is usually what tells the admin it is spam,
+                so the delete lives here as well as in the table. */}
+            <DrawerSection title="Danger zone" icon={AlertCircle}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500">
+                  Deleting removes this enquiry permanently. Nothing else references it.
+                </p>
+                <Action
+                  variant="primary"
+                  className="shrink-0 border-rose-600 bg-rose-600 hover:bg-rose-700"
+                  onClick={() => setMessageToDelete(selectedMessage)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete message
                 </Action>
               </div>
             </DrawerSection>
@@ -3645,6 +3865,72 @@ const AdminDashboard: React.FC = () => {
               </Field>
             </div>
 
+            {/* Scope. Nothing ticked is the pre-existing behaviour — the code
+                applies to the whole catalogue — so this stays opt-in. */}
+            <Field
+              label="Applies to"
+              hint={
+                couponForm.collection_ids.length === 0
+                  ? 'Entire catalogue. Tick collections to limit the code to them.'
+                  : 'The discount and the minimum order are both measured against only the items from these collections.'
+              }
+            >
+              {sanityCollections.length === 0 ? (
+                <p className="rounded-md border border-dashed border-slate-300 px-4 py-3 text-xs text-slate-500">
+                  No collections found in Sanity. Add one under Collections in the Studio to scope a
+                  code to it.
+                </p>
+              ) : (
+                <div className="space-y-2 rounded-md border border-slate-200 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium text-slate-600">
+                      {couponForm.collection_ids.length === 0
+                        ? 'Entire catalogue'
+                        : `${couponForm.collection_ids.length} collection${
+                            couponForm.collection_ids.length === 1 ? '' : 's'
+                          } selected`}
+                    </span>
+                    {couponForm.collection_ids.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setCouponForm((p) => ({ ...p, collection_ids: [] }))}
+                        className="text-xs font-medium text-slate-500 underline hover:text-slate-900"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
+                    {sanityCollections.map((collection) => {
+                      const checked = couponForm.collection_ids.includes(collection._id);
+                      return (
+                        <label
+                          key={collection._id}
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setCouponForm((p) => ({
+                                ...p,
+                                collection_ids: e.target.checked
+                                  ? [...p.collection_ids, collection._id]
+                                  : p.collection_ids.filter((id) => id !== collection._id),
+                              }))
+                            }
+                            className="h-4 w-4 cursor-pointer accent-slate-900"
+                          />
+                          <span className="truncate">{collection.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </Field>
+
             <label className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 px-4 py-3">
               <input
                 type="checkbox"
@@ -3677,112 +3963,128 @@ const AdminDashboard: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ---------------- Delete promo code confirmation ---------------- */}
-      <Dialog open={!!couponToDelete} onOpenChange={(open) => !open && setCouponToDelete(null)}>
-        <DialogContent className="max-w-md gap-4 rounded-lg border-slate-200 p-6">
-          <DialogHeader className="border-slate-100 pb-3">
-            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
-              <AlertCircle className="h-4 w-4 text-rose-600" />
-              Delete this promo code?
-            </DialogTitle>
-            <DialogDescription className={DIALOG_DESC}>
-              <Mono className="font-medium text-slate-900">{couponToDelete?.code}</Mono> will stop
-              working immediately.
-              {(couponToDelete?.redeemed_count ?? 0) > 0
-                ? ' Because it has already been used, it will be deactivated rather than deleted, so past orders keep their record.'
-                : ' It has never been used, so it will be deleted outright.'}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="border-slate-100 pt-4">
-            <Action variant="secondary" onClick={() => setCouponToDelete(null)}>
-              Cancel
-            </Action>
-            <Action
-              variant="primary"
-              onClick={handleDeleteCoupon}
-              disabled={isDeletingCoupon}
-              className="border-rose-600 bg-rose-600 hover:bg-rose-700"
-            >
-              {isDeletingCoupon ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              {(couponToDelete?.redeemed_count ?? 0) > 0 ? 'Deactivate' : 'Delete'}
-            </Action>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ---------------- Destructive confirmations ----------------
 
-      {/* ---------------- Delete order confirmation ---------------- */}
-      <Dialog open={isDeleteOrderDialogOpen} onOpenChange={setIsDeleteOrderDialogOpen}>
-        <DialogContent className="max-w-md gap-4 rounded-lg border-slate-200 p-6">
-          <DialogHeader className="border-slate-100 pb-3">
-            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
-              <AlertCircle className="h-4 w-4 text-rose-600" />
-              Delete this order?
-            </DialogTitle>
-            <DialogDescription className={DIALOG_DESC}>
-              Order{' '}
-              <Mono className="font-medium text-slate-900">#{orderToDelete?.order_number}</Mono> and all
-              of its line items will be permanently removed. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="border-slate-100 pt-4">
-            <Action variant="secondary" onClick={() => setIsDeleteOrderDialogOpen(false)}>
-              Cancel
-            </Action>
-            <Action
-              variant="primary"
-              onClick={handleDeleteOrder}
-              disabled={isDeletingOrder}
-              className="border-rose-600 bg-rose-600 hover:bg-rose-700"
-            >
-              {isDeletingOrder ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              Delete order
-            </Action>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+           All five share `ConfirmDeleteDialog`, so the two-stage guard is one
+           implementation rather than five that drift apart. Each supplies only
+           what is specific to the record being removed. */}
 
-      {/* ---------------- Delete product confirmation ---------------- */}
-      <Dialog open={isDeleteProductDialogOpen} onOpenChange={setIsDeleteProductDialogOpen}>
-        <DialogContent className="max-w-md gap-4 rounded-lg border-slate-200 p-6">
-          <DialogHeader className="border-slate-100 pb-3">
-            <DialogTitle className="flex items-center gap-2 font-sans text-base font-semibold normal-case tracking-normal text-slate-900">
-              <AlertCircle className="h-4 w-4 text-rose-600" />
-              Delete this product?
-            </DialogTitle>
-            <DialogDescription className={DIALOG_DESC}>
-              <span className="font-medium text-slate-900">{productToDelete?.title}</span> will be removed
-              from inventory tracking, along with its size-wise stock. This does not delete it from
-              Sanity — it stays visible in the store.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="border-slate-100 pt-4">
-            <Action variant="secondary" onClick={() => setIsDeleteProductDialogOpen(false)}>
-              Cancel
-            </Action>
-            <Action
-              variant="primary"
-              onClick={handleDeleteProduct}
-              disabled={isDeletingProduct}
-              className="border-rose-600 bg-rose-600 hover:bg-rose-700"
-            >
-              {isDeletingProduct ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              Delete product
-            </Action>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={!!messageToDelete}
+        onOpenChange={(open) => !open && setMessageToDelete(null)}
+        title="Delete this message?"
+        description={
+          <>
+            The enquiry from{' '}
+            <span className="font-medium text-slate-900">{messageToDelete?.name}</span>
+            {messageToDelete?.subject ? ` about "${messageToDelete.subject}"` : ''} will be
+            permanently removed.
+          </>
+        }
+        confirmLabel="Delete message"
+        finalLabel="Yes, delete permanently"
+        finalDescription="This enquiry cannot be recovered once deleted."
+        busy={isDeletingMessage}
+        onConfirm={handleDeleteMessage}
+      />
+
+      <ConfirmDeleteDialog
+        open={!!reviewToDelete}
+        onOpenChange={(open) => !open && setReviewToDelete(null)}
+        title="Delete this review?"
+        description={
+          <>
+            The {reviewToDelete?.rating}-star review by{' '}
+            <span className="font-medium text-slate-900">
+              {reviewToDelete?.users?.full_name || 'this customer'}
+            </span>
+            {reviewToDelete?.products?.title ? ` on ${reviewToDelete.products.title}` : ''} will be
+            permanently removed and the product&apos;s rating recalculated. The customer can leave a
+            new review afterwards.
+          </>
+        }
+        detail={
+          reviewToDelete?.comment ? (
+            <p className="max-h-32 overflow-y-auto rounded-md bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+              {reviewToDelete.comment}
+            </p>
+          ) : undefined
+        }
+        confirmLabel="Delete review"
+        finalLabel="Yes, delete permanently"
+        finalDescription="This review cannot be recovered once deleted."
+        busy={isDeletingReview}
+        onConfirm={handleDeleteReview}
+      />
+
+      {/* A redeemed code is deactivated rather than deleted, so both the
+          wording and the buttons follow what will actually happen. */}
+      <ConfirmDeleteDialog
+        open={!!couponToDelete}
+        onOpenChange={(open) => !open && setCouponToDelete(null)}
+        title={
+          (couponToDelete?.redeemed_count ?? 0) > 0
+            ? 'Deactivate this promo code?'
+            : 'Delete this promo code?'
+        }
+        description={
+          <>
+            <Mono className="font-medium text-slate-900">{couponToDelete?.code}</Mono> will stop
+            working immediately.
+            {(couponToDelete?.redeemed_count ?? 0) > 0
+              ? ' Because it has already been used, it will be deactivated rather than deleted, so past orders keep their record.'
+              : ' It has never been used, so it will be deleted outright.'}
+          </>
+        }
+        confirmLabel={(couponToDelete?.redeemed_count ?? 0) > 0 ? 'Deactivate' : 'Delete'}
+        finalLabel={
+          (couponToDelete?.redeemed_count ?? 0) > 0
+            ? 'Yes, deactivate it'
+            : 'Yes, delete permanently'
+        }
+        finalDescription={
+          (couponToDelete?.redeemed_count ?? 0) > 0
+            ? 'Customers will no longer be able to use this code.'
+            : 'This promo code cannot be recovered once deleted.'
+        }
+        busy={isDeletingCoupon}
+        onConfirm={handleDeleteCoupon}
+      />
+
+      <ConfirmDeleteDialog
+        open={isDeleteOrderDialogOpen}
+        onOpenChange={setIsDeleteOrderDialogOpen}
+        title="Delete this order?"
+        description={
+          <>
+            Order <Mono className="font-medium text-slate-900">#{orderToDelete?.order_number}</Mono>{' '}
+            and all of its line items will be permanently removed.
+          </>
+        }
+        confirmLabel="Delete order"
+        finalLabel="Yes, delete permanently"
+        finalDescription="The order and its line items cannot be recovered once deleted."
+        busy={isDeletingOrder}
+        onConfirm={handleDeleteOrder}
+      />
+
+      <ConfirmDeleteDialog
+        open={isDeleteProductDialogOpen}
+        onOpenChange={setIsDeleteProductDialogOpen}
+        title="Delete this product?"
+        description={
+          <>
+            <span className="font-medium text-slate-900">{productToDelete?.title}</span> will be
+            removed from inventory tracking, along with its size-wise stock. This does not delete it
+            from Sanity — it stays visible in the store.
+          </>
+        }
+        confirmLabel="Delete product"
+        finalLabel="Yes, delete permanently"
+        finalDescription="Its inventory record and size-wise stock cannot be recovered."
+        busy={isDeletingProduct}
+        onConfirm={handleDeleteProduct}
+      />
     </div>
   );
 };

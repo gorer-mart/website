@@ -37,6 +37,12 @@ export interface CatalogProduct {
   slug?: string | null;
   price?: number | null;
   sizes?: string[] | null;
+  /**
+   * Sanity collection ids this product belongs to, needed to price a
+   * collection-scoped promo code. Taken from the raw `_ref`s rather than the
+   * dereferenced names, so a renamed collection keeps matching.
+   */
+  collectionIds?: string[] | null;
 }
 
 export interface PricedLine {
@@ -79,7 +85,8 @@ export async function priceCart(cartItems: CartItemInput[]): Promise<PricingResu
 
   const catalog: CatalogProduct[] = await sanityClient.fetch(
     `*[_type == "product" && (_id in $sanityIds || id in $numericIds)] {
-      _id, id, name, "slug": slug.current, price, sizes
+      _id, id, name, "slug": slug.current, price, sizes,
+      "collectionIds": collections[]._ref
     }`,
     { sanityIds, numericIds }
   );
